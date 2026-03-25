@@ -13,7 +13,7 @@ void main() {
       await LoggerService.initialize();
       await StorageGateway.instance.initialize(databaseName: 'test_abdalsalam.db');
       final logger = LoggerService.forModule('PrayerServiceTest');
-      final repository = PrayerRepository(StorageGateway.instance, logger);
+      final repository = PrayerRepositoryImpl(StorageGateway.instance, logger);
       service = PrayerService(repository, logger);
     });
 

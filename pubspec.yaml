@@ -15,6 +15,7 @@ dependencies:
   uuid: ^4.5.1
   crypto: ^3.0.6
   abdalsalam_logic_flutter: ^0.1.0
+  adhan: ^2.0.0+1
 
 dev_dependencies:
   flutter_test:

@@ -8,6 +8,7 @@ import '../shared/infrastructure/logger_service.dart';
 import '../shared/infrastructure/storage_gateway.dart';
 import '../shared/services/state_aware_service.dart';
 import '../shared/services/sync_queue_service.dart';
+import '../shared/services/reminder_service.dart';
 
 final loggerProvider = Provider<LoggerService>((ref) {
   return LoggerService.forModule('App', moduleType: logic.ModuleType.service);
@@ -62,6 +63,13 @@ final syncQueueServiceProvider = Provider<SyncQueueService>((ref) {
 final stateAwareServiceProvider = Provider<StateAwareService>((ref) {
   return StateAwareService(
     appState: ref.watch(appStateManagerProvider),
+    storage: ref.watch(storageGatewayProvider),
+    logger: ref.watch(loggerProvider),
+  );
+});
+
+final reminderServiceProvider = Provider<ReminderService>((ref) {
+  return ReminderService(
     storage: ref.watch(storageGatewayProvider),
     logger: ref.watch(loggerProvider),
   );

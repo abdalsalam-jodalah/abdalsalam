@@ -4,19 +4,27 @@ import '../../../data/models/religious/prayer_log.dart';
 import '../../../data/repositories/religious/prayer_repository.dart';
 import '../../../providers/app_providers.dart';
 import '../services/prayer_service.dart';
+import '../services/religious_service.dart';
 
 const demoUserId = 'local-user';
 
 final prayerRepositoryProvider = Provider<PrayerRepository>((ref) {
   final logger = ref.watch(loggerProvider);
   final storage = ref.watch(storageGatewayProvider);
-  return PrayerRepository(storage, logger);
+  return PrayerRepositoryImpl(storage, logger);
 });
 
 final prayerServiceProvider = Provider<PrayerService>((ref) {
   final logger = ref.watch(loggerProvider);
   final repository = ref.watch(prayerRepositoryProvider);
   return PrayerService(repository, logger);
+});
+
+final religiousServiceProvider = Provider<ReligiousService>((ref) {
+  final logger = ref.watch(loggerProvider);
+  final repository = ref.watch(prayerRepositoryProvider);
+  final reminderService = ref.watch(reminderServiceProvider);
+  return ReligiousService(repository, logger, reminders: reminderService);
 });
 
 final prayerLogsControllerProvider =
