@@ -15,6 +15,7 @@ import '../shared/infrastructure/logger_service.dart';
 import '../shared/infrastructure/storage_gateway.dart';
 import '../shared/services/notification_service.dart';
 import '../shared/services/analytics_engine.dart';
+import '../shared/services/achievement_service.dart';
 import '../shared/services/backup_service.dart';
 import '../shared/services/future_sync_service.dart';
 import '../shared/services/settings_service.dart';
@@ -130,8 +131,16 @@ final analyticsEngineProvider = Provider<AnalyticsEngine>((ref) {
   return AnalyticsEngine();
 });
 
+final achievementServiceProvider = Provider<AchievementService>((ref) {
+  return AchievementService();
+});
+
 final settingsServiceProvider = Provider<SettingsService>((ref) {
   return SettingsService(ref.watch(storageGatewayProvider));
+});
+
+final appSettingsProvider = FutureProvider<Map<String, dynamic>>((ref) async {
+  return ref.watch(settingsServiceProvider).getSettings();
 });
 
 final backupTablesProvider = Provider<List<String>>((ref) {
@@ -164,7 +173,7 @@ final backupTablesProvider = Provider<List<String>>((ref) {
 });
 
 final backupServiceProvider = Provider<BackupService>((ref) {
-  return BackupService(ref.watch(storageGatewayProvider));
+  return BackupService(ref.watch(storageGatewayProvider), ref.watch(loggerProvider));
 });
 
 final futureSyncServiceProvider = Provider<FutureSyncService>((ref) {

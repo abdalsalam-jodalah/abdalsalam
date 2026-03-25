@@ -14,6 +14,7 @@ class BackupScreen extends ConsumerStatefulWidget {
 
 class _BackupScreenState extends ConsumerState<BackupScreen> {
   String _status = 'No backup started';
+  String? _lastPath;
 
   @override
   Widget build(BuildContext context) {
@@ -28,16 +29,41 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
             const SizedBox(height: 12),
             FilledButton(
               onPressed: () async {
+                setState(() => _status = 'Creating backup...');
                 final backup = await ref.read(backupServiceProvider).createCompressedBackup(
                   tables: ref.read(backupTablesProvider),
                 );
+                if (backup.isFailure) {
+                  setState(() => _status = backup.error.toString());
+                  return;
+                }
+
+                final save = await ref.read(backupServiceProvider).saveBackupToDevice(
+                      content: backup.data!,
+                      fileName: 'abdalsalam-backup-${DateTime.now().millisecondsSinceEpoch}.b64',
+                    );
                 setState(() {
-                  _status = backup.isSuccess
-                      ? 'Backup created (${backup.data!.length} bytes)'
-                      : backup.error.toString();
+                  _lastPath = save.data;
+                  _status = save.isSuccess
+                      ? 'Backup saved: ${save.data}'
+                      : save.error.toString();
                 });
               },
               child: const Text('Create Full Backup'),
+            ),
+            const SizedBox(height: 10),
+            OutlinedButton(
+              onPressed: _lastPath == null
+                  ? null
+                  : () async {
+                      final share = await ref.read(backupServiceProvider).shareBackup(_lastPath!);
+                      setState(() {
+                        _status = share.isSuccess
+                            ? 'Backup shared successfully'
+                            : share.error.toString();
+                      });
+                    },
+              child: const Text('Share Last Backup'),
             ),
           ],
         ),

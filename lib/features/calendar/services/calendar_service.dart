@@ -156,6 +156,35 @@ class CalendarService extends BaseServiceImpl<Event> {
       return Failure(ServiceError('Google push failed: $e'));
     }
   }
+
+  Result<Event, AppError> resolveSyncConflict({
+    required Event local,
+    required Event remote,
+    String strategy = 'latest',
+  }) {
+    if (strategy == 'local') {
+      return Success(local);
+    }
+    if (strategy == 'remote') {
+      return Success(remote);
+    }
+    return local.updatedAt.isAfter(remote.updatedAt)
+        ? Success(local)
+        : Success(remote);
+  }
+
+  Future<Result<void, AppError>> handleEventReminderTap(Event event) async {
+    reminders.handleNotificationTap(
+      ReminderPayload(
+        module: ReminderModule.calendar,
+        targetId: event.id,
+        title: 'Open event',
+        body: event.title,
+        scheduledAt: DateTime.now(),
+      ),
+    );
+    return const Success(null);
+  }
 }
 
 class _GoogleAuthClient extends http.BaseClient {

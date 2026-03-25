@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../providers/app_providers.dart';
+import '../../../shared/services/reminder_service.dart' as reminders;
 import 'backup_screen.dart';
 import 'restore_screen.dart';
 
@@ -16,6 +17,7 @@ class SettingsScreen extends ConsumerStatefulWidget {
 
 class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   Map<String, dynamic> _settings = const {};
+  Map<String, bool> _moduleNotifications = const {};
 
   @override
   void initState() {
@@ -25,8 +27,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
   Future<void> _load() async {
     final values = await ref.read(settingsServiceProvider).getSettings();
+    final moduleSettings = await ref.read(reminderServiceProvider).getModuleSettings();
     if (mounted) {
-      setState(() => _settings = values);
+      setState(() {
+        _settings = values;
+        _moduleNotifications = moduleSettings;
+      });
     }
   }
 
@@ -35,12 +41,27 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     setState(() => _settings[key] = value);
   }
 
+  Future<void> _updateModuleNotification(String module, bool enabled) async {
+    final reminderModule = reminders.ReminderModule.values.byName(module);
+    await ref.read(reminderServiceProvider).setModuleEnabled(reminderModule, enabled);
+    setState(() => _moduleNotifications[module] = enabled);
+  }
+
   @override
   Widget build(BuildContext context) {
     final themeMode = (_settings['themeMode'] as String?) ?? 'system';
     final notificationsEnabled = (_settings['notificationsEnabled'] as bool?) ?? true;
     final autoBackup = (_settings['autoBackupEnabled'] as bool?) ?? false;
     final biometric = (_settings['biometricEnabled'] as bool?) ?? true;
+    final language = (_settings['language'] as String?) ?? 'en';
+    final firstDay = (_settings['firstDayOfWeek'] as String?) ?? 'saturday';
+    final prayerMethod = (_settings['prayerMethod'] as String?) ?? 'muslim_world_league';
+    final autoLockMinutes = (_settings['autoLockMinutes'] as int?) ?? 5;
+    final backupReminderDays = (_settings['backupReminderDays'] as int?) ?? 7;
+    final notificationPriority = (_settings['notificationPriority'] as String?) ?? 'default';
+    final dashboardHidden = (_settings['dashboardHiddenCards'] as List<dynamic>? ?? const <dynamic>[])
+        .map((item) => item.toString())
+        .toSet();
 
     return Scaffold(
       appBar: AppBar(title: const Text('Settings')),
@@ -65,11 +86,46 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             ),
           ),
           const Divider(),
+          const ListTile(title: Text('Localization')),
+          ListTile(
+            title: const Text('Language'),
+            subtitle: Text(language == 'ar' ? 'Arabic' : 'English'),
+            trailing: const Icon(Icons.translate),
+            onTap: () => _update('language', language == 'en' ? 'ar' : 'en'),
+          ),
+          ListTile(
+            title: const Text('First day of week'),
+            subtitle: Text(firstDay),
+            trailing: const Icon(Icons.calendar_today_outlined),
+            onTap: () => _update('firstDayOfWeek', firstDay == 'saturday' ? 'monday' : 'saturday'),
+          ),
+          const Divider(),
           const ListTile(title: Text('Notifications')),
           SwitchListTile(
             value: notificationsEnabled,
             title: const Text('Enable notifications'),
             onChanged: (value) => _update('notificationsEnabled', value),
+          ),
+          for (final module in reminders.ReminderModule.values)
+            SwitchListTile(
+              value: _moduleNotifications[module.name] ?? true,
+              title: Text('Enable ${module.name} reminders'),
+              dense: true,
+              onChanged: notificationsEnabled
+                  ? (value) => _updateModuleNotification(module.name, value)
+                  : null,
+            ),
+          ListTile(
+            title: const Text('Notification sound'),
+            subtitle: Text((_settings['notificationSound'] as String?) ?? 'default'),
+            trailing: const Icon(Icons.music_note_outlined),
+            onTap: () => _update('notificationSound', 'default'),
+          ),
+          ListTile(
+            title: const Text('Notification priority'),
+            subtitle: Text(notificationPriority),
+            trailing: const Icon(Icons.priority_high_outlined),
+            onTap: () => _update('notificationPriority', notificationPriority == 'high' ? 'default' : 'high'),
           ),
           const Divider(),
           const ListTile(title: Text('Module Settings')),
@@ -84,12 +140,33 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             trailing: const Icon(Icons.chevron_right),
             onTap: () => _update('currency', 'USD'),
           ),
+          ListTile(
+            title: const Text('Prayer calculation method'),
+            subtitle: Text(prayerMethod),
+            trailing: const Icon(Icons.calculate_outlined),
+            onTap: () => _update(
+              'prayerMethod',
+              prayerMethod == 'muslim_world_league' ? 'umm_al_qura' : 'muslim_world_league',
+            ),
+          ),
+          ListTile(
+            title: const Text('Vault auto-lock timeout'),
+            subtitle: Text('$autoLockMinutes minutes'),
+            trailing: const Icon(Icons.timer_outlined),
+            onTap: () => _update('autoLockMinutes', autoLockMinutes == 5 ? 10 : 5),
+          ),
           const Divider(),
           const ListTile(title: Text('Backup & Restore')),
           SwitchListTile(
             value: autoBackup,
             title: const Text('Automatic backup'),
             onChanged: (value) => _update('autoBackupEnabled', value),
+          ),
+          ListTile(
+            title: const Text('Backup reminder frequency'),
+            subtitle: Text('Every $backupReminderDays days'),
+            trailing: const Icon(Icons.notifications_active_outlined),
+            onTap: () => _update('backupReminderDays', backupReminderDays == 7 ? 3 : 7),
           ),
           ListTile(
             title: const Text('Backup now'),
@@ -100,6 +177,47 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             title: const Text('Restore backup'),
             trailing: const Icon(Icons.chevron_right),
             onTap: () => Navigator.of(context).pushNamed(RestoreScreen.routeName),
+          ),
+          const Divider(),
+          const ListTile(title: Text('Dashboard Customization')),
+          for (final moduleId in const [
+            'religious',
+            'financial',
+            'habits',
+            'sports',
+            'health',
+            'notes',
+            'calendar',
+            'security',
+            'analytics',
+          ])
+            CheckboxListTile(
+              title: Text('Show $moduleId card'),
+              value: !dashboardHidden.contains(moduleId),
+              onChanged: (value) {
+                final next = {...dashboardHidden};
+                if (value == true) {
+                  next.remove(moduleId);
+                } else {
+                  next.add(moduleId);
+                }
+                _update('dashboardHiddenCards', next.toList(growable: false));
+              },
+            ),
+          ListTile(
+            title: const Text('Rotate card order'),
+            subtitle: const Text('Quickly cycle dashboard card order'),
+            trailing: const Icon(Icons.swap_vert),
+            onTap: () {
+              final order = (_settings['dashboardCardOrder'] as List<dynamic>? ?? const <dynamic>[])
+                  .map((item) => item.toString())
+                  .toList(growable: true);
+              if (order.length > 1) {
+                final first = order.removeAt(0);
+                order.add(first);
+                _update('dashboardCardOrder', order);
+              }
+            },
           ),
           const Divider(),
           ListTile(

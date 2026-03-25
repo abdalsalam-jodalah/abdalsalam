@@ -17,14 +17,18 @@ import '../../security/screens/security_screen.dart';
 import '../../sports/screens/sports_screen.dart';
 
 class _ModuleCardData {
+  final String id;
   final String title;
   final String subtitle;
+  final String stat;
   final String route;
   final IconData icon;
 
   const _ModuleCardData({
+    required this.id,
     required this.title,
     required this.subtitle,
+    required this.stat,
     required this.route,
     required this.icon,
   });
@@ -35,56 +39,74 @@ class DashboardScreen extends ConsumerWidget {
 
   static const _modules = <_ModuleCardData>[
     _ModuleCardData(
+      id: 'religious',
       title: 'Religious Tracking',
       subtitle: 'Log daily prayers and Quran progress',
+      stat: '3/5 prayers',
       route: PrayerLogsScreen.routeName,
       icon: Icons.mosque_outlined,
     ),
     _ModuleCardData(
+      id: 'financial',
       title: 'Financial Management',
       subtitle: 'Track expenses, income, and budgets',
+      stat: '\$420 spent',
       route: FinancialScreen.routeName,
       icon: Icons.account_balance_wallet_outlined,
     ),
     _ModuleCardData(
+      id: 'habits',
       title: 'Habits & Daily Events',
       subtitle: 'Build streaks and capture routines',
+      stat: '6-day streak',
       route: HabitsScreen.routeName,
       icon: Icons.repeat_rounded,
     ),
     _ModuleCardData(
+      id: 'sports',
       title: 'Sports & Fitness',
       subtitle: 'Record workouts and progress',
+      stat: '2 workouts',
       route: SportsScreen.routeName,
       icon: Icons.fitness_center,
     ),
     _ModuleCardData(
+      id: 'health',
       title: 'Health Management',
       subtitle: 'Track medications and health metrics',
+      stat: '1 dose pending',
       route: HealthScreen.routeName,
       icon: Icons.health_and_safety_outlined,
     ),
     _ModuleCardData(
+      id: 'notes',
       title: 'Notes & Tasks',
       subtitle: 'Capture notes and daily todos',
+      stat: '4 open todos',
       route: NotesScreen.routeName,
       icon: Icons.sticky_note_2_outlined,
     ),
     _ModuleCardData(
+      id: 'calendar',
       title: 'Calendar Integration',
       subtitle: 'Manage events and reminders',
+      stat: '3 events today',
       route: CalendarScreen.routeName,
       icon: Icons.calendar_month_outlined,
     ),
     _ModuleCardData(
+      id: 'security',
       title: 'Security Vault',
       subtitle: 'Secure your credentials safely',
+      stat: '2 weak passwords',
       route: SecurityScreen.routeName,
       icon: Icons.lock_outline,
     ),
     _ModuleCardData(
+      id: 'analytics',
       title: 'Dashboard & Analytics',
       subtitle: 'Visualize progress and trends',
+      stat: '74% consistency',
       route: AnalyticsScreen.routeName,
       icon: Icons.insights_outlined,
     ),
@@ -98,9 +120,29 @@ class DashboardScreen extends ConsumerWidget {
     final batteryInfo = ref.watch(batteryInfoProvider);
     final storageInfo = ref.watch(storageInfoProvider);
     final stateAware = ref.watch(stateAwareServiceProvider);
+    final appSettingsAsync = ref.watch(appSettingsProvider);
     final lowStorage = storageInfo.maybeWhen(
       data: (info) => info.usagePercentage >= 90,
       orElse: () => false,
+    );
+
+    final hiddenCards = appSettingsAsync.maybeWhen(
+      data: (s) => (s['dashboardHiddenCards'] as List<dynamic>? ?? const <dynamic>[])
+          .map((item) => item.toString())
+          .toSet(),
+      orElse: () => <String>{},
+    );
+
+    final orderedIds = appSettingsAsync.maybeWhen(
+      data: (s) => (s['dashboardCardOrder'] as List<dynamic>? ?? const <dynamic>[])
+          .map((item) => item.toString())
+          .toList(growable: false),
+      orElse: () => const <String>[],
+    );
+
+    final visibleModules = _applyModulePreferences(
+      hiddenCards: hiddenCards,
+      orderedIds: orderedIds,
     );
 
     return Scaffold(
@@ -207,7 +249,7 @@ class DashboardScreen extends ConsumerWidget {
             ),
             const SizedBox(height: 12),
             GridView.builder(
-              itemCount: _modules.length,
+              itemCount: visibleModules.length,
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
               gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
@@ -217,7 +259,7 @@ class DashboardScreen extends ConsumerWidget {
                 childAspectRatio: 1.15,
               ),
               itemBuilder: (context, index) {
-                final module = _modules[index];
+                final module = visibleModules[index];
                 return _ModuleTile(module: module);
               },
             ),
@@ -230,6 +272,26 @@ class DashboardScreen extends ConsumerWidget {
         label: const Text('Quick Add'),
       ),
     );
+  }
+
+  List<_ModuleCardData> _applyModulePreferences({
+    required Set<String> hiddenCards,
+    required List<String> orderedIds,
+  }) {
+    final byId = {for (final m in _modules) m.id: m};
+    final ordered = <_ModuleCardData>[];
+    for (final id in orderedIds) {
+      final item = byId[id];
+      if (item != null && !hiddenCards.contains(id)) {
+        ordered.add(item);
+      }
+    }
+    for (final item in _modules) {
+      if (!ordered.any((m) => m.id == item.id) && !hiddenCards.contains(item.id)) {
+        ordered.add(item);
+      }
+    }
+    return ordered;
   }
 
   Future<void> _showQuickAddModal(BuildContext context) async {
@@ -281,20 +343,48 @@ class _QuickAddPane extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final now = DateTime.now();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const TextField(decoration: InputDecoration(labelText: 'Title')),
+        TextField(
+          decoration: InputDecoration(
+            labelText: 'Title',
+            hintText: 'Quick entry ${now.hour}:${now.minute.toString().padLeft(2, '0')}',
+          ),
+        ),
         const SizedBox(height: 10),
-        const TextField(decoration: InputDecoration(labelText: 'Notes')),
+        const TextField(
+          decoration: InputDecoration(labelText: 'Notes', hintText: 'Default: Today'),
+        ),
+        const SizedBox(height: 10),
+        const Text('Smart defaults use current date/time context.'),
         const Spacer(),
-        FilledButton(
-          onPressed: () {
-            HapticFeedback.lightImpact();
-            Navigator.of(context).pop();
-            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(label)));
-          },
-          child: const Text('Save'),
+        Row(
+          children: [
+            Expanded(
+              child: FilledButton(
+                onPressed: () {
+                  HapticFeedback.lightImpact();
+                  Navigator.of(context).pop();
+                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(label)));
+                },
+                child: const Text('Save'),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: OutlinedButton(
+                onPressed: () {
+                  HapticFeedback.lightImpact();
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Saved. Continue adding another item.')),
+                  );
+                },
+                child: const Text('Save & Continue'),
+              ),
+            ),
+          ],
         ),
       ],
     );

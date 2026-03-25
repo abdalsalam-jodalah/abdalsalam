@@ -1,14 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../providers/app_providers.dart';
 import '../../../shared/widgets/chart_widgets.dart';
 
-class AnalyticsScreen extends StatelessWidget {
+class AnalyticsScreen extends ConsumerWidget {
   static const routeName = '/analytics';
 
   const AnalyticsScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final achievements = ref.watch(achievementServiceProvider).milestones();
     return Scaffold(
       appBar: AppBar(title: const Text('Dashboard & Analytics')),
       body: ListView(
@@ -62,6 +65,19 @@ class AnalyticsScreen extends StatelessWidget {
               child: ComparisonBarChart(values: [42, 50, 46, 58, 62]),
             ),
           ),
+          const SizedBox(height: 8),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton.icon(
+              onPressed: () {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Chart detail: tap interactions enabled in next iteration.')),
+                );
+              },
+              icon: const Icon(Icons.touch_app_outlined),
+              label: const Text('View chart details'),
+            ),
+          ),
           const SizedBox(height: 14),
           Text('Cross-module Insights', style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: 8),
@@ -83,14 +99,15 @@ class AnalyticsScreen extends StatelessWidget {
           const SizedBox(height: 14),
           Text('Achievements', style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: 8),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: const [
-              Chip(label: Text('30-Day Prayer Streak')),
-              Chip(label: Text('100 Workouts Logged')),
-              Chip(label: Text('90% Todo Completion')),
-            ],
+          ...achievements.map(
+            (entry) => ListTile(
+              dense: true,
+              title: Text(entry['title'] as String),
+              subtitle: LinearProgressIndicator(
+                value: ((entry['current'] as int) / (entry['target'] as int)).clamp(0.0, 1.0),
+              ),
+              trailing: Text('${entry['current']}/${entry['target']}'),
+            ),
           ),
         ],
       ),

@@ -191,6 +191,21 @@ class SecurityService extends BaseServiceImpl<Credential> {
     return const Success(null);
   }
 
+  Future<Result<void, AppError>> handleCredentialReminderTap(
+    Credential credential,
+  ) async {
+    reminders.handleNotificationTap(
+      ReminderPayload(
+        module: ReminderModule.security,
+        targetId: credential.id,
+        title: 'Open credential',
+        body: credential.title,
+        scheduledAt: DateTime.now(),
+      ),
+    );
+    return const Success(null);
+  }
+
   Future<enc.Key> _loadOrCreateKey() async {
     final current = await secureStorage.read(key: _keyName);
     if (current != null && current.isNotEmpty) {

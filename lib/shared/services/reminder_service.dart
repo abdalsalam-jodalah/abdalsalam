@@ -49,6 +49,7 @@ class ReminderPayload {
 class ReminderService {
   static const _storageKey = 'scheduled_reminders';
   static const _settingsKey = 'reminder_settings';
+  static const _preferencesKey = 'reminder_preferences';
 
   final StorageGateway storage;
   final LoggerService logger;
@@ -214,6 +215,59 @@ class ReminderService {
     }
 
     return defaults;
+  }
+
+  Future<void> setNotificationSound(String sound) async {
+    final preferences = await getPreferences();
+    preferences['sound'] = sound;
+    await storage.save(key: _preferencesKey, value: preferences);
+  }
+
+  Future<void> setNotificationPriority(String priority) async {
+    final preferences = await getPreferences();
+    preferences['priority'] = priority;
+    await storage.save(key: _preferencesKey, value: preferences);
+  }
+
+  Future<void> setRespectDoNotDisturb(bool enabled) async {
+    final preferences = await getPreferences();
+    preferences['respectDoNotDisturb'] = enabled;
+    await storage.save(key: _preferencesKey, value: preferences);
+  }
+
+  Future<Map<String, dynamic>> getPreferences() async {
+    return await storage.get<Map<String, dynamic>>(_preferencesKey) ??
+        <String, dynamic>{
+          'sound': 'default',
+          'priority': 'default',
+          'respectDoNotDisturb': true,
+        };
+  }
+
+  Future<bool> shouldDeliverNotification() async {
+    final prefs = await getPreferences();
+    return (prefs['respectDoNotDisturb'] as bool? ?? true);
+  }
+
+  String? routeForPayload(ReminderPayload payload) {
+    switch (payload.module) {
+      case ReminderModule.religious:
+        return '/religious/prayer-logs';
+      case ReminderModule.financial:
+        return '/financial';
+      case ReminderModule.habits:
+        return '/habits';
+      case ReminderModule.sports:
+        return '/sports';
+      case ReminderModule.health:
+        return '/health';
+      case ReminderModule.notes:
+        return '/notes';
+      case ReminderModule.calendar:
+        return '/calendar';
+      case ReminderModule.security:
+        return '/security';
+    }
   }
 
   void handleNotificationTap(ReminderPayload payload) {
