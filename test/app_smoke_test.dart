@@ -7,6 +7,8 @@ void main() {
     await tester.pumpWidget(const ProviderScope(child: AbdalsalamApp()));
 
     expect(find.text('Abdalsalam Dashboard'), findsOneWidget);
-    expect(find.text('Open Religious Tracking'), findsOneWidget);
+    expect(find.text('All Sections'), findsOneWidget);
+    expect(find.text('Religious Tracking'), findsOneWidget);
+    expect(find.text('Financial Management'), findsOneWidget);
   });
 }
