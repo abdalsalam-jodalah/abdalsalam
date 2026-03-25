@@ -14,41 +14,104 @@ import 'shared/services/notification_service.dart';
 // ignore: unused_element
 AppLifecycleLogger? _appLifecycleLogger;
 
-Future<void> main() async {
+void main() {
   WidgetsFlutterBinding.ensureInitialized();
+  runApp(const _BootstrapApp());
+}
 
-  await LoggerService.initialize();
+class _BootstrapResult {
+  final logic.AppStateManager appStateManager;
 
-  final appStateManager = logic.AppStateManagerImpl.create(
-    config: const logic.AppStateConfig(
-      enableConnectivity: true,
-      enableDeviceInfo: true,
-      enableBattery: true,
-      enableStorage: true,
-      enableNetworkType: true,
-    ),
-  );
-  await appStateManager.initialize();
+  const _BootstrapResult({required this.appStateManager});
+}
 
-  await StorageGateway.instance.initialize();
-  await DatabaseSchemaInitializer.initialize(StorageGateway.instance);
+class _BootstrapApp extends StatefulWidget {
+  const _BootstrapApp();
 
-  await NotificationService(
-    plugin: FlutterLocalNotificationsPlugin(),
-    logger: LoggerService.forModule('NotificationService', moduleType: logic.ModuleType.service),
-  ).initialize();
+  @override
+  State<_BootstrapApp> createState() => _BootstrapAppState();
+}
 
-  _appLifecycleLogger = AppLifecycleLogger(
-    appStateManager: appStateManager,
-    logger: LoggerService.forModule('AppLifecycle', moduleType: logic.ModuleType.service),
-  )..start();
+class _BootstrapAppState extends State<_BootstrapApp> {
+  late final Future<_BootstrapResult> _bootstrapFuture;
 
-  runApp(
-    ProviderScope(
-      overrides: [
-        appStateManagerProvider.overrideWithValue(appStateManager),
-      ],
-      child: const AbdalsalamApp(),
-    ),
-  );
+  @override
+  void initState() {
+    super.initState();
+    _bootstrapFuture = _bootstrap();
+  }
+
+  Future<_BootstrapResult> _bootstrap() async {
+    await LoggerService.initialize();
+
+    final appStateManager = logic.AppStateManagerImpl.create(
+      config: const logic.AppStateConfig(
+        enableConnectivity: true,
+        enableDeviceInfo: true,
+        enableBattery: true,
+        enableStorage: true,
+        enableNetworkType: true,
+      ),
+    );
+    await appStateManager.initialize();
+
+    await StorageGateway.instance.initialize();
+    await DatabaseSchemaInitializer.initialize(StorageGateway.instance);
+
+    await NotificationService(
+      plugin: FlutterLocalNotificationsPlugin(),
+      logger: LoggerService.forModule('NotificationService', moduleType: logic.ModuleType.service),
+    ).initialize();
+
+    _appLifecycleLogger = AppLifecycleLogger(
+      appStateManager: appStateManager,
+      logger: LoggerService.forModule('AppLifecycle', moduleType: logic.ModuleType.service),
+    )..start();
+
+    return _BootstrapResult(appStateManager: appStateManager);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<_BootstrapResult>(
+      future: _bootstrapFuture,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState != ConnectionState.done) {
+          return const MaterialApp(
+            debugShowCheckedModeBanner: false,
+            home: Scaffold(
+              body: Center(
+                child: CircularProgressIndicator(),
+              ),
+            ),
+          );
+        }
+
+        if (snapshot.hasError) {
+          return MaterialApp(
+            debugShowCheckedModeBanner: false,
+            home: Scaffold(
+              body: Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Text(
+                    'Failed to initialize app: ${snapshot.error}',
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+              ),
+            ),
+          );
+        }
+
+        final appStateManager = snapshot.data!.appStateManager;
+        return ProviderScope(
+          overrides: [
+            appStateManagerProvider.overrideWithValue(appStateManager),
+          ],
+          child: const AbdalsalamApp(),
+        );
+      },
+    );
+  }
 }
