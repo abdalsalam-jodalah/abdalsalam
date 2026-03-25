@@ -2,115 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../analytics/screens/analytics_screen.dart';
-import '../../calendar/screens/calendar_screen.dart';
-import '../../financial/screens/financial_screen.dart';
-import '../../habits/screens/habits_screen.dart';
-import '../../health/screens/health_screen.dart';
-import '../../notes/screens/notes_screen.dart';
 import '../../religious/providers/prayer_providers.dart';
 import '../../religious/providers/quran_providers.dart';
 import '../../../providers/app_providers.dart';
 import '../../../shared/widgets/offline_banner.dart';
-import '../../religious/screens/prayer_logs_screen.dart';
-import '../../security/screens/security_screen.dart';
-import '../../sports/screens/sports_screen.dart';
-
-class _ModuleCardData {
-  final String id;
-  final String title;
-  final String subtitle;
-  final String stat;
-  final String route;
-  final IconData icon;
-
-  const _ModuleCardData({
-    required this.id,
-    required this.title,
-    required this.subtitle,
-    required this.stat,
-    required this.route,
-    required this.icon,
-  });
-}
 
 class DashboardScreen extends ConsumerWidget {
   const DashboardScreen({super.key});
-
-  static const _modules = <_ModuleCardData>[
-    _ModuleCardData(
-      id: 'religious',
-      title: 'Religious Tracking',
-      subtitle: 'Log daily prayers and Quran progress',
-      stat: '3/5 prayers',
-      route: PrayerLogsScreen.routeName,
-      icon: Icons.mosque_outlined,
-    ),
-    _ModuleCardData(
-      id: 'financial',
-      title: 'Financial Management',
-      subtitle: 'Track expenses, income, and budgets',
-      stat: '\$420 spent',
-      route: FinancialScreen.routeName,
-      icon: Icons.account_balance_wallet_outlined,
-    ),
-    _ModuleCardData(
-      id: 'habits',
-      title: 'Habits & Daily Events',
-      subtitle: 'Build streaks and capture routines',
-      stat: '6-day streak',
-      route: HabitsScreen.routeName,
-      icon: Icons.repeat_rounded,
-    ),
-    _ModuleCardData(
-      id: 'sports',
-      title: 'Sports & Fitness',
-      subtitle: 'Record workouts and progress',
-      stat: '2 workouts',
-      route: SportsScreen.routeName,
-      icon: Icons.fitness_center,
-    ),
-    _ModuleCardData(
-      id: 'health',
-      title: 'Health Management',
-      subtitle: 'Track medications and health metrics',
-      stat: '1 dose pending',
-      route: HealthScreen.routeName,
-      icon: Icons.health_and_safety_outlined,
-    ),
-    _ModuleCardData(
-      id: 'notes',
-      title: 'Notes & Tasks',
-      subtitle: 'Capture notes and daily todos',
-      stat: '4 open todos',
-      route: NotesScreen.routeName,
-      icon: Icons.sticky_note_2_outlined,
-    ),
-    _ModuleCardData(
-      id: 'calendar',
-      title: 'Calendar Integration',
-      subtitle: 'Manage events and reminders',
-      stat: '3 events today',
-      route: CalendarScreen.routeName,
-      icon: Icons.calendar_month_outlined,
-    ),
-    _ModuleCardData(
-      id: 'security',
-      title: 'Security Vault',
-      subtitle: 'Secure your credentials safely',
-      stat: '2 weak passwords',
-      route: SecurityScreen.routeName,
-      icon: Icons.lock_outline,
-    ),
-    _ModuleCardData(
-      id: 'analytics',
-      title: 'Dashboard & Analytics',
-      subtitle: 'Visualize progress and trends',
-      stat: '74% consistency',
-      route: AnalyticsScreen.routeName,
-      icon: Icons.insights_outlined,
-    ),
-  ];
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -120,29 +18,9 @@ class DashboardScreen extends ConsumerWidget {
     final batteryInfo = ref.watch(batteryInfoProvider);
     final storageInfo = ref.watch(storageInfoProvider);
     final stateAware = ref.watch(stateAwareServiceProvider);
-    final appSettingsAsync = ref.watch(appSettingsProvider);
     final lowStorage = storageInfo.maybeWhen(
       data: (info) => info.usagePercentage >= 90,
       orElse: () => false,
-    );
-
-    final hiddenCards = appSettingsAsync.maybeWhen(
-      data: (s) => (s['dashboardHiddenCards'] as List<dynamic>? ?? const <dynamic>[])
-          .map((item) => item.toString())
-          .toSet(),
-      orElse: () => <String>{},
-    );
-
-    final orderedIds = appSettingsAsync.maybeWhen(
-      data: (s) => (s['dashboardCardOrder'] as List<dynamic>? ?? const <dynamic>[])
-          .map((item) => item.toString())
-          .toList(growable: false),
-      orElse: () => const <String>[],
-    );
-
-    final visibleModules = _applyModulePreferences(
-      hiddenCards: hiddenCards,
-      orderedIds: orderedIds,
     );
 
     return Scaffold(
@@ -242,26 +120,10 @@ class DashboardScreen extends ConsumerWidget {
                 ),
               ),
             ),
-            const SizedBox(height: 16),
-            const Text(
-              'All Sections',
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
-            ),
-            const SizedBox(height: 12),
-            GridView.builder(
-              itemCount: visibleModules.length,
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 2,
-                crossAxisSpacing: 12,
-                mainAxisSpacing: 12,
-                childAspectRatio: 1.15,
-              ),
-              itemBuilder: (context, index) {
-                final module = visibleModules[index];
-                return _ModuleTile(module: module);
-              },
+            const SizedBox(height: 24),
+            Text(
+              'Use the left sidebar to jump between pages.',
+              style: Theme.of(context).textTheme.bodyMedium,
             ),
           ],
         ),
@@ -272,26 +134,6 @@ class DashboardScreen extends ConsumerWidget {
         label: const Text('Quick Add'),
       ),
     );
-  }
-
-  List<_ModuleCardData> _applyModulePreferences({
-    required Set<String> hiddenCards,
-    required List<String> orderedIds,
-  }) {
-    final byId = {for (final m in _modules) m.id: m};
-    final ordered = <_ModuleCardData>[];
-    for (final id in orderedIds) {
-      final item = byId[id];
-      if (item != null && !hiddenCards.contains(id)) {
-        ordered.add(item);
-      }
-    }
-    for (final item in _modules) {
-      if (!ordered.any((m) => m.id == item.id) && !hiddenCards.contains(item.id)) {
-        ordered.add(item);
-      }
-    }
-    return ordered;
   }
 
   Future<void> _showQuickAddModal(BuildContext context) async {
@@ -387,50 +229,6 @@ class _QuickAddPane extends StatelessWidget {
           ],
         ),
       ],
-    );
-  }
-}
-
-class _ModuleTile extends StatelessWidget {
-  final _ModuleCardData module;
-
-  const _ModuleTile({required this.module});
-
-  @override
-  Widget build(BuildContext context) {
-    return Semantics(
-      button: true,
-      label: 'Open ${module.title}',
-      child: InkWell(
-        borderRadius: BorderRadius.circular(16),
-        onTap: () {
-          HapticFeedback.selectionClick();
-          Navigator.of(context).pushNamed(module.route);
-        },
-        child: Card(
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Icon(module.icon),
-              const SizedBox(height: 8),
-              Text(
-                module.title,
-                style: const TextStyle(fontWeight: FontWeight.w700),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                module.subtitle,
-                style: Theme.of(context).textTheme.bodySmall,
-                maxLines: 3,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ],
-          ),
-        ),
-      ),
-      ),
     );
   }
 }
