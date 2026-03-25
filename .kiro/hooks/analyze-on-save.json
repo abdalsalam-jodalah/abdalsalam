@@ -1,0 +1,13 @@
+{
+  "name": "Analyze on Save",
+  "version": "1.0.0",
+  "description": "Run Flutter analyze when Dart files are saved to catch issues early",
+  "when": {
+    "type": "fileEdited",
+    "patterns": ["lib/**/*.dart", "test/**/*.dart"]
+  },
+  "then": {
+    "type": "runCommand",
+    "command": "flutter analyze"
+  }
+}

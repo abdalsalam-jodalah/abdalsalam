@@ -1,0 +1,13 @@
+{
+  "name": "Review Data Models",
+  "version": "1.0.0",
+  "description": "Ensure data models follow project standards when modified",
+  "when": {
+    "type": "fileEdited",
+    "patterns": ["lib/data/models/**/*.dart"]
+  },
+  "then": {
+    "type": "askAgent",
+    "prompt": "Review this data model change and verify: 1) toJson/fromJson methods are implemented, 2) BaseModel is extended, 3) All required fields have createdAt/updatedAt/deletedAt, 4) Proper documentation exists"
+  }
+}

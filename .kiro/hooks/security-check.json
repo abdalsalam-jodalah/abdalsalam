@@ -1,0 +1,13 @@
+{
+  "name": "Security Check",
+  "version": "1.0.0",
+  "description": "Review security-sensitive code changes for proper encryption and authentication",
+  "when": {
+    "type": "fileEdited",
+    "patterns": ["lib/features/security/**/*.dart", "lib/data/models/security/**/*.dart"]
+  },
+  "then": {
+    "type": "askAgent",
+    "prompt": "Review this security module change and verify: 1) No hardcoded credentials, 2) Sensitive data is encrypted, 3) Biometric auth is properly implemented, 4) No passwords in logs, 5) Secure storage is used correctly"
+  }
+}

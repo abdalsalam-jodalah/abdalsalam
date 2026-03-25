@@ -1,0 +1,13 @@
+{
+  "name": "Format on Save",
+  "version": "1.0.0",
+  "description": "Auto-format Dart code when files are saved",
+  "when": {
+    "type": "fileEdited",
+    "patterns": ["lib/**/*.dart", "test/**/*.dart"]
+  },
+  "then": {
+    "type": "runCommand",
+    "command": "flutter format lib/ test/"
+  }
+}

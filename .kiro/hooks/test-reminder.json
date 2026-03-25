@@ -1,0 +1,13 @@
+{
+  "name": "Test Reminder",
+  "version": "1.0.0",
+  "description": "Remind to write tests when creating new services or repositories",
+  "when": {
+    "type": "fileCreated",
+    "patterns": ["lib/**/services/**/*.dart", "lib/**/repositories/**/*.dart"]
+  },
+  "then": {
+    "type": "askAgent",
+    "prompt": "A new service or repository was created. Remind the developer to create corresponding unit tests in the test/ directory with proper mocking of dependencies."
+  }
+}
