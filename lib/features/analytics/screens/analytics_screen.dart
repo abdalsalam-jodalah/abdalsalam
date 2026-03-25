@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../shared/widgets/chart_widgets.dart';
+
 class AnalyticsScreen extends StatelessWidget {
   static const routeName = '/analytics';
 
@@ -31,6 +33,34 @@ class AnalyticsScreen extends StatelessWidget {
             value: '81%',
             detail: 'Current monthly expense ratio',
             icon: Icons.account_balance_wallet_outlined,
+          ),
+          const SizedBox(height: 14),
+          Text('Trend Charts', style: Theme.of(context).textTheme.titleMedium),
+          const SizedBox(height: 8),
+          const Card(
+            child: Padding(
+              padding: EdgeInsets.all(12),
+              child: TrendLineChart(points: [62, 64, 68, 66, 72, 74, 75]),
+            ),
+          ),
+          const SizedBox(height: 8),
+          const Card(
+            child: Padding(
+              padding: EdgeInsets.all(12),
+              child: DistributionPieChart(values: {
+                'Needs': 58,
+                'Learning': 19,
+                'Leisure': 13,
+                'Other': 10,
+              }),
+            ),
+          ),
+          const SizedBox(height: 8),
+          const Card(
+            child: Padding(
+              padding: EdgeInsets.all(12),
+              child: ComparisonBarChart(values: [42, 50, 46, 58, 62]),
+            ),
           ),
           const SizedBox(height: 14),
           Text('Cross-module Insights', style: Theme.of(context).textTheme.titleMedium),

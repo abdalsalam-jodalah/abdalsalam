@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../analytics/screens/analytics_screen.dart';
@@ -289,6 +290,7 @@ class _QuickAddPane extends StatelessWidget {
         const Spacer(),
         FilledButton(
           onPressed: () {
+            HapticFeedback.lightImpact();
             Navigator.of(context).pop();
             ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(label)));
           },
@@ -306,10 +308,16 @@ class _ModuleTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      borderRadius: BorderRadius.circular(16),
-      onTap: () => Navigator.of(context).pushNamed(module.route),
-      child: Card(
+    return Semantics(
+      button: true,
+      label: 'Open ${module.title}',
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: () {
+          HapticFeedback.selectionClick();
+          Navigator.of(context).pushNamed(module.route);
+        },
+        child: Card(
         child: Padding(
           padding: const EdgeInsets.all(12),
           child: Column(
@@ -331,6 +339,7 @@ class _ModuleTile extends StatelessWidget {
             ],
           ),
         ),
+      ),
       ),
     );
   }

@@ -14,6 +14,7 @@ import '../features/security/services/security_service.dart';
 import '../shared/infrastructure/logger_service.dart';
 import '../shared/infrastructure/storage_gateway.dart';
 import '../shared/services/notification_service.dart';
+import '../shared/services/analytics_engine.dart';
 import '../shared/services/state_aware_service.dart';
 import '../shared/services/sync_queue_service.dart';
 import '../shared/services/reminder_service.dart';
@@ -120,6 +121,10 @@ final securityServiceProvider = Provider<SecurityService>((ref) {
     localAuth: LocalAuthentication(),
     reminders: ref.watch(reminderServiceProvider),
   );
+});
+
+final analyticsEngineProvider = Provider<AnalyticsEngine>((ref) {
+  return AnalyticsEngine();
 });
 
 class SyncQueueConnectivityProcessor {

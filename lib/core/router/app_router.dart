@@ -48,6 +48,7 @@ import '../../features/sports/screens/exercise_library_screen.dart';
 import '../../features/sports/screens/progress_charts_screen.dart';
 import '../../features/sports/screens/sports_home_screen.dart';
 import '../../features/sports/screens/workout_list_screen.dart';
+import '../../features/settings/screens/settings_screen.dart';
 
 class AppRouter {
   static Route<dynamic>? onGenerateRoute(RouteSettings settings) {
@@ -290,6 +291,11 @@ class AppRouter {
       case AnalyticsScreen.routeName:
         return MaterialPageRoute<void>(
           builder: (_) => const AnalyticsScreen(),
+          settings: settings,
+        );
+      case SettingsScreen.routeName:
+        return MaterialPageRoute<void>(
+          builder: (_) => const SettingsScreen(),
           settings: settings,
         );
       default:
