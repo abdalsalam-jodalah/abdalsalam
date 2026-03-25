@@ -16,6 +16,13 @@ dependencies:
   crypto: ^3.0.6
   abdalsalam_logic_flutter: ^0.1.0
   adhan: ^2.0.0+1
+  flutter_local_notifications: ^17.2.3
+  flutter_secure_storage: ^9.2.2
+  local_auth: ^2.3.0
+  encrypt: ^5.0.3
+  google_sign_in: ^5.4.4
+  googleapis: ^13.2.0
+  http: ^1.2.0
 
 dev_dependencies:
   flutter_test:

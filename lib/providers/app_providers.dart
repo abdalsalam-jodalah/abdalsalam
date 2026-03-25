@@ -1,11 +1,19 @@
 import 'dart:async';
 
 import 'package:abdalsalam_logic_flutter/abdalsalam_logic_flutter.dart' as logic;
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:local_auth/local_auth.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/result/result.dart';
+import '../data/repositories/calendar/calendar_repository.dart';
+import '../data/repositories/security/security_repository.dart';
+import '../features/calendar/services/calendar_service.dart';
+import '../features/security/services/security_service.dart';
 import '../shared/infrastructure/logger_service.dart';
 import '../shared/infrastructure/storage_gateway.dart';
+import '../shared/services/notification_service.dart';
 import '../shared/services/state_aware_service.dart';
 import '../shared/services/sync_queue_service.dart';
 import '../shared/services/reminder_service.dart';
@@ -72,6 +80,45 @@ final reminderServiceProvider = Provider<ReminderService>((ref) {
   return ReminderService(
     storage: ref.watch(storageGatewayProvider),
     logger: ref.watch(loggerProvider),
+  );
+});
+
+final notificationServiceProvider = Provider<NotificationService>((ref) {
+  return NotificationService(
+    plugin: FlutterLocalNotificationsPlugin(),
+    logger: ref.watch(loggerProvider),
+  );
+});
+
+final calendarRepositoryProvider = Provider<CalendarRepository>((ref) {
+  return CalendarRepositoryImpl(
+    ref.watch(storageGatewayProvider),
+    LoggerService.forModule('CalendarRepository', moduleType: logic.ModuleType.repository),
+  );
+});
+
+final securityRepositoryProvider = Provider<SecurityRepository>((ref) {
+  return SecurityRepositoryImpl(
+    ref.watch(storageGatewayProvider),
+    LoggerService.forModule('SecurityRepository', moduleType: logic.ModuleType.repository),
+  );
+});
+
+final calendarServiceProvider = Provider<CalendarService>((ref) {
+  return CalendarService(
+    ref.watch(calendarRepositoryProvider),
+    LoggerService.forModule('CalendarService', moduleType: logic.ModuleType.service),
+    reminders: ref.watch(reminderServiceProvider),
+  );
+});
+
+final securityServiceProvider = Provider<SecurityService>((ref) {
+  return SecurityService(
+    ref.watch(securityRepositoryProvider),
+    LoggerService.forModule('SecurityService', moduleType: logic.ModuleType.service),
+    secureStorage: const FlutterSecureStorage(),
+    localAuth: LocalAuthentication(),
+    reminders: ref.watch(reminderServiceProvider),
   );
 });
 

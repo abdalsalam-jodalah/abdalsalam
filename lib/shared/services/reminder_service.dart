@@ -3,7 +3,16 @@ import 'dart:async';
 import '../infrastructure/logger_service.dart';
 import '../infrastructure/storage_gateway.dart';
 
-enum ReminderModule { religious, financial, habits, sports, health, notes }
+enum ReminderModule {
+  religious,
+  financial,
+  habits,
+  sports,
+  health,
+  notes,
+  calendar,
+  security,
+}
 
 class ReminderPayload {
   final ReminderModule module;
@@ -39,6 +48,7 @@ class ReminderPayload {
 
 class ReminderService {
   static const _storageKey = 'scheduled_reminders';
+  static const _settingsKey = 'reminder_settings';
 
   final StorageGateway storage;
   final LoggerService logger;
@@ -50,6 +60,12 @@ class ReminderService {
   Stream<ReminderPayload> get tapStream => _tapController.stream;
 
   Future<void> schedule(ReminderPayload payload) async {
+    final settings = await getModuleSettings();
+    if ((settings[payload.module.name] ?? true) == false) {
+      logger.info('[ReminderService] skipped disabled module ${payload.module.name}');
+      return;
+    }
+
     final existing = await getAllScheduled();
     final updated = <Map<String, dynamic>>[
       ...existing.map((item) => item.toJson()),
@@ -66,6 +82,138 @@ class ReminderService {
         .map((entry) => entry.map((k, v) => MapEntry(k.toString(), v)))
         .map(ReminderPayload.fromJson)
         .toList(growable: false);
+  }
+
+  Future<void> schedulePrayerReminder({
+    required String prayerId,
+    required String title,
+    required DateTime prayerTime,
+  }) async {
+    await schedule(
+      ReminderPayload(
+        module: ReminderModule.religious,
+        targetId: prayerId,
+        title: title,
+        body: 'Prayer is in 10 minutes',
+        scheduledAt: prayerTime.subtract(const Duration(minutes: 10)),
+      ),
+    );
+  }
+
+  Future<void> scheduleMedicationReminder({
+    required String medicationId,
+    required String name,
+    required DateTime time,
+  }) async {
+    await schedule(
+      ReminderPayload(
+        module: ReminderModule.health,
+        targetId: medicationId,
+        title: 'Medication reminder',
+        body: '$name dose time',
+        scheduledAt: time,
+      ),
+    );
+  }
+
+  Future<void> scheduleHabitReminder({
+    required String habitId,
+    required String name,
+    required DateTime time,
+  }) async {
+    await schedule(
+      ReminderPayload(
+        module: ReminderModule.habits,
+        targetId: habitId,
+        title: 'Habit reminder',
+        body: 'Time for $name',
+        scheduledAt: time,
+      ),
+    );
+  }
+
+  Future<void> scheduleTodoReminder({
+    required String todoId,
+    required String title,
+    required DateTime reminderAt,
+  }) async {
+    await schedule(
+      ReminderPayload(
+        module: ReminderModule.notes,
+        targetId: todoId,
+        title: 'Todo reminder',
+        body: title,
+        scheduledAt: reminderAt,
+      ),
+    );
+  }
+
+  Future<void> scheduleEventReminder({
+    required String eventId,
+    required String title,
+    required DateTime startAt,
+    required int minutesBefore,
+  }) async {
+    await schedule(
+      ReminderPayload(
+        module: ReminderModule.calendar,
+        targetId: eventId,
+        title: 'Event reminder',
+        body: '$title starts in $minutesBefore minutes',
+        scheduledAt: startAt.subtract(Duration(minutes: minutesBefore)),
+      ),
+    );
+  }
+
+  Future<void> scheduleBudgetAlert({
+    required String budgetId,
+    required String message,
+  }) async {
+    await schedule(
+      ReminderPayload(
+        module: ReminderModule.financial,
+        targetId: budgetId,
+        title: 'Budget alert',
+        body: message,
+        scheduledAt: DateTime.now(),
+      ),
+    );
+  }
+
+  Future<void> scheduleSnooze(
+    ReminderPayload payload, {
+    Duration duration = const Duration(minutes: 10),
+  }) async {
+    await schedule(
+      ReminderPayload(
+        module: payload.module,
+        targetId: payload.targetId,
+        title: payload.title,
+        body: '${payload.body} (snoozed)',
+        scheduledAt: DateTime.now().add(duration),
+      ),
+    );
+  }
+
+  Future<void> setModuleEnabled(ReminderModule module, bool enabled) async {
+    final settings = await getModuleSettings();
+    settings[module.name] = enabled;
+    await storage.save(key: _settingsKey, value: settings);
+  }
+
+  Future<Map<String, bool>> getModuleSettings() async {
+    final raw = await storage.get<Map<String, dynamic>>(_settingsKey) ?? <String, dynamic>{};
+    final defaults = <String, bool>{
+      for (final module in ReminderModule.values) module.name: true,
+    };
+
+    for (final entry in raw.entries) {
+      if (entry.value is bool) {
+        defaults[entry.key] = entry.value as bool;
+      }
+    }
+
+    return defaults;
   }
 
   void handleNotificationTap(ReminderPayload payload) {

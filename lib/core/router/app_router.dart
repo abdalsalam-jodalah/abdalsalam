@@ -2,6 +2,10 @@ import 'package:flutter/material.dart';
 
 import '../../features/analytics/screens/analytics_screen.dart';
 import '../../features/calendar/screens/calendar_screen.dart';
+import '../../features/calendar/screens/event_form_screen.dart';
+import '../../features/calendar/screens/event_list_screen.dart';
+import '../../features/calendar/screens/google_calendar_sync_screen.dart';
+import '../../features/calendar/screens/unified_timeline_screen.dart';
 import '../../features/financial/screens/financial_screen.dart';
 import '../../features/financial/screens/budget_management_screen.dart';
 import '../../features/financial/screens/financial_home_screen.dart';
@@ -33,6 +37,11 @@ import '../../features/religious/screens/quran_progress_screen.dart';
 import '../../features/religious/screens/religious_home_screen.dart';
 import '../../features/religious/screens/spiritual_progress_screen.dart';
 import '../../features/security/screens/security_screen.dart';
+import '../../features/security/screens/biometric_lock_screen.dart';
+import '../../features/security/screens/credential_form_screen.dart';
+import '../../features/security/screens/credential_list_screen.dart';
+import '../../features/security/screens/password_generator_screen.dart';
+import '../../features/security/screens/security_categories_screen.dart';
 import '../../features/sports/screens/sports_screen.dart';
 import '../../features/sports/screens/active_workout_screen.dart';
 import '../../features/sports/screens/exercise_library_screen.dart';
@@ -228,9 +237,54 @@ class AppRouter {
           builder: (_) => const CalendarScreen(),
           settings: settings,
         );
+      case EventListScreen.routeName:
+        return MaterialPageRoute<void>(
+          builder: (_) => const EventListScreen(),
+          settings: settings,
+        );
+      case EventFormScreen.routeName:
+        return MaterialPageRoute<void>(
+          builder: (_) => const EventFormScreen(),
+          settings: settings,
+        );
+      case UnifiedTimelineScreen.routeName:
+        return MaterialPageRoute<void>(
+          builder: (_) => const UnifiedTimelineScreen(),
+          settings: settings,
+        );
+      case GoogleCalendarSyncScreen.routeName:
+        return MaterialPageRoute<void>(
+          builder: (_) => const GoogleCalendarSyncScreen(),
+          settings: settings,
+        );
       case SecurityScreen.routeName:
         return MaterialPageRoute<void>(
           builder: (_) => const SecurityScreen(),
+          settings: settings,
+        );
+      case BiometricLockScreen.routeName:
+        return MaterialPageRoute<void>(
+          builder: (_) => const BiometricLockScreen(),
+          settings: settings,
+        );
+      case CredentialListScreen.routeName:
+        return MaterialPageRoute<void>(
+          builder: (_) => const CredentialListScreen(),
+          settings: settings,
+        );
+      case CredentialFormScreen.routeName:
+        return MaterialPageRoute<void>(
+          builder: (_) => const CredentialFormScreen(),
+          settings: settings,
+        );
+      case PasswordGeneratorScreen.routeName:
+        return MaterialPageRoute<void>(
+          builder: (_) => const PasswordGeneratorScreen(),
+          settings: settings,
+        );
+      case SecurityCategoriesScreen.routeName:
+        return MaterialPageRoute<void>(
+          builder: (_) => const SecurityCategoriesScreen(),
           settings: settings,
         );
       case AnalyticsScreen.routeName:

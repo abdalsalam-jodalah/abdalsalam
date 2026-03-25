@@ -131,10 +131,10 @@ class DashboardScreen extends ConsumerWidget {
           ),
         ],
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+      body: RefreshIndicator(
+        onRefresh: () async => Future<void>.delayed(const Duration(milliseconds: 400)),
+        child: ListView(
+          padding: const EdgeInsets.all(16),
           children: [
             OfflineBanner(isOffline: isOffline),
             if (isOffline) const SizedBox(height: 12),
@@ -158,11 +158,6 @@ class DashboardScreen extends ConsumerWidget {
               ),
               const SizedBox(height: 12),
             ],
-            const Text(
-              'All Sections',
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
-            ),
-            const SizedBox(height: 12),
             Card(
               child: Padding(
                 padding: const EdgeInsets.all(16),
@@ -187,25 +182,119 @@ class DashboardScreen extends ConsumerWidget {
                 ),
               ),
             ),
-            const SizedBox(height: 16),
-            Expanded(
-              child: GridView.builder(
-                itemCount: _modules.length,
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 2,
-                  crossAxisSpacing: 12,
-                  mainAxisSpacing: 12,
-                  childAspectRatio: 1.15,
+            const SizedBox(height: 12),
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: const [
+                    Text('Today\'s Agenda', style: TextStyle(fontWeight: FontWeight.w700)),
+                    SizedBox(height: 8),
+                    Text('• Prayer: Maghrib in 40 min'),
+                    Text('• Medication: Vitamin D at 20:00'),
+                    Text('• Workout: Push session at 19:00'),
+                    Text('• Todo: Review monthly budget'),
+                  ],
                 ),
-                itemBuilder: (context, index) {
-                  final module = _modules[index];
-                  return _ModuleTile(module: module);
-                },
               ),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'All Sections',
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: 12),
+            GridView.builder(
+              itemCount: _modules.length,
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 2,
+                crossAxisSpacing: 12,
+                mainAxisSpacing: 12,
+                childAspectRatio: 1.15,
+              ),
+              itemBuilder: (context, index) {
+                final module = _modules[index];
+                return _ModuleTile(module: module);
+              },
             ),
           ],
         ),
       ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () => _showQuickAddModal(context),
+        icon: const Icon(Icons.add),
+        label: const Text('Quick Add'),
+      ),
+    );
+  }
+
+  Future<void> _showQuickAddModal(BuildContext context) async {
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      builder: (context) {
+        return DefaultTabController(
+          length: 4,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+            child: SizedBox(
+              height: 360,
+              child: Column(
+                children: [
+                  const TabBar(
+                    tabs: [
+                      Tab(text: 'Prayer'),
+                      Tab(text: 'Expense'),
+                      Tab(text: 'Habit'),
+                      Tab(text: 'Todo'),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  const Expanded(
+                    child: TabBarView(
+                      children: [
+                        _QuickAddPane(label: 'Quick prayer log saved'),
+                        _QuickAddPane(label: 'Quick expense saved'),
+                        _QuickAddPane(label: 'Quick habit completion saved'),
+                        _QuickAddPane(label: 'Quick todo saved'),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _QuickAddPane extends StatelessWidget {
+  final String label;
+
+  const _QuickAddPane({required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const TextField(decoration: InputDecoration(labelText: 'Title')),
+        const SizedBox(height: 10),
+        const TextField(decoration: InputDecoration(labelText: 'Notes')),
+        const Spacer(),
+        FilledButton(
+          onPressed: () {
+            Navigator.of(context).pop();
+            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(label)));
+          },
+          child: const Text('Save'),
+        ),
+      ],
     );
   }
 }
