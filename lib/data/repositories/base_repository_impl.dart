@@ -244,6 +244,31 @@ abstract class BaseRepositoryImpl<T extends BaseModel>
     }
   }
 
+  Future<Result<List<T>, AppError>> getPage({
+    int page = 1,
+    int pageSize = 20,
+    String? userId,
+  }) async {
+    try {
+      final all = await getAllRecordsForPagination(userId: userId);
+      final start = (page - 1) * pageSize;
+      if (start >= all.length) {
+        return Success(<T>[]);
+      }
+      final end = ((start + pageSize).clamp(0, all.length) as num).toInt();
+      return Success(all.sublist(start, end));
+    } catch (e, st) {
+      logger.error('[$tableName] getPage failed', error: e, stackTrace: st);
+      return Failure(DatabaseError(e.toString()));
+    }
+  }
+
+  Future<List<T>> getAllRecordsForPagination({String? userId}) async {
+    final rows = await storage.getAllRecords(table: tableName, userId: userId);
+    final items = rows.map(fromJson).toList(growable: false);
+    return _sortByCreatedDesc(items);
+  }
+
   @override
   Future<Result<void, AppError>> softDelete(String id) async {
     try {

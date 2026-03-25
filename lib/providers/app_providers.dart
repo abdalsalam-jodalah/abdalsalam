@@ -15,6 +15,9 @@ import '../shared/infrastructure/logger_service.dart';
 import '../shared/infrastructure/storage_gateway.dart';
 import '../shared/services/notification_service.dart';
 import '../shared/services/analytics_engine.dart';
+import '../shared/services/backup_service.dart';
+import '../shared/services/future_sync_service.dart';
+import '../shared/services/settings_service.dart';
 import '../shared/services/state_aware_service.dart';
 import '../shared/services/sync_queue_service.dart';
 import '../shared/services/reminder_service.dart';
@@ -125,6 +128,47 @@ final securityServiceProvider = Provider<SecurityService>((ref) {
 
 final analyticsEngineProvider = Provider<AnalyticsEngine>((ref) {
   return AnalyticsEngine();
+});
+
+final settingsServiceProvider = Provider<SettingsService>((ref) {
+  return SettingsService(ref.watch(storageGatewayProvider));
+});
+
+final backupTablesProvider = Provider<List<String>>((ref) {
+  return const <String>[
+    'prayer_logs',
+    'quran_progress',
+    'quran_readings',
+    'spiritual_progress',
+    'transactions',
+    'categories',
+    'budgets',
+    'habits',
+    'habit_logs',
+    'daily_events',
+    'workouts',
+    'exercises',
+    'workout_schedules',
+    'medications',
+    'medication_logs',
+    'blood_tests',
+    'health_metrics',
+    'notes',
+    'todos',
+    'note_categories',
+    'events',
+    'reminders',
+    'credentials',
+    'credential_categories',
+  ];
+});
+
+final backupServiceProvider = Provider<BackupService>((ref) {
+  return BackupService(ref.watch(storageGatewayProvider));
+});
+
+final futureSyncServiceProvider = Provider<FutureSyncService>((ref) {
+  return const FutureSyncService();
 });
 
 class SyncQueueConnectivityProcessor {

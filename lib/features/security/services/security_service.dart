@@ -17,6 +17,8 @@ import '../../../shared/services/reminder_service.dart';
 class SecurityService extends BaseServiceImpl<Credential> {
   static const _keyName = 'vault_encryption_key_v1';
 
+  DateTime? _lastActiveAt;
+
   final FlutterSecureStorage secureStorage;
   final LocalAuthentication localAuth;
   final ReminderService reminders;
@@ -86,7 +88,22 @@ class SecurityService extends BaseServiceImpl<Credential> {
       localizedReason: 'Authenticate to access Security Vault',
       options: const AuthenticationOptions(biometricOnly: true),
     );
+    if (ok) {
+      touchActivity();
+    }
     return Success(ok);
+  }
+
+  void touchActivity() {
+    _lastActiveAt = DateTime.now();
+  }
+
+  bool isVaultLocked({Duration timeout = const Duration(minutes: 5)}) {
+    final last = _lastActiveAt;
+    if (last == null) {
+      return true;
+    }
+    return DateTime.now().difference(last) > timeout;
   }
 
   Future<Result<String, AppError>> encryptPassword(String plainText) async {
@@ -189,5 +206,41 @@ class SecurityService extends BaseServiceImpl<Credential> {
   String sanitizeForLogs(String raw) {
     final digest = sha256.convert(utf8.encode(raw)).toString();
     return 'sha256:$digest';
+  }
+
+  String sanitizeInput(String input) {
+    return input
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll("'", "''")
+        .trim();
+  }
+
+  Future<Result<Map<String, dynamic>, AppError>> exportSecureVault({
+    required bool sanitizeSensitive,
+  }) async {
+    final auth = await authenticate();
+    if (auth.isFailure || auth.data != true) {
+      return Failure(AuthError('Biometric authentication required for vault export'));
+    }
+
+    final exported = await exportWithMetadata();
+    if (exported.isFailure) {
+      return Failure(exported.error!);
+    }
+
+    final payload = exported.data!;
+    payload['metadata']['sensitiveDataWarning'] =
+        'Contains encrypted credentials; handle file carefully.';
+
+    if (sanitizeSensitive) {
+      final rows = (payload['data'] as List<dynamic>).whereType<Map<String, dynamic>>();
+      for (final row in rows) {
+        row['username'] = '***';
+        row['encryptedPassword'] = '***';
+      }
+    }
+
+    return Success(payload);
   }
 }

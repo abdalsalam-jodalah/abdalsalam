@@ -49,6 +49,8 @@ import '../../features/sports/screens/progress_charts_screen.dart';
 import '../../features/sports/screens/sports_home_screen.dart';
 import '../../features/sports/screens/workout_list_screen.dart';
 import '../../features/settings/screens/settings_screen.dart';
+import '../../features/settings/screens/backup_screen.dart';
+import '../../features/settings/screens/restore_screen.dart';
 
 class AppRouter {
   static Route<dynamic>? onGenerateRoute(RouteSettings settings) {
@@ -296,6 +298,16 @@ class AppRouter {
       case SettingsScreen.routeName:
         return MaterialPageRoute<void>(
           builder: (_) => const SettingsScreen(),
+          settings: settings,
+        );
+      case BackupScreen.routeName:
+        return MaterialPageRoute<void>(
+          builder: (_) => const BackupScreen(),
+          settings: settings,
+        );
+      case RestoreScreen.routeName:
+        return MaterialPageRoute<void>(
+          builder: (_) => const RestoreScreen(),
           settings: settings,
         );
       default:

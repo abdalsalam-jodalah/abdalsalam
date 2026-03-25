@@ -899,23 +899,23 @@ This document breaks down the 25 requirements from the requirements document int
 ### 22. Security & Privacy (Requirement 21)
 
 - [ ] 22.1 Implement data security
-  - [ ] 22.1.1 Verify all data stored locally on device
-  - [ ] 22.1.2 Verify password encryption using AES-256
-  - [ ] 22.1.3 Verify encryption keys stored in flutter_secure_storage
-  - [ ] 22.1.4 Verify biometric authentication for Security Vault
-  - [ ] 22.1.5 Implement auto-lock after 5 minutes inactivity
+  - [x] 22.1.1 Verify all data stored locally on device
+  - [x] 22.1.2 Verify password encryption using AES-256
+  - [x] 22.1.3 Verify encryption keys stored in flutter_secure_storage
+  - [x] 22.1.4 Verify biometric authentication for Security Vault
+  - [x] 22.1.5 Implement auto-lock after 5 minutes inactivity
   - [ ] 22.1.6 Write security tests
 
 - [ ] 22.2 Implement logging security
   - [ ] 22.2.1 Verify no sensitive data logged (passwords, credentials)
-  - [ ] 22.2.2 Sanitize logs for PII
+  - [x] 22.2.2 Sanitize logs for PII
   - [ ] 22.2.3 Review all log statements
   - [ ] 22.2.4 Write tests for log sanitization
 
 - [ ] 22.3 Implement export security
-  - [ ] 22.3.1 Warn user about sensitive data in exports
-  - [ ] 22.3.2 Require biometric auth for Security Vault export
-  - [ ] 22.3.3 Sanitize exported data option
+  - [x] 22.3.1 Warn user about sensitive data in exports
+  - [x] 22.3.2 Require biometric auth for Security Vault export
+  - [x] 22.3.3 Sanitize exported data option
   - [ ] 22.3.4 Write tests for export security
 
 - [ ] 22.4 Implement network security
@@ -924,9 +924,9 @@ This document breaks down the 25 requirements from the requirements document int
   - [ ] 22.4.3 Write tests for network security
 
 - [ ] 22.5 Implement input security
-  - [ ] 22.5.1 Validate and sanitize all user input
-  - [ ] 22.5.2 Prevent SQL injection
-  - [ ] 22.5.3 Prevent XSS attacks
+  - [x] 22.5.1 Validate and sanitize all user input
+  - [x] 22.5.2 Prevent SQL injection
+  - [x] 22.5.3 Prevent XSS attacks
   - [ ] 22.5.4 Write security tests for input handling
 
 - [ ] 22.6 Implement user isolation
@@ -937,11 +937,11 @@ This document breaks down the 25 requirements from the requirements document int
 ### 23. Backup & Restore (Requirement 22)
 
 - [ ] 23.1 Implement backup functionality
-  - [ ] 23.1.1 Implement full backup of all modules
-  - [ ] 23.1.2 Include metadata in backup (version, timestamp, checksum)
-  - [ ] 23.1.3 Implement selective backup by module
-  - [ ] 23.1.4 Implement selective backup by date range
-  - [ ] 23.1.5 Compress backup files
+  - [x] 23.1.1 Implement full backup of all modules
+  - [x] 23.1.2 Include metadata in backup (version, timestamp, checksum)
+  - [x] 23.1.3 Implement selective backup by module
+  - [x] 23.1.4 Implement selective backup by date range
+  - [x] 23.1.5 Compress backup files
   - [ ] 23.1.6 Write unit tests for backup
   - [ ] 23.1.7 Write property-based test for Property 30 (Full Backup Completeness)
 
@@ -951,20 +951,20 @@ This document breaks down the 25 requirements from the requirements document int
   - [ ] 23.2.3 Write integration tests for backup storage
 
 - [ ] 23.3 Implement restore functionality
-  - [ ] 23.3.1 Implement restore from backup file
-  - [ ] 23.3.2 Validate version compatibility
-  - [ ] 23.3.3 Verify checksum integrity
-  - [ ] 23.3.4 Support merge or replace strategy
+  - [x] 23.3.1 Implement restore from backup file
+  - [x] 23.3.2 Validate version compatibility
+  - [x] 23.3.3 Verify checksum integrity
+  - [x] 23.3.4 Support merge or replace strategy
   - [ ] 23.3.5 Create automatic backup before restore
   - [ ] 23.3.6 Write unit tests for restore
   - [ ] 23.3.7 Write property-based test for Property 31 (Backup Version Compatibility)
   - [ ] 23.3.8 Write property-based test for Property 32 (Backup Checksum Verification)
 
 - [ ] 23.4 Implement backup UI
-  - [ ] 23.4.1 Create BackupScreen with backup options
-  - [ ] 23.4.2 Create RestoreScreen with file picker
-  - [ ] 23.4.3 Display backup progress
-  - [ ] 23.4.4 Display restore progress
+  - [x] 23.4.1 Create BackupScreen with backup options
+  - [x] 23.4.2 Create RestoreScreen with file picker
+  - [x] 23.4.3 Display backup progress
+  - [x] 23.4.4 Display restore progress
   - [ ] 23.4.5 Write widget tests for backup UI
 
 - [ ] 23.5 Implement automatic backup
@@ -982,13 +982,13 @@ This document breaks down the 25 requirements from the requirements document int
 ### 24. Settings & Customization (Requirement 23)
 
 - [ ] 24.1 Create settings infrastructure
-  - [ ] 24.1.1 Create SettingsService
-  - [ ] 24.1.2 Persist settings using StorageGateway
-  - [ ] 24.1.3 Provide default settings
+  - [x] 24.1.1 Create SettingsService
+  - [x] 24.1.2 Persist settings using StorageGateway
+  - [x] 24.1.3 Provide default settings
   - [ ] 24.1.4 Write unit tests for settings service
 
 - [ ] 24.2 Implement appearance settings
-  - [ ] 24.2.1 Add theme selection (light, dark, system)
+  - [x] 24.2.1 Add theme selection (light, dark, system)
   - [ ] 24.2.2 Add language selection (English, Arabic)
   - [ ] 24.2.3 Add first day of week selection
   - [ ] 24.2.4 Write tests for appearance settings
@@ -1001,14 +1001,14 @@ This document breaks down the 25 requirements from the requirements document int
 
 - [ ] 24.4 Implement module-specific settings
   - [ ] 24.4.1 Add prayer time calculation method selection
-  - [ ] 24.4.2 Add currency selection for financial module
-  - [ ] 24.4.3 Add biometric auth enable/disable for Security Vault
+  - [x] 24.4.2 Add currency selection for financial module
+  - [x] 24.4.3 Add biometric auth enable/disable for Security Vault
   - [ ] 24.4.4 Add auto-lock timeout configuration
   - [ ] 24.4.5 Write tests for module settings
 
 - [ ] 24.5 Implement backup settings
   - [ ] 24.5.1 Add backup reminder frequency configuration
-  - [ ] 24.5.2 Add automatic backup enable/disable
+  - [x] 24.5.2 Add automatic backup enable/disable
   - [ ] 24.5.3 Write tests for backup settings
 
 - [ ] 24.6 Implement dashboard settings
@@ -1017,23 +1017,23 @@ This document breaks down the 25 requirements from the requirements document int
   - [ ] 24.6.3 Write tests for dashboard settings
 
 - [ ] 24.7 Create settings UI
-  - [ ] 24.7.1 Create SettingsScreen with sections
-  - [ ] 24.7.2 Create appearance settings section
-  - [ ] 24.7.3 Create notification settings section
-  - [ ] 24.7.4 Create module settings sections
-  - [ ] 24.7.5 Create backup settings section
+  - [x] 24.7.1 Create SettingsScreen with sections
+  - [x] 24.7.2 Create appearance settings section
+  - [x] 24.7.3 Create notification settings section
+  - [x] 24.7.4 Create module settings sections
+  - [x] 24.7.5 Create backup settings section
   - [ ] 24.7.6 Create dashboard settings section
-  - [ ] 24.7.7 Add reset to defaults option
+  - [x] 24.7.7 Add reset to defaults option
   - [ ] 24.7.8 Write widget tests for settings UI
 
 
 ### 25. Future-Ready Architecture (Requirement 25)
 
 - [ ] 25.1 Prepare for server integration
-  - [ ] 25.1.1 Use ApiClient from abdalsalam_logic_flutter
+  - [x] 25.1.1 Use ApiClient from abdalsalam_logic_flutter
   - [ ] 25.1.2 Design services with sync capability (local-first, sync-later)
   - [ ] 25.1.3 Include userId in all data models
-  - [ ] 25.1.4 Structure exported data for AI consumption
+  - [x] 25.1.4 Structure exported data for AI consumption
   - [ ] 25.1.5 Write tests for future server integration
 
 - [ ] 25.2 Implement versioning
@@ -1049,21 +1049,21 @@ This document breaks down the 25 requirements from the requirements document int
   - [ ] 25.3.4 Write tests for repository abstraction
 
 - [ ] 25.4 Implement dependency injection
-  - [ ] 25.4.1 Use Riverpod for dependency injection
-  - [ ] 25.4.2 Register all services and repositories
+  - [x] 25.4.1 Use Riverpod for dependency injection
+  - [x] 25.4.2 Register all services and repositories
   - [ ] 25.4.3 Support easy testing with mocks
   - [ ] 25.4.4 Write tests for dependency injection
 
 - [ ] 25.5 Implement pagination support
-  - [ ] 25.5.1 Add pagination to all list queries
-  - [ ] 25.5.2 Support page size configuration
+  - [x] 25.5.1 Add pagination to all list queries
+  - [x] 25.5.2 Support page size configuration
   - [ ] 25.5.3 Support cursor-based pagination
   - [ ] 25.5.4 Write tests for pagination
 
 - [ ] 25.6 Implement metadata tracking
   - [ ] 25.6.1 Include metadata in all operations
-  - [ ] 25.6.2 Track operation timestamps
-  - [ ] 25.6.3 Track operation user
+  - [x] 25.6.2 Track operation timestamps
+  - [x] 25.6.3 Track operation user
   - [ ] 25.6.4 Support future audit trails
   - [ ] 25.6.5 Write tests for metadata tracking
 
