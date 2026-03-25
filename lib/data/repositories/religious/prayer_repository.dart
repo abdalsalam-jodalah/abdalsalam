@@ -2,7 +2,7 @@ import '../../../data/models/religious/prayer_log.dart';
 import '../base_repository_impl.dart';
 
 class PrayerRepository extends BaseRepositoryImpl<PrayerLog> {
-  PrayerRepository(super.logger);
+  PrayerRepository(super.storage, super.logger);
 
   @override
   String get tableName => 'prayer_logs';

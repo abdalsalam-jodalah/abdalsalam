@@ -2,12 +2,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../data/models/religious/quran_progress.dart';
 import '../../../data/repositories/religious/quran_repository.dart';
+import '../../../providers/app_providers.dart';
 import 'prayer_providers.dart';
 import '../services/quran_service.dart';
 
 final quranRepositoryProvider = Provider<QuranRepository>((ref) {
   final logger = ref.watch(loggerProvider);
-  return QuranRepository(logger);
+  final storage = ref.watch(storageGatewayProvider);
+  return QuranRepository(storage, logger);
 });
 
 final quranServiceProvider = Provider<QuranService>((ref) {

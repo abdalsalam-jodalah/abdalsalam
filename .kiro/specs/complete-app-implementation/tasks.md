@@ -20,164 +20,164 @@ This document breaks down the 25 requirements from the requirements document int
 
 ### 1. Core Foundation & Architecture (Requirement 1)
 
-- [ ] 1.1 Create base classes and types
-  - [ ] 1.1.1 Implement BaseModel abstract class with id, createdAt, updatedAt, deletedAt
-  - [ ] 1.1.2 Implement Result<T, Error> type with Success and Failure classes
-  - [ ] 1.1.3 Implement AppError hierarchy (DatabaseError, ValidationError, ServiceError, NotFoundError, ExportError, ImportError, NetworkError, AuthError)
+- [x] 1.1 Create base classes and types
+  - [x] 1.1.1 Implement BaseModel abstract class with id, createdAt, updatedAt, deletedAt
+  - [x] 1.1.2 Implement Result<T, Error> type with Success and Failure classes
+  - [x] 1.1.3 Implement AppError hierarchy (DatabaseError, ValidationError, ServiceError, NotFoundError, ExportError, ImportError, NetworkError, AuthError)
   - [ ] 1.1.4 Write unit tests for base classes and types
 
-- [ ] 1.2 Create BaseRepository interface and implementation
-  - [ ] 1.2.1 Define BaseRepository interface with 24 required methods
-  - [ ] 1.2.2 Implement BaseRepositoryImpl abstract class with common logic
+- [x] 1.2 Create BaseRepository interface and implementation
+  - [x] 1.2.1 Define BaseRepository interface with 24 required methods
+  - [x] 1.2.2 Implement BaseRepositoryImpl abstract class with common logic
   - [ ] 1.2.3 Write unit tests for BaseRepositoryImpl methods
 
-- [ ] 1.3 Create BaseService interface and implementation
-  - [ ] 1.3.1 Define BaseService interface with 29 required methods
-  - [ ] 1.3.2 Implement BaseServiceImpl abstract class with common logic
+- [x] 1.3 Create BaseService interface and implementation
+  - [x] 1.3.1 Define BaseService interface with 29 required methods
+  - [x] 1.3.2 Implement BaseServiceImpl abstract class with common logic
   - [ ] 1.3.3 Write unit tests for BaseServiceImpl methods
 
-- [ ] 1.4 Integrate abdalsalam_logic_flutter package
-  - [ ] 1.4.1 Add abdalsalam_logic_flutter dependency to pubspec.yaml
-  - [ ] 1.4.2 Initialize StorageGateway in main.dart
-  - [ ] 1.4.3 Initialize LoggerService in main.dart
-  - [ ] 1.4.4 Initialize AppStateManager with config in main.dart
-  - [ ] 1.4.5 Create Riverpod providers for core services
+- [x] 1.4 Integrate abdalsalam_logic_flutter package
+  - [x] 1.4.1 Add abdalsalam_logic_flutter dependency to pubspec.yaml
+  - [x] 1.4.2 Initialize StorageGateway in main.dart
+  - [x] 1.4.3 Initialize LoggerService in main.dart
+  - [x] 1.4.4 Initialize AppStateManager with config in main.dart
+  - [x] 1.4.5 Create Riverpod providers for core services
 
 
 ### 2. Data Export & Import System (Requirement 2)
 
-- [ ] 2.1 Implement export functionality
-  - [ ] 2.1.1 Create ExportService with exportWithMetadata method
-  - [ ] 2.1.2 Implement SHA-256 checksum calculation
-  - [ ] 2.1.3 Implement metadata generation (serviceName, version, exportedAt, recordCount, checksum)
-  - [ ] 2.1.4 Implement selective export by module, date range, and filters
-  - [ ] 2.1.5 Implement unified export for all modules
+- [x] 2.1 Implement export functionality
+  - [x] 2.1.1 Create ExportService with exportWithMetadata method
+  - [x] 2.1.2 Implement SHA-256 checksum calculation
+  - [x] 2.1.3 Implement metadata generation (serviceName, version, exportedAt, recordCount, checksum)
+  - [x] 2.1.4 Implement selective export by module, date range, and filters
+  - [x] 2.1.5 Implement unified export for all modules
   - [ ] 2.1.6 Write unit tests for export functionality
   - [ ] 2.1.7 Write property-based test for Property 1 (Export Structure Completeness)
   - [ ] 2.1.8 Write property-based test for Property 2 (Export Checksum Integrity)
 
-- [ ] 2.2 Implement import functionality
-  - [ ] 2.2.1 Create ImportService with importWithValidation method
-  - [ ] 2.2.2 Implement metadata validation
-  - [ ] 2.2.3 Implement version compatibility checking
-  - [ ] 2.2.4 Implement checksum verification
-  - [ ] 2.2.5 Implement record-level validation
-  - [ ] 2.2.6 Implement duplicate detection and resolution (skip, replace, merge)
+- [x] 2.2 Implement import functionality
+  - [x] 2.2.1 Create ImportService with importWithValidation method
+  - [x] 2.2.2 Implement metadata validation
+  - [x] 2.2.3 Implement version compatibility checking
+  - [x] 2.2.4 Implement checksum verification
+  - [x] 2.2.5 Implement record-level validation
+  - [x] 2.2.6 Implement duplicate detection and resolution (skip, replace, merge)
   - [ ] 2.2.7 Write unit tests for import functionality
   - [ ] 2.2.8 Write property-based test for Property 3 (Import Metadata Validation)
   - [ ] 2.2.9 Write property-based test for Property 4 (Import Checksum Verification)
   - [ ] 2.2.10 Write property-based test for Property 5 (Duplicate Detection Strategy)
 
-- [ ] 2.3 Implement file operations
-  - [ ] 2.3.1 Integrate FileOperations from abdalsalam_logic_flutter
-  - [ ] 2.3.2 Implement save export to device storage
-  - [ ] 2.3.3 Implement share export functionality
-  - [ ] 2.3.4 Implement load import from device storage
+- [x] 2.3 Implement file operations
+  - [x] 2.3.1 Integrate FileOperations from abdalsalam_logic_flutter
+  - [x] 2.3.2 Implement save export to device storage
+  - [x] 2.3.3 Implement share export functionality
+  - [x] 2.3.4 Implement load import from device storage
   - [ ] 2.3.5 Write integration tests for file operations
 
 ### 3. Offline-First Architecture (Requirement 13)
 
 - [ ] 3.1 Configure local storage
-  - [ ] 3.1.1 Configure StorageGateway with SQLite backend
-  - [ ] 3.1.2 Create database schema for all modules
-  - [ ] 3.1.3 Create indexes on userId, date fields, and status
+  - [x] 3.1.1 Configure StorageGateway with SQLite backend
+  - [x] 3.1.2 Create database schema for all modules
+  - [x] 3.1.3 Create indexes on userId, date fields, and status
   - [ ] 3.1.4 Test database operations offline
 
-- [ ] 3.2 Implement offline indicators
-  - [ ] 3.2.1 Create offline banner widget
-  - [ ] 3.2.2 Add offline indicator to app bar
-  - [ ] 3.2.3 Listen to AppStateManager connectivity stream
-  - [ ] 3.2.4 Update UI based on online/offline state
+- [x] 3.2 Implement offline indicators
+  - [x] 3.2.1 Create offline banner widget
+  - [x] 3.2.2 Add offline indicator to app bar
+  - [x] 3.2.3 Listen to AppStateManager connectivity stream
+  - [x] 3.2.4 Update UI based on online/offline state
 
-- [ ] 3.3 Implement sync queue
-  - [ ] 3.3.1 Create sync queue for operations when offline
-  - [ ] 3.3.2 Implement queue persistence
-  - [ ] 3.3.3 Implement automatic sync when connection restored
+- [x] 3.3 Implement sync queue
+  - [x] 3.3.1 Create sync queue for operations when offline
+  - [x] 3.3.2 Implement queue persistence
+  - [x] 3.3.3 Implement automatic sync when connection restored
   - [ ] 3.3.4 Write tests for sync queue functionality
 
-- [ ] 3.4 Cache critical data
-  - [ ] 3.4.1 Implement prayer times caching (30 days)
-  - [ ] 3.4.2 Implement offline export to local storage
-  - [ ] 3.4.3 Implement offline import from local storage
+- [x] 3.4 Cache critical data
+  - [x] 3.4.1 Implement prayer times caching (30 days)
+  - [x] 3.4.2 Implement offline export to local storage
+  - [x] 3.4.3 Implement offline import from local storage
   - [ ] 3.4.4 Write property-based test for Property 24 (Offline Operation Functionality)
 
 
 ### 4. State-Aware Operations (Requirement 14)
 
-- [ ] 4.1 Implement battery monitoring
-  - [ ] 4.1.1 Listen to AppStateManager battery stream
-  - [ ] 4.1.2 Defer non-critical operations when battery < 20%
-  - [ ] 4.1.3 Disable auto-sync when battery < 10%
-  - [ ] 4.1.4 Display battery warning indicator in UI
+- [x] 4.1 Implement battery monitoring
+  - [x] 4.1.1 Listen to AppStateManager battery stream
+  - [x] 4.1.2 Defer non-critical operations when battery < 20%
+  - [x] 4.1.3 Disable auto-sync when battery < 10%
+  - [x] 4.1.4 Display battery warning indicator in UI
 
-- [ ] 4.2 Implement connectivity awareness
-  - [ ] 4.2.1 Listen to AppStateManager connectivity stream
-  - [ ] 4.2.2 Prompt before large sync on cellular
-  - [ ] 4.2.3 Auto-sync on WiFi if enabled
-  - [ ] 4.2.4 Display connectivity indicator in UI
+- [x] 4.2 Implement connectivity awareness
+  - [x] 4.2.1 Listen to AppStateManager connectivity stream
+  - [x] 4.2.2 Prompt before large sync on cellular
+  - [x] 4.2.3 Auto-sync on WiFi if enabled
+  - [x] 4.2.4 Display connectivity indicator in UI
 
-- [ ] 4.3 Implement storage monitoring
-  - [ ] 4.3.1 Listen to AppStateManager storage stream
-  - [ ] 4.3.2 Display warning when storage low
-  - [ ] 4.3.3 Suggest data cleanup options
-  - [ ] 4.3.4 Log storage state changes
+- [x] 4.3 Implement storage monitoring
+  - [x] 4.3.1 Listen to AppStateManager storage stream
+  - [x] 4.3.2 Display warning when storage low
+  - [x] 4.3.3 Suggest data cleanup options
+  - [x] 4.3.4 Log storage state changes
 
-- [ ] 4.4 Implement state-aware settings
-  - [ ] 4.4.1 Add settings to override state-aware behavior
-  - [ ] 4.4.2 Add force sync option
-  - [ ] 4.4.3 Add disable battery optimization option
-  - [ ] 4.4.4 Persist settings using StorageGateway
+- [x] 4.4 Implement state-aware settings
+  - [x] 4.4.1 Add settings to override state-aware behavior
+  - [x] 4.4.2 Add force sync option
+  - [x] 4.4.3 Add disable battery optimization option
+  - [x] 4.4.4 Persist settings using StorageGateway
 
 ### 5. Data Validation & Integrity (Requirement 15)
 
-- [ ] 5.1 Implement validation framework
-  - [ ] 5.1.1 Create validation utilities for common checks
-  - [ ] 5.1.2 Implement required field validation
-  - [ ] 5.1.3 Implement date validation (valid dates, logical ordering)
-  - [ ] 5.1.4 Implement numeric range validation
-  - [ ] 5.1.5 Implement enum validation
-  - [ ] 5.1.6 Implement foreign key validation
-  - [ ] 5.1.7 Implement email format validation
-  - [ ] 5.1.8 Implement URL format validation
-  - [ ] 5.1.9 Implement password strength validation
+- [x] 5.1 Implement validation framework
+  - [x] 5.1.1 Create validation utilities for common checks
+  - [x] 5.1.2 Implement required field validation
+  - [x] 5.1.3 Implement date validation (valid dates, logical ordering)
+  - [x] 5.1.4 Implement numeric range validation
+  - [x] 5.1.5 Implement enum validation
+  - [x] 5.1.6 Implement foreign key validation
+  - [x] 5.1.7 Implement email format validation
+  - [x] 5.1.8 Implement URL format validation
+  - [x] 5.1.9 Implement password strength validation
   - [ ] 5.1.10 Write unit tests for all validation utilities
 
-- [ ] 5.2 Implement validation in services
-  - [ ] 5.2.1 Add validate() method to all services
-  - [ ] 5.2.2 Call validate() before create/update operations
-  - [ ] 5.2.3 Return ValidationError with specific field errors
+- [x] 5.2 Implement validation in services
+  - [x] 5.2.1 Add validate() method to all services
+  - [x] 5.2.2 Call validate() before create/update operations
+  - [x] 5.2.3 Return ValidationError with specific field errors
   - [ ] 5.2.4 Write property-based test for Property 25 (Entity Validation Before Persistence)
   - [ ] 5.2.5 Write property-based test for Property 26 (Date Range Validation)
   - [ ] 5.2.6 Write property-based test for Property 27 (Password Strength Validation)
 
-- [ ] 5.3 Implement user-friendly error messages
-  - [ ] 5.3.1 Create error message mapping for validation errors
-  - [ ] 5.3.2 Display validation errors in UI forms
-  - [ ] 5.3.3 Highlight invalid fields in forms
+- [x] 5.3 Implement user-friendly error messages
+  - [x] 5.3.1 Create error message mapping for validation errors
+  - [x] 5.3.2 Display validation errors in UI forms
+  - [x] 5.3.3 Highlight invalid fields in forms
   - [ ] 5.3.4 Write widget tests for error display
 
 ### 6. Error Handling & Logging (Requirement 24)
 
-- [ ] 6.1 Implement logging infrastructure
-  - [ ] 6.1.1 Use LoggerService from abdalsalam_logic_flutter
-  - [ ] 6.1.2 Add [ServiceName] prefix to all service logs
-  - [ ] 6.1.3 Log all service operations (info level)
-  - [ ] 6.1.4 Log errors with error object and stack trace
-  - [ ] 6.1.5 Log warnings for recoverable issues
-  - [ ] 6.1.6 Log debug information for detailed debugging
+- [x] 6.1 Implement logging infrastructure
+  - [x] 6.1.1 Use LoggerService from abdalsalam_logic_flutter
+  - [x] 6.1.2 Add [ServiceName] prefix to all service logs
+  - [x] 6.1.3 Log all service operations (info level)
+  - [x] 6.1.4 Log errors with error object and stack trace
+  - [x] 6.1.5 Log warnings for recoverable issues
+  - [x] 6.1.6 Log debug information for detailed debugging
 
-- [ ] 6.2 Implement error handling
-  - [ ] 6.2.1 Create ErrorHandler utility class
-  - [ ] 6.2.2 Catch all exceptions and convert to AppError types
-  - [ ] 6.2.3 Display user-friendly error messages in UI
-  - [ ] 6.2.4 Log technical details for debugging
+- [x] 6.2 Implement error handling
+  - [x] 6.2.1 Create ErrorHandler utility class
+  - [x] 6.2.2 Catch all exceptions and convert to AppError types
+  - [x] 6.2.3 Display user-friendly error messages in UI
+  - [x] 6.2.4 Log technical details for debugging
   - [ ] 6.2.5 Write unit tests for error handling
 
-- [ ] 6.3 Implement lifecycle and state logging
-  - [ ] 6.3.1 Log app lifecycle events (startup, pause, resume, terminate)
-  - [ ] 6.3.2 Log state changes (online/offline, battery level)
-  - [ ] 6.3.3 Log state-aware decisions
-  - [ ] 6.3.4 Implement log export functionality
+- [x] 6.3 Implement lifecycle and state logging
+  - [x] 6.3.1 Log app lifecycle events (startup, pause, resume, terminate)
+  - [x] 6.3.2 Log state changes (online/offline, battery level)
+  - [x] 6.3.3 Log state-aware decisions
+  - [x] 6.3.4 Implement log export functionality
 
 
 ## Phase 2: Core Modules (Requirements 3, 4, 5, 6, 7, 8)

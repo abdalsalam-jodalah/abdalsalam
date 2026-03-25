@@ -73,34 +73,56 @@ class QuranProgressScreen extends ConsumerWidget {
     final shouldSave = await showDialog<bool>(
       context: context,
       builder: (context) {
-        return AlertDialog(
-          title: const Text('Add Quran Progress'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: pagesController,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(labelText: 'Pages read'),
+        String? pagesError;
+        String? minutesError;
+
+        return StatefulBuilder(
+          builder: (context, setState) => AlertDialog(
+            title: const Text('Add Quran Progress'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: pagesController,
+                  keyboardType: TextInputType.number,
+                  decoration: InputDecoration(
+                    labelText: 'Pages read',
+                    errorText: pagesError,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: minutesController,
+                  keyboardType: TextInputType.number,
+                  decoration: InputDecoration(
+                    labelText: 'Minutes spent',
+                    errorText: minutesError,
+                  ),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(false),
+                child: const Text('Cancel'),
               ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: minutesController,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(labelText: 'Minutes spent'),
+              FilledButton(
+                onPressed: () {
+                  final pages = int.tryParse(pagesController.text.trim()) ?? 0;
+                  final minutes = int.tryParse(minutesController.text.trim()) ?? 0;
+                  setState(() {
+                    pagesError = pages <= 0 ? 'Pages must be greater than 0' : null;
+                    minutesError =
+                        minutes <= 0 ? 'Minutes must be greater than 0' : null;
+                  });
+                  if (pagesError == null && minutesError == null) {
+                    Navigator.of(context).pop(true);
+                  }
+                },
+                child: const Text('Save'),
               ),
             ],
           ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(false),
-              child: const Text('Cancel'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.of(context).pop(true),
-              child: const Text('Save'),
-            ),
-          ],
         );
       },
     );

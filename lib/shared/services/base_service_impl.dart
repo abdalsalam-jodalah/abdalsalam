@@ -19,29 +19,43 @@ abstract class BaseServiceImpl<T extends BaseModel> implements BaseService<T> {
 
   @override
   Future<Result<T, AppError>> create(T entity) async {
+    logger.info('[$serviceName] create started id=${entity.id}');
     final validation = validate(entity);
     if (validation.isFailure) {
+      logger.warning('[$serviceName] create validation failed: ${validation.error}');
       return Failure(validation.error!);
     }
-    return repository.create(entity);
+    final result = await repository.create(entity);
+    if (result.isFailure) {
+      logger.warning('[$serviceName] create failed: ${result.error}');
+    }
+    return result;
   }
 
   @override
   Future<Result<List<T>, AppError>> createBulk(List<T> entities) async {
+    logger.info('[$serviceName] createBulk started count=${entities.length}');
     final validation = validateBulk(entities);
     if (validation.isFailure) {
+      logger.warning('[$serviceName] createBulk validation failed: ${validation.error}');
       return Failure(validation.error!);
     }
-    return repository.createBulk(entities);
+    final result = await repository.createBulk(entities);
+    if (result.isFailure) {
+      logger.warning('[$serviceName] createBulk failed: ${result.error}');
+    }
+    return result;
   }
 
   @override
   Future<Result<void, AppError>> delete(String id) {
+    logger.info('[$serviceName] delete started id=$id');
     return repository.delete(id);
   }
 
   @override
   Future<Result<void, AppError>> deleteBulk(List<String> ids) {
+    logger.info('[$serviceName] deleteBulk started count=${ids.length}');
     return repository.deleteBulk(ids);
   }
 
@@ -77,7 +91,7 @@ abstract class BaseServiceImpl<T extends BaseModel> implements BaseService<T> {
       return Success(export);
     } catch (e, st) {
       logger.error('[$serviceName] exportWithMetadata failed', error: e, stackTrace: st);
-      return Failure(ImportExportError(e.toString()));
+      return Failure(ExportError(e.toString()));
     }
   }
 
@@ -149,7 +163,7 @@ abstract class BaseServiceImpl<T extends BaseModel> implements BaseService<T> {
       return importWithValidation(decoded);
     } catch (e, st) {
       logger.error('[$serviceName] importFromJson failed', error: e, stackTrace: st);
-      return Failure(ImportExportError(e.toString()));
+      return Failure(ImportError(e.toString()));
     }
   }
 
@@ -184,7 +198,7 @@ abstract class BaseServiceImpl<T extends BaseModel> implements BaseService<T> {
       return const Success(null);
     } catch (e, st) {
       logger.error('[$serviceName] importWithValidation failed', error: e, stackTrace: st);
-      return Failure(ImportExportError(e.toString()));
+      return Failure(ImportError(e.toString()));
     }
   }
 
@@ -213,20 +227,32 @@ abstract class BaseServiceImpl<T extends BaseModel> implements BaseService<T> {
 
   @override
   Future<Result<void, AppError>> update(T entity) async {
+    logger.info('[$serviceName] update started id=${entity.id}');
     final validation = validate(entity);
     if (validation.isFailure) {
+      logger.warning('[$serviceName] update validation failed: ${validation.error}');
       return Failure(validation.error!);
     }
-    return repository.update(entity);
+    final result = await repository.update(entity);
+    if (result.isFailure) {
+      logger.warning('[$serviceName] update failed: ${result.error}');
+    }
+    return result;
   }
 
   @override
   Future<Result<void, AppError>> updateBulk(List<T> entities) async {
+    logger.info('[$serviceName] updateBulk started count=${entities.length}');
     final validation = validateBulk(entities);
     if (validation.isFailure) {
+      logger.warning('[$serviceName] updateBulk validation failed: ${validation.error}');
       return Failure(validation.error!);
     }
-    return repository.updateBulk(entities);
+    final result = await repository.updateBulk(entities);
+    if (result.isFailure) {
+      logger.warning('[$serviceName] updateBulk failed: ${result.error}');
+    }
+    return result;
   }
 
   @override

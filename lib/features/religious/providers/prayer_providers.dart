@@ -2,18 +2,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../data/models/religious/prayer_log.dart';
 import '../../../data/repositories/religious/prayer_repository.dart';
-import '../../../shared/infrastructure/logger_service.dart';
+import '../../../providers/app_providers.dart';
 import '../services/prayer_service.dart';
 
 const demoUserId = 'local-user';
 
-final loggerProvider = Provider<LoggerService>((ref) {
-  return const LoggerService();
-});
-
 final prayerRepositoryProvider = Provider<PrayerRepository>((ref) {
   final logger = ref.watch(loggerProvider);
-  return PrayerRepository(logger);
+  final storage = ref.watch(storageGatewayProvider);
+  return PrayerRepository(storage, logger);
 });
 
 final prayerServiceProvider = Provider<PrayerService>((ref) {

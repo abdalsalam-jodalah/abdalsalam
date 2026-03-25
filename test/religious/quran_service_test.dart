@@ -1,15 +1,18 @@
 import 'package:abdalsalam/data/repositories/religious/quran_repository.dart';
 import 'package:abdalsalam/features/religious/services/quran_service.dart';
 import 'package:abdalsalam/shared/infrastructure/logger_service.dart';
+import 'package:abdalsalam/shared/infrastructure/storage_gateway.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   group('QuranService', () {
     late QuranService service;
 
-    setUp(() {
-      final logger = const LoggerService();
-      final repository = QuranRepository(logger);
+    setUp(() async {
+      await LoggerService.initialize();
+      await StorageGateway.instance.initialize(databaseName: 'test_abdalsalam.db');
+      final logger = LoggerService.forModule('QuranServiceTest');
+      final repository = QuranRepository(StorageGateway.instance, logger);
       service = QuranService(repository, logger);
     });
 

@@ -91,11 +91,23 @@ class PrayerService extends BaseServiceImpl<PrayerLog> {
   @override
   Result<void, AppError> validate(PrayerLog entity) {
     if (entity.userId.trim().isEmpty) {
-      return Failure(ValidationError('userId is required'));
+      return Failure(
+        ValidationError(
+          'Validation failed',
+          fieldErrors: const <String, String>{'userId': 'userId is required'},
+        ),
+      );
     }
 
     if (entity.prayedAt.isAfter(DateTime.now().add(const Duration(minutes: 1)))) {
-      return Failure(ValidationError('prayedAt cannot be in the future'));
+      return Failure(
+        ValidationError(
+          'Validation failed',
+          fieldErrors: const <String, String>{
+            'prayedAt': 'prayedAt cannot be in the future',
+          },
+        ),
+      );
     }
 
     return const Success(null);

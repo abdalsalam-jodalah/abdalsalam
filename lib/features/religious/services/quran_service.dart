@@ -83,19 +83,45 @@ class QuranService extends BaseServiceImpl<QuranProgress> {
   @override
   Result<void, AppError> validate(QuranProgress entity) {
     if (entity.userId.trim().isEmpty) {
-      return Failure(ValidationError('userId is required'));
+      return Failure(
+        ValidationError(
+          'Validation failed',
+          fieldErrors: const <String, String>{'userId': 'userId is required'},
+        ),
+      );
     }
 
     if (entity.pagesRead <= 0) {
-      return Failure(ValidationError('pagesRead must be greater than zero'));
+      return Failure(
+        ValidationError(
+          'Validation failed',
+          fieldErrors: const <String, String>{
+            'pagesRead': 'pagesRead must be greater than zero',
+          },
+        ),
+      );
     }
 
     if (entity.minutesSpent <= 0) {
-      return Failure(ValidationError('minutesSpent must be greater than zero'));
+      return Failure(
+        ValidationError(
+          'Validation failed',
+          fieldErrors: const <String, String>{
+            'minutesSpent': 'minutesSpent must be greater than zero',
+          },
+        ),
+      );
     }
 
     if (entity.loggedAt.isAfter(DateTime.now().add(const Duration(minutes: 1)))) {
-      return Failure(ValidationError('loggedAt cannot be in the future'));
+      return Failure(
+        ValidationError(
+          'Validation failed',
+          fieldErrors: const <String, String>{
+            'loggedAt': 'loggedAt cannot be in the future',
+          },
+        ),
+      );
     }
 
     return const Success(null);

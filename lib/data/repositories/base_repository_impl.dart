@@ -3,29 +3,29 @@ import 'dart:convert';
 import '../../core/errors/app_error.dart';
 import '../../core/result/result.dart';
 import '../../shared/infrastructure/logger_service.dart';
+import '../../shared/infrastructure/storage_gateway.dart';
 import '../models/base_model.dart';
 import 'base_repository.dart';
 
 abstract class BaseRepositoryImpl<T extends BaseModel>
     implements BaseRepository<T> {
-  static final Map<String, Map<String, Map<String, dynamic>>> _tables =
-      <String, Map<String, Map<String, dynamic>>>{};
-
   final LoggerService logger;
+  final StorageGateway storage;
 
   String get tableName;
   T fromJson(Map<String, dynamic> json);
 
-  const BaseRepositoryImpl(this.logger);
-
-  Map<String, Map<String, dynamic>> get _table {
-    return _tables.putIfAbsent(tableName, () => <String, Map<String, dynamic>>{});
-  }
+  const BaseRepositoryImpl(this.storage, this.logger);
 
   @override
   Future<Result<T, AppError>> create(T entity) async {
     try {
-      _table[entity.id] = entity.toJson();
+      await storage.upsertRecord(
+        table: tableName,
+        id: entity.id,
+        record: entity.toJson(),
+        userId: entity.toJson()['userId'] as String?,
+      );
       logger.info('[$tableName] created ${entity.id}');
       return Success(entity);
     } catch (e, st) {
@@ -38,7 +38,12 @@ abstract class BaseRepositoryImpl<T extends BaseModel>
   Future<Result<List<T>, AppError>> createBulk(List<T> entities) async {
     try {
       for (final entity in entities) {
-        _table[entity.id] = entity.toJson();
+        await storage.upsertRecord(
+          table: tableName,
+          id: entity.id,
+          record: entity.toJson(),
+          userId: entity.toJson()['userId'] as String?,
+        );
       }
       logger.info('[$tableName] created bulk count=${entities.length}');
       return Success(entities);
@@ -51,7 +56,7 @@ abstract class BaseRepositoryImpl<T extends BaseModel>
   @override
   Future<Result<void, AppError>> delete(String id) async {
     try {
-      _table.remove(id);
+      await storage.deleteRecord(table: tableName, id: id);
       return const Success(null);
     } catch (e, st) {
       logger.error('[$tableName] delete failed', error: e, stackTrace: st);
@@ -62,7 +67,7 @@ abstract class BaseRepositoryImpl<T extends BaseModel>
   @override
   Future<Result<void, AppError>> deleteAll() async {
     try {
-      _table.clear();
+      await storage.clearTable(tableName);
       return const Success(null);
     } catch (e, st) {
       logger.error('[$tableName] deleteAll failed', error: e, stackTrace: st);
@@ -74,7 +79,7 @@ abstract class BaseRepositoryImpl<T extends BaseModel>
   Future<Result<void, AppError>> deleteBulk(List<String> ids) async {
     try {
       for (final id in ids) {
-        _table.remove(id);
+        await storage.deleteRecord(table: tableName, id: id);
       }
       return const Success(null);
     } catch (e, st) {
@@ -86,7 +91,7 @@ abstract class BaseRepositoryImpl<T extends BaseModel>
   @override
   Future<Result<List<T>, AppError>> getActive() async {
     try {
-      final list = _table.values
+      final list = (await storage.getAllRecords(table: tableName))
           .map(fromJson)
           .where((item) => item.isActive)
           .toList(growable: false);
@@ -100,7 +105,9 @@ abstract class BaseRepositoryImpl<T extends BaseModel>
   @override
   Future<Result<List<T>, AppError>> getAll() async {
     try {
-      final list = _table.values.map(fromJson).toList(growable: false);
+      final list = (await storage.getAllRecords(table: tableName))
+          .map(fromJson)
+          .toList(growable: false);
       return Success(_sortByCreatedDesc(list));
     } catch (e, st) {
       logger.error('[$tableName] getAll failed', error: e, stackTrace: st);
@@ -111,7 +118,7 @@ abstract class BaseRepositoryImpl<T extends BaseModel>
   @override
   Future<Result<T?, AppError>> getById(String id) async {
     try {
-      final value = _table[id];
+      final value = await storage.getRecord(table: tableName, id: id);
       if (value == null) {
         return const Success(null);
       }
@@ -128,7 +135,7 @@ abstract class BaseRepositoryImpl<T extends BaseModel>
     DateTime end,
   ) async {
     try {
-      final list = _table.values
+      final list = (await storage.getAllRecords(table: tableName))
           .map(fromJson)
           .where(
             (item) =>
@@ -145,8 +152,7 @@ abstract class BaseRepositoryImpl<T extends BaseModel>
   @override
   Future<Result<List<T>, AppError>> getByUserId(String userId) async {
     try {
-      final list = _table.values
-          .where((row) => row['userId'] == userId)
+      final list = (await storage.getAllRecords(table: tableName, userId: userId))
           .map(fromJson)
           .toList(growable: false);
       return Success(_sortByCreatedDesc(list));
@@ -158,12 +164,13 @@ abstract class BaseRepositoryImpl<T extends BaseModel>
 
   @override
   Future<Result<int, AppError>> count() async {
-    return Success(_table.length);
+    final rows = await storage.getAllRecords(table: tableName);
+    return Success(rows.length);
   }
 
   @override
   Future<Result<int, AppError>> countActive() async {
-    final active = _table.values
+    final active = (await storage.getAllRecords(table: tableName))
         .map(fromJson)
         .where((item) => item.isActive)
         .length;
@@ -172,7 +179,7 @@ abstract class BaseRepositoryImpl<T extends BaseModel>
 
   @override
   Future<Result<int, AppError>> countDeleted() async {
-    final deleted = _table.values
+    final deleted = (await storage.getAllRecords(table: tableName))
         .map(fromJson)
         .where((item) => item.isDeleted)
         .length;
@@ -182,7 +189,7 @@ abstract class BaseRepositoryImpl<T extends BaseModel>
   @override
   Future<Result<List<T>, AppError>> getDeleted() async {
     try {
-      final list = _table.values
+      final list = (await storage.getAllRecords(table: tableName))
           .map(fromJson)
           .where((item) => item.isDeleted)
           .toList(growable: false);
@@ -196,14 +203,9 @@ abstract class BaseRepositoryImpl<T extends BaseModel>
   @override
   Future<Result<List<T>, AppError>> query(Map<String, dynamic> filters) async {
     try {
-      final list = _table.values.where((row) {
-        for (final entry in filters.entries) {
-          if (row[entry.key] != entry.value) {
-            return false;
-          }
-        }
-        return true;
-      }).map(fromJson).toList(growable: false);
+      final list = (await storage.query(table: tableName, filters: filters))
+          .map(fromJson)
+          .toList(growable: false);
       return Success(_sortByCreatedDesc(list));
     } catch (e, st) {
       logger.error('[$tableName] query failed', error: e, stackTrace: st);
@@ -214,12 +216,12 @@ abstract class BaseRepositoryImpl<T extends BaseModel>
   @override
   Future<Result<void, AppError>> restore(String id) async {
     try {
-      final current = _table[id];
+      final current = await storage.getRecord(table: tableName, id: id);
       if (current == null) {
         return Failure(NotFoundError('Entity not found: $id'));
       }
       current['deletedAt'] = null;
-      _table[id] = current;
+      await storage.upsertRecord(table: tableName, id: id, record: current);
       return const Success(null);
     } catch (e, st) {
       logger.error('[$tableName] restore failed', error: e, stackTrace: st);
@@ -231,7 +233,7 @@ abstract class BaseRepositoryImpl<T extends BaseModel>
   Future<Result<List<T>, AppError>> search(String searchTerm) async {
     try {
       final lowerTerm = searchTerm.toLowerCase();
-      final list = _table.values.where((row) {
+      final list = (await storage.getAllRecords(table: tableName)).where((row) {
         final content = jsonEncode(row).toLowerCase();
         return content.contains(lowerTerm);
       }).map(fromJson).toList(growable: false);
@@ -245,12 +247,12 @@ abstract class BaseRepositoryImpl<T extends BaseModel>
   @override
   Future<Result<void, AppError>> softDelete(String id) async {
     try {
-      final current = _table[id];
+      final current = await storage.getRecord(table: tableName, id: id);
       if (current == null) {
         return Failure(NotFoundError('Entity not found: $id'));
       }
       current['deletedAt'] = DateTime.now().toIso8601String();
-      _table[id] = current;
+      await storage.upsertRecord(table: tableName, id: id, record: current);
       return const Success(null);
     } catch (e, st) {
       logger.error('[$tableName] softDelete failed', error: e, stackTrace: st);
@@ -261,10 +263,16 @@ abstract class BaseRepositoryImpl<T extends BaseModel>
   @override
   Future<Result<void, AppError>> update(T entity) async {
     try {
-      if (!_table.containsKey(entity.id)) {
+      final existing = await storage.getRecord(table: tableName, id: entity.id);
+      if (existing == null) {
         return Failure(NotFoundError('Entity not found: ${entity.id}'));
       }
-      _table[entity.id] = entity.toJson();
+      await storage.upsertRecord(
+        table: tableName,
+        id: entity.id,
+        record: entity.toJson(),
+        userId: entity.toJson()['userId'] as String?,
+      );
       return const Success(null);
     } catch (e, st) {
       logger.error('[$tableName] update failed', error: e, stackTrace: st);
@@ -276,7 +284,12 @@ abstract class BaseRepositoryImpl<T extends BaseModel>
   Future<Result<void, AppError>> updateBulk(List<T> entities) async {
     try {
       for (final entity in entities) {
-        _table[entity.id] = entity.toJson();
+        await storage.upsertRecord(
+          table: tableName,
+          id: entity.id,
+          record: entity.toJson(),
+          userId: entity.toJson()['userId'] as String?,
+        );
       }
       return const Success(null);
     } catch (e, st) {
@@ -287,6 +300,7 @@ abstract class BaseRepositoryImpl<T extends BaseModel>
 
   @override
   Future<Result<void, AppError>> vacuum() async {
+    await storage.vacuum();
     return const Success(null);
   }
 

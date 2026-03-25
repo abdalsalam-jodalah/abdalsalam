@@ -9,6 +9,8 @@ import '../../health/screens/health_screen.dart';
 import '../../notes/screens/notes_screen.dart';
 import '../../religious/providers/prayer_providers.dart';
 import '../../religious/providers/quran_providers.dart';
+import '../../../providers/app_providers.dart';
+import '../../../shared/widgets/offline_banner.dart';
 import '../../religious/screens/prayer_logs_screen.dart';
 import '../../security/screens/security_screen.dart';
 import '../../sports/screens/sports_screen.dart';
@@ -91,14 +93,71 @@ class DashboardScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final prayerCount = ref.watch(prayerCountProvider);
     final quranPages = ref.watch(quranPagesTodayProvider);
+    final isOffline = ref.watch(isOfflineProvider);
+    final batteryInfo = ref.watch(batteryInfoProvider);
+    final storageInfo = ref.watch(storageInfoProvider);
+    final stateAware = ref.watch(stateAwareServiceProvider);
+    final lowStorage = storageInfo.maybeWhen(
+      data: (info) => info.usagePercentage >= 90,
+      orElse: () => false,
+    );
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Abdalsalam Dashboard')),
+      appBar: AppBar(
+        title: const Text('Abdalsalam Dashboard'),
+        actions: [
+          Icon(
+            isOffline ? Icons.cloud_off : Icons.cloud_done,
+            color: isOffline ? Colors.orange : Colors.green,
+          ),
+          const SizedBox(width: 8),
+          batteryInfo.maybeWhen(
+            data: (battery) {
+              final level = battery.batteryLevel ?? 0;
+              return Padding(
+                padding: const EdgeInsets.only(right: 12),
+                child: Center(
+                  child: Text(
+                    '$level%',
+                    style: TextStyle(
+                      color: level < 20 ? Colors.red : null,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              );
+            },
+            orElse: () => const SizedBox.shrink(),
+          ),
+        ],
+      ),
       body: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            OfflineBanner(isOffline: isOffline),
+            if (isOffline) const SizedBox(height: 12),
+            if (lowStorage) ...[
+              Card(
+                color: Colors.red.shade50,
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        stateAware.storageWarningMessage() ?? 'Storage is running low.',
+                        style: const TextStyle(fontWeight: FontWeight.w700),
+                      ),
+                      const SizedBox(height: 6),
+                      ...stateAware.cleanupSuggestions().map((tip) => Text('• $tip')),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+            ],
             const Text(
               'All Sections',
               style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
