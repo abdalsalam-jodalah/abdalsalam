@@ -3,6 +3,8 @@ import 'storage_gateway.dart';
 class DatabaseSchemaInitializer {
   static const List<String> tables = <String>[
     'prayer_logs',
+    'religious_entries',
+    'prayer_times_snapshots',
     'quran_progress',
     'quran_readings',
     'spiritual_progress',

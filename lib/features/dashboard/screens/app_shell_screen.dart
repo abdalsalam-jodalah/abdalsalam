@@ -7,7 +7,7 @@ import '../../financial/screens/financial_screen.dart';
 import '../../habits/screens/habits_screen.dart';
 import '../../health/screens/health_screen.dart';
 import '../../notes/screens/notes_screen.dart';
-import '../../religious/screens/prayer_logs_screen.dart';
+import '../../religious/screens/religious_home_screen.dart';
 import '../../security/screens/security_screen.dart';
 import '../../settings/screens/settings_screen.dart';
 import '../../sports/screens/sports_screen.dart';
@@ -35,7 +35,7 @@ class _AppShellScreenState extends State<AppShellScreen> {
   static const _destinations = <_ShellDestination>[
     _ShellDestination('Dashboard', Icons.dashboard_outlined, DashboardScreen()),
     _ShellDestination('Quick Add', Icons.add_circle_outline, _QuickAddPage()),
-    _ShellDestination('Religious', Icons.mosque_outlined, PrayerLogsScreen()),
+    _ShellDestination('Religious', Icons.mosque_outlined, ReligiousHomeScreen()),
     _ShellDestination('Financial', Icons.account_balance_wallet_outlined, FinancialScreen()),
     _ShellDestination('Habits', Icons.repeat_rounded, HabitsScreen()),
     _ShellDestination('Sports', Icons.fitness_center, SportsScreen()),

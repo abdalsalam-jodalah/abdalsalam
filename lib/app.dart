@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'core/router/app_router.dart';
+import 'features/religious/providers/religious_tracking_providers.dart';
 import 'core/theme/app_theme.dart';
 import 'features/dashboard/screens/app_shell_screen.dart';
 import 'providers/app_providers.dart';
@@ -19,6 +20,7 @@ class _AbdalsalamAppState extends ConsumerState<AbdalsalamApp> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(syncQueueProcessorProvider);
+      ref.read(religiousSyncSchedulerProvider).start();
     });
   }
 

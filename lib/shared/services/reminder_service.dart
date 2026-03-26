@@ -252,7 +252,7 @@ class ReminderService {
   String? routeForPayload(ReminderPayload payload) {
     switch (payload.module) {
       case ReminderModule.religious:
-        return '/religious/prayer-logs';
+        return '/religious';
       case ReminderModule.financial:
         return '/financial';
       case ReminderModule.habits:

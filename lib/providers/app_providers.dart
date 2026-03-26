@@ -146,6 +146,8 @@ final appSettingsProvider = FutureProvider<Map<String, dynamic>>((ref) async {
 final backupTablesProvider = Provider<List<String>>((ref) {
   return const <String>[
     'prayer_logs',
+    'religious_entries',
+    'prayer_times_snapshots',
     'quran_progress',
     'quran_readings',
     'spiritual_progress',

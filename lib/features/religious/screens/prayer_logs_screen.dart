@@ -50,7 +50,9 @@ class PrayerLogsScreen extends ConsumerWidget {
                   ),
                   trailing: Icon(
                     log.onTime ? Icons.check_circle : Icons.schedule,
-                    color: log.onTime ? Colors.green : Colors.orange,
+                    color: log.onTime
+                        ? Theme.of(context).colorScheme.primary
+                        : Theme.of(context).colorScheme.tertiary,
                   ),
                 ),
               );

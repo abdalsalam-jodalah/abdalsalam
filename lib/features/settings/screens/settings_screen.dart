@@ -56,6 +56,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     final language = (_settings['language'] as String?) ?? 'en';
     final firstDay = (_settings['firstDayOfWeek'] as String?) ?? 'saturday';
     final prayerMethod = (_settings['prayerMethod'] as String?) ?? 'muslim_world_league';
+    final religiousRemindersEnabled = (_settings['religiousRemindersEnabled'] as bool?) ?? true;
+    final religiousPrayerRemindersEnabled = (_settings['religiousPrayerRemindersEnabled'] as bool?) ?? true;
+    final religiousQuranRemindersEnabled = (_settings['religiousQuranRemindersEnabled'] as bool?) ?? true;
+    final religiousAthkarRemindersEnabled = (_settings['religiousAthkarRemindersEnabled'] as bool?) ?? true;
+    final religiousNightRemindersEnabled = (_settings['religiousNightRemindersEnabled'] as bool?) ?? true;
+    final religiousBadEventRemindersEnabled = (_settings['religiousBadEventRemindersEnabled'] as bool?) ?? true;
+    final religiousDefaultReminderMinutes = (_settings['religiousDefaultReminderMinutes'] as int?) ?? 10;
     final autoLockMinutes = (_settings['autoLockMinutes'] as int?) ?? 5;
     final backupReminderDays = (_settings['backupReminderDays'] as int?) ?? 7;
     final notificationPriority = (_settings['notificationPriority'] as String?) ?? 'default';
@@ -147,6 +154,61 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             onTap: () => _update(
               'prayerMethod',
               prayerMethod == 'muslim_world_league' ? 'umm_al_qura' : 'muslim_world_league',
+            ),
+          ),
+          const ListTile(title: Text('Religious Reminders')),
+          SwitchListTile(
+            value: religiousRemindersEnabled,
+            title: const Text('Enable religious reminders'),
+            onChanged: (value) => _update('religiousRemindersEnabled', value),
+          ),
+          SwitchListTile(
+            value: religiousPrayerRemindersEnabled,
+            title: const Text('Prayer reminders'),
+            dense: true,
+            onChanged: religiousRemindersEnabled
+                ? (value) => _update('religiousPrayerRemindersEnabled', value)
+                : null,
+          ),
+          SwitchListTile(
+            value: religiousQuranRemindersEnabled,
+            title: const Text('Quran reminders'),
+            dense: true,
+            onChanged: religiousRemindersEnabled
+                ? (value) => _update('religiousQuranRemindersEnabled', value)
+                : null,
+          ),
+          SwitchListTile(
+            value: religiousAthkarRemindersEnabled,
+            title: const Text('Athkar reminders'),
+            dense: true,
+            onChanged: religiousRemindersEnabled
+                ? (value) => _update('religiousAthkarRemindersEnabled', value)
+                : null,
+          ),
+          SwitchListTile(
+            value: religiousNightRemindersEnabled,
+            title: const Text('Night prayer reminders'),
+            dense: true,
+            onChanged: religiousRemindersEnabled
+                ? (value) => _update('religiousNightRemindersEnabled', value)
+                : null,
+          ),
+          SwitchListTile(
+            value: religiousBadEventRemindersEnabled,
+            title: const Text('Bad event reminders'),
+            dense: true,
+            onChanged: religiousRemindersEnabled
+                ? (value) => _update('religiousBadEventRemindersEnabled', value)
+                : null,
+          ),
+          ListTile(
+            title: const Text('Prayer reminder lead time'),
+            subtitle: Text('$religiousDefaultReminderMinutes minutes before prayer'),
+            trailing: const Icon(Icons.schedule_outlined),
+            onTap: () => _update(
+              'religiousDefaultReminderMinutes',
+              religiousDefaultReminderMinutes == 10 ? 15 : 10,
             ),
           ),
           ListTile(
