@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../religious/providers/prayer_providers.dart';
@@ -128,107 +127,6 @@ class DashboardScreen extends ConsumerWidget {
           ],
         ),
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _showQuickAddModal(context),
-        icon: const Icon(Icons.add),
-        label: const Text('Quick Add'),
-      ),
-    );
-  }
-
-  Future<void> _showQuickAddModal(BuildContext context) async {
-    await showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      builder: (context) {
-        return DefaultTabController(
-          length: 4,
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-            child: SizedBox(
-              height: 360,
-              child: Column(
-                children: [
-                  const TabBar(
-                    tabs: [
-                      Tab(text: 'Prayer'),
-                      Tab(text: 'Expense'),
-                      Tab(text: 'Habit'),
-                      Tab(text: 'Todo'),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  const Expanded(
-                    child: TabBarView(
-                      children: [
-                        _QuickAddPane(label: 'Quick prayer log saved'),
-                        _QuickAddPane(label: 'Quick expense saved'),
-                        _QuickAddPane(label: 'Quick habit completion saved'),
-                        _QuickAddPane(label: 'Quick todo saved'),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        );
-      },
-    );
-  }
-}
-
-class _QuickAddPane extends StatelessWidget {
-  final String label;
-
-  const _QuickAddPane({required this.label});
-
-  @override
-  Widget build(BuildContext context) {
-    final now = DateTime.now();
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        TextField(
-          decoration: InputDecoration(
-            labelText: 'Title',
-            hintText: 'Quick entry ${now.hour}:${now.minute.toString().padLeft(2, '0')}',
-          ),
-        ),
-        const SizedBox(height: 10),
-        const TextField(
-          decoration: InputDecoration(labelText: 'Notes', hintText: 'Default: Today'),
-        ),
-        const SizedBox(height: 10),
-        const Text('Smart defaults use current date/time context.'),
-        const Spacer(),
-        Row(
-          children: [
-            Expanded(
-              child: FilledButton(
-                onPressed: () {
-                  HapticFeedback.lightImpact();
-                  Navigator.of(context).pop();
-                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(label)));
-                },
-                child: const Text('Save'),
-              ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: OutlinedButton(
-                onPressed: () {
-                  HapticFeedback.lightImpact();
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Saved. Continue adding another item.')),
-                  );
-                },
-                child: const Text('Save & Continue'),
-              ),
-            ),
-          ],
-        ),
-      ],
     );
   }
 }

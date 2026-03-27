@@ -1,3 +1,6 @@
+import 'dart:math' as math;
+
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 
 import '../../analytics/screens/analytics_screen.dart';
@@ -26,6 +29,9 @@ class _AppShellScreenState extends State<AppShellScreen> {
   _SidebarMode _sidebarMode = _SidebarMode.icons;
   double _dragDelta = 0;
   double _openHandleTop = 140;
+  bool _logWheelOpen = false;
+  int _logWheelIndex = 0;
+  double _logWheelTurnCarry = 0;
 
   static const double _closedWidth = 0;
   static const double _iconsWidth = 84;
@@ -35,7 +41,6 @@ class _AppShellScreenState extends State<AppShellScreen> {
 
   static const _destinations = <_ShellDestination>[
     _ShellDestination('Dashboard', Icons.dashboard_outlined, DashboardScreen()),
-    _ShellDestination('Quick Add', Icons.add_circle_outline, _QuickAddPage()),
     _ShellDestination('Religious', Icons.mosque_outlined, ReligiousHomeScreen()),
     _ShellDestination('Financial', Icons.account_balance_wallet_outlined, FinancialScreen()),
     _ShellDestination('Habits', Icons.repeat_rounded, HabitsScreen()),
@@ -46,6 +51,15 @@ class _AppShellScreenState extends State<AppShellScreen> {
     _ShellDestination('Security', Icons.lock_outline, SecurityScreen()),
     _ShellDestination('Analytics', Icons.insights_outlined, AnalyticsScreen()),
     _ShellDestination('Settings', Icons.settings_outlined, SettingsScreen()),
+  ];
+
+  static const _logActions = <_LogAction>[
+    _LogAction(label: 'Prayer', icon: Icons.mosque_outlined, routeName: '/religious/prayer-log'),
+    _LogAction(label: 'Quran', icon: Icons.menu_book_outlined, routeName: '/religious/quran-reading'),
+    _LogAction(label: 'Finance', icon: Icons.receipt_long_outlined, routeName: '/financial/transaction-form'),
+    _LogAction(label: 'Habit', icon: Icons.repeat_rounded, routeName: '/habits/form'),
+    _LogAction(label: 'Medication', icon: Icons.medication_outlined, routeName: '/health/medication-form'),
+    _LogAction(label: 'Event', icon: Icons.event_note_outlined, routeName: '/calendar/new-event'),
   ];
 
   double get _sidebarWidth {
@@ -61,6 +75,45 @@ class _AppShellScreenState extends State<AppShellScreen> {
 
   void _setMode(_SidebarMode mode) {
     setState(() => _sidebarMode = mode);
+  }
+
+  void _toggleLogWheel() {
+    setState(() {
+      _logWheelOpen = !_logWheelOpen;
+      if (!_logWheelOpen) {
+        _logWheelIndex = 0;
+        _logWheelTurnCarry = 0;
+      }
+    });
+  }
+
+  Future<void> _openLogRoute(String routeName) async {
+    setState(() {
+      _logWheelOpen = false;
+      _logWheelIndex = 0;
+      _logWheelTurnCarry = 0;
+    });
+    await Navigator.of(context).pushNamed(routeName);
+  }
+
+  void _stepLogWheel(int step) {
+    const visibleSlots = 4;
+    final maxIndex = math.max(0, _logActions.length - visibleSlots);
+    setState(() {
+      _logWheelIndex = (_logWheelIndex + step).clamp(0, maxIndex);
+    });
+  }
+
+  void _turnLogWheel(double rawTurnDelta) {
+    _logWheelTurnCarry += rawTurnDelta;
+    while (_logWheelTurnCarry >= 1.0) {
+      _stepLogWheel(-1);
+      _logWheelTurnCarry -= 1.0;
+    }
+    while (_logWheelTurnCarry <= -1.0) {
+      _stepLogWheel(1);
+      _logWheelTurnCarry += 1.0;
+    }
   }
 
   void _stepOpen() {
@@ -205,6 +258,30 @@ class _AppShellScreenState extends State<AppShellScreen> {
                               ),
                             ),
                           ),
+                        if (_logWheelOpen)
+                          Positioned.fill(
+                            child: GestureDetector(
+                              behavior: HitTestBehavior.translucent,
+                              onTap: () => setState(() {
+                                _logWheelOpen = false;
+                                _logWheelIndex = 0;
+                                _logWheelTurnCarry = 0;
+                              }),
+                              child: const SizedBox.expand(),
+                            ),
+                          ),
+                        Positioned(
+                          right: 16,
+                          bottom: 16,
+                          child: _QuarterLogFab(
+                            isOpen: _logWheelOpen,
+                            actions: _logActions,
+                            startIndex: _logWheelIndex,
+                            onTurnDelta: _turnLogWheel,
+                            onToggle: _toggleLogWheel,
+                            onActionTap: _openLogRoute,
+                          ),
+                        ),
                       ],
                     );
                   },
@@ -382,21 +459,155 @@ class _ShellDestination {
   const _ShellDestination(this.label, this.icon, this.page);
 }
 
-class _QuickAddPage extends StatelessWidget {
-  const _QuickAddPage();
+class _LogAction {
+  final String label;
+  final IconData icon;
+  final String routeName;
+
+  const _LogAction({
+    required this.label,
+    required this.icon,
+    required this.routeName,
+  });
+}
+
+class _QuarterLogFab extends StatelessWidget {
+  final bool isOpen;
+  final List<_LogAction> actions;
+  final int startIndex;
+  final ValueChanged<double> onTurnDelta;
+  final VoidCallback onToggle;
+  final ValueChanged<String> onActionTap;
+
+  const _QuarterLogFab({
+    required this.isOpen,
+    required this.actions,
+    required this.startIndex,
+    required this.onTurnDelta,
+    required this.onToggle,
+    required this.onActionTap,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Quick Add')),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: const [
-          ListTile(leading: Icon(Icons.mosque_outlined), title: Text('Prayer Log')),
-          ListTile(leading: Icon(Icons.receipt_long_outlined), title: Text('Expense')),
-          ListTile(leading: Icon(Icons.repeat), title: Text('Habit Check-in')),
-          ListTile(leading: Icon(Icons.event_note_outlined), title: Text('Todo/Event')),
-        ],
+    const radius = 106.0;
+    const visibleSlots = 4;
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Listener(
+      behavior: HitTestBehavior.translucent,
+      onPointerSignal: (event) {
+        if (!isOpen) {
+          return;
+        }
+        if (event is PointerScrollEvent) {
+          onTurnDelta(event.scrollDelta.dy / 20);
+        }
+      },
+      child: GestureDetector(
+        behavior: isOpen ? HitTestBehavior.opaque : HitTestBehavior.deferToChild,
+        onPanUpdate: (details) {
+          if (isOpen) {
+            final turnDelta = _turnDeltaFromPan(details.delta);
+            onTurnDelta(turnDelta);
+          }
+        },
+        child: SizedBox(
+          width: radius + 56,
+          height: radius + 56,
+          child: Stack(
+            alignment: Alignment.bottomRight,
+            clipBehavior: Clip.none,
+            children: [
+              for (var i = 0; i < actions.length; i++)
+                _buildRadialAction(
+                  context: context,
+                  action: actions[i],
+                  index: i,
+                  radius: radius,
+                  visibleSlots: visibleSlots,
+                ),
+              FloatingActionButton(
+                onPressed: onToggle,
+                backgroundColor: colorScheme.primaryContainer,
+                foregroundColor: colorScheme.onPrimaryContainer,
+                child: GestureDetector(
+                  behavior: HitTestBehavior.translucent,
+                  onPanUpdate: (details) {
+                    if (isOpen) {
+                      onTurnDelta(_turnDeltaFromPan(details.delta));
+                    }
+                  },
+                  child: Icon(isOpen ? Icons.close : Icons.add),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  double _turnDeltaFromPan(Offset delta) {
+    return -(delta.dy + delta.dx) / 16;
+  }
+
+  Widget _buildRadialAction({
+    required BuildContext context,
+    required _LogAction action,
+    required int index,
+    required double radius,
+    required int visibleSlots,
+  }) {
+    final slotPosition = index - startIndex;
+    final isVisible = slotPosition >= 0 && slotPosition < visibleSlots;
+    if (!isVisible) {
+      return const SizedBox.shrink();
+    }
+
+    final t = visibleSlots <= 1 ? 0.0 : slotPosition / (visibleSlots - 1);
+    final angle = math.pi + (math.pi / 2) * t;
+    final distance = isOpen ? radius : 0.0;
+    final dx = math.cos(angle) * distance;
+    final dy = math.sin(angle) * distance;
+    final fade = isOpen ? 1.0 : 0.0;
+
+    return AnimatedPositioned(
+      duration: const Duration(milliseconds: 180),
+      curve: Curves.easeOutCubic,
+      right: 8 + (-dx),
+      bottom: 8 + (-dy),
+      child: IgnorePointer(
+        ignoring: !isOpen,
+        child: AnimatedOpacity(
+          duration: const Duration(milliseconds: 140),
+          opacity: fade,
+          child: Tooltip(
+            message: action.label,
+            child: GestureDetector(
+              behavior: HitTestBehavior.translucent,
+              onPanUpdate: (details) {
+                if (isOpen) {
+                  onTurnDelta(_turnDeltaFromPan(details.delta));
+                }
+              },
+              child: Material(
+                elevation: 6,
+                color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                shape: const CircleBorder(),
+                child: InkWell(
+                  customBorder: const CircleBorder(),
+                  onTap: () => onActionTap(action.routeName),
+                  child: SizedBox(
+                    width: 42,
+                    height: 42,
+                    child: Icon(action.icon),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }
