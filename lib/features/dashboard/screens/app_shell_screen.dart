@@ -25,6 +25,7 @@ class _AppShellScreenState extends State<AppShellScreen> {
   int _index = 0;
   _SidebarMode _sidebarMode = _SidebarMode.icons;
   double _dragDelta = 0;
+  double _openHandleTop = 140;
 
   static const double _closedWidth = 0;
   static const double _iconsWidth = 84;
@@ -63,10 +64,14 @@ class _AppShellScreenState extends State<AppShellScreen> {
   }
 
   void _stepOpen() {
-    if (_sidebarMode == _SidebarMode.closed) {
-      _setMode(_SidebarMode.icons);
-    } else if (_sidebarMode == _SidebarMode.icons) {
+    if (_sidebarMode != _SidebarMode.expanded) {
       _setMode(_SidebarMode.expanded);
+    }
+  }
+
+  void _openIconsOnly() {
+    if (_sidebarMode != _SidebarMode.icons) {
+      _setMode(_SidebarMode.icons);
     }
   }
 
@@ -114,7 +119,6 @@ class _AppShellScreenState extends State<AppShellScreen> {
   Widget build(BuildContext context) {
     final selected = _destinations[_index];
     final sidebarWidth = _sidebarWidth;
-    final isExpanded = _sidebarMode == _SidebarMode.expanded;
     final isClosed = _sidebarMode == _SidebarMode.closed;
 
     return Scaffold(
@@ -127,8 +131,8 @@ class _AppShellScreenState extends State<AppShellScreen> {
           child: Row(
             children: [
               AnimatedContainer(
-                duration: const Duration(milliseconds: 220),
-                curve: Curves.easeOutCubic,
+                duration: const Duration(milliseconds: 150),
+                curve: Curves.easeOutQuart,
                 width: sidebarWidth,
                 decoration: BoxDecoration(
                   color: sidebarWidth == 0
@@ -155,54 +159,55 @@ class _AppShellScreenState extends State<AppShellScreen> {
                       ),
               ),
               Expanded(
-                child: Stack(
-                  children: [
-                    Semantics(
-                      label: '${selected.label} page',
-                      child: IndexedStack(
-                        index: _index,
-                        children: _destinations.map((item) => item.page).toList(growable: false),
-                      ),
-                    ),
-                    if (isClosed)
-                      Positioned(
-                        top: 16,
-                        left: 0,
-                        child: Semantics(
-                          button: true,
-                          label: 'Open sidebar',
-                          child: GestureDetector(
-                            onTap: _stepOpen,
-                            child: Container(
-                              width: 20,
-                              height: 64,
-                              decoration: BoxDecoration(
-                                color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                                borderRadius: const BorderRadius.horizontal(right: Radius.circular(12)),
-                                border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
-                              ),
-                              child: const Center(
-                                child: Icon(Icons.chevron_right_rounded, size: 18),
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final minTop = 12.0;
+                    final maxTop = (constraints.maxHeight - 76).clamp(minTop, double.infinity);
+                    final handleTop = _openHandleTop.clamp(minTop, maxTop);
+
+                    return Stack(
+                      children: [
+                        Semantics(
+                          label: '${selected.label} page',
+                          child: IndexedStack(
+                            index: _index,
+                            children: _destinations.map((item) => item.page).toList(growable: false),
+                          ),
+                        ),
+                        if (isClosed)
+                          Positioned(
+                            top: handleTop,
+                            left: 0,
+                            child: Semantics(
+                              button: true,
+                              label: 'Open sidebar',
+                              child: GestureDetector(
+                                onTap: _openIconsOnly,
+                                onDoubleTap: _stepOpen,
+                                onVerticalDragUpdate: (details) {
+                                  setState(() {
+                                    _openHandleTop =
+                                        (_openHandleTop + details.delta.dy).clamp(minTop, maxTop);
+                                  });
+                                },
+                                child: Container(
+                                  width: 20,
+                                  height: 64,
+                                  decoration: BoxDecoration(
+                                    color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                                    borderRadius: const BorderRadius.horizontal(right: Radius.circular(12)),
+                                    border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
+                                  ),
+                                  child: const Center(
+                                    child: Icon(Icons.chevron_right_rounded, size: 18),
+                                  ),
+                                ),
                               ),
                             ),
                           ),
-                        ),
-                      ),
-                    if (!isClosed && !isExpanded)
-                      Positioned(
-                        top: 8,
-                        right: 8,
-                        child: Semantics(
-                          button: true,
-                          label: 'Expand sidebar',
-                          child: IconButton(
-                            onPressed: _stepOpen,
-                            tooltip: 'Expand sidebar',
-                            icon: const Icon(Icons.chevron_right_rounded),
-                          ),
-                        ),
-                      ),
-                  ],
+                      ],
+                    );
+                  },
                 ),
               ),
             ],
