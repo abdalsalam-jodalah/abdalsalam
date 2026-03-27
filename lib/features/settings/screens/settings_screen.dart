@@ -63,6 +63,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     final religiousNightRemindersEnabled = (_settings['religiousNightRemindersEnabled'] as bool?) ?? true;
     final religiousBadEventRemindersEnabled = (_settings['religiousBadEventRemindersEnabled'] as bool?) ?? true;
     final religiousDefaultReminderMinutes = (_settings['religiousDefaultReminderMinutes'] as int?) ?? 10;
+    final religiousPrayerTimesRetentionDays =
+      (_settings['religiousPrayerTimesRetentionDays'] as int?) ?? 365;
     final autoLockMinutes = (_settings['autoLockMinutes'] as int?) ?? 5;
     final backupReminderDays = (_settings['backupReminderDays'] as int?) ?? 7;
     final notificationPriority = (_settings['notificationPriority'] as String?) ?? 'default';
@@ -209,6 +211,15 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             onTap: () => _update(
               'religiousDefaultReminderMinutes',
               religiousDefaultReminderMinutes == 10 ? 15 : 10,
+            ),
+          ),
+          ListTile(
+            title: const Text('Prayer times history retention'),
+            subtitle: Text('$religiousPrayerTimesRetentionDays days (minimum 365)'),
+            trailing: const Icon(Icons.storage_outlined),
+            onTap: () => _update(
+              'religiousPrayerTimesRetentionDays',
+              religiousPrayerTimesRetentionDays == 365 ? 730 : 365,
             ),
           ),
           ListTile(

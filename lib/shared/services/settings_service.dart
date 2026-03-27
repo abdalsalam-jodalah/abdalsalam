@@ -37,6 +37,7 @@ class SettingsService {
         'religiousNightRemindersEnabled': true,
         'religiousBadEventRemindersEnabled': true,
         'religiousDefaultReminderMinutes': 10,
+        'religiousPrayerTimesRetentionDays': 365,
         'prayerMethod': 'muslim_world_league',
         'currency': 'USD',
         'biometricEnabled': true,

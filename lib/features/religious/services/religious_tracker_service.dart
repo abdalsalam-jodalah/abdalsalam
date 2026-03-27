@@ -137,7 +137,7 @@ class ReligiousTrackerService extends BaseServiceImpl<ReligiousEntry> {
 
       final snapshot = PrayerTimesSnapshot(
         id: dateKey,
-        createdAt: now,
+        createdAt: existing.data?.createdAt ?? now,
         updatedAt: now,
         dateKey: dateKey,
         forDate: DateTime(now.year, now.month, now.day),
@@ -150,12 +150,20 @@ class ReligiousTrackerService extends BaseServiceImpl<ReligiousEntry> {
         isha: parsed['isha']!,
       );
 
-      final created = await _timesRepo.create(snapshot);
-      if (created.isFailure) {
-        return Failure(created.error!);
+      if (existing.data == null) {
+        final createResult = await _timesRepo.create(snapshot);
+        if (createResult.isFailure) {
+          return Failure(createResult.error!);
+        }
+      } else {
+        final updateResult = await _timesRepo.update(snapshot);
+        if (updateResult.isFailure) {
+          return Failure(updateResult.error!);
+        }
       }
 
       _serviceLogger.info('[ReligiousTracker] prayer times synced for $dateKey from $_sourceUrl');
+      await _enforcePrayerTimesRetention();
       await _schedulePrayerTimeReminders(snapshot);
       return Success(snapshot);
     } catch (e, st) {
@@ -349,6 +357,24 @@ class ReligiousTrackerService extends BaseServiceImpl<ReligiousEntry> {
     final m = date.month.toString().padLeft(2, '0');
     final d = date.day.toString().padLeft(2, '0');
     return '${date.year}-$m-$d';
+  }
+
+  Future<void> _enforcePrayerTimesRetention() async {
+    final settings = await _settings.getSettings();
+    final configured = (settings['religiousPrayerTimesRetentionDays'] as int?) ?? 365;
+    final retentionDays = configured < 365 ? 365 : configured;
+
+    final all = await _timesRepo.getAll();
+    if (all.isFailure) {
+      return;
+    }
+
+    final cutoff = DateTime.now().subtract(Duration(days: retentionDays));
+    for (final snapshot in all.data!) {
+      if (snapshot.forDate.isBefore(cutoff)) {
+        await _timesRepo.delete(snapshot.id);
+      }
+    }
   }
 }
 
