@@ -152,6 +152,7 @@ final backupTablesProvider = Provider<List<String>>((ref) {
     'quran_readings',
     'spiritual_progress',
     'transactions',
+    'financial_categories',
     'categories',
     'budgets',
     'habits',

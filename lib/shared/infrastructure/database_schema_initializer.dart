@@ -9,6 +9,7 @@ class DatabaseSchemaInitializer {
     'quran_readings',
     'spiritual_progress',
     'transactions',
+    'financial_categories',
     'categories',
     'budgets',
     'habits',

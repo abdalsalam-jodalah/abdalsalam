@@ -1,22 +1,28 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-class TransactionFormScreen extends StatefulWidget {
+import '../../../data/models/financial/category.dart';
+import '../../../data/models/financial/transaction.dart';
+import '../providers/financial_providers.dart';
+
+class TransactionFormScreen extends ConsumerStatefulWidget {
   static const routeName = '/financial/transaction-form';
 
   const TransactionFormScreen({super.key});
 
   @override
-  State<TransactionFormScreen> createState() => _TransactionFormScreenState();
+  ConsumerState<TransactionFormScreen> createState() => _TransactionFormScreenState();
 }
 
-class _TransactionFormScreenState extends State<TransactionFormScreen> {
+class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
   final _formKey = GlobalKey<FormState>();
   final _descriptionController = TextEditingController();
   final _amountController = TextEditingController();
   final _tagsController = TextEditingController();
   DateTime _selectedDate = DateTime.now();
-  String _type = 'expense';
+  TransactionType _type = TransactionType.expense;
   String _category = 'Food';
+  String _currency = 'USD';
   String _paymentMethod = 'Cash';
 
   @override
@@ -29,18 +35,42 @@ class _TransactionFormScreenState extends State<TransactionFormScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final categoriesState = ref.watch(financialCategoriesControllerProvider);
+    final categories = categoriesState.maybeWhen(data: (items) => items, orElse: () => <Category>[]);
+    final filteredCategories = categories
+        .where((item) => item.type == (_type == TransactionType.income ? CategoryType.income : CategoryType.expense))
+        .map((item) => item.name)
+        .toSet()
+        .toList(growable: false)
+      ..sort();
+
+    if (filteredCategories.isEmpty) {
+      _category = 'General';
+    } else if (!filteredCategories.contains(_category)) {
+      _category = filteredCategories.first;
+    }
+
     return Scaffold(
-      appBar: AppBar(title: const Text('Transaction Form')),
+      appBar: AppBar(
+        title: const Text('Add Financial Record'),
+        actions: [
+          IconButton(
+            tooltip: 'Add category',
+            onPressed: () => _showAddCategoryDialog(context),
+            icon: const Icon(Icons.playlist_add),
+          ),
+        ],
+      ),
       body: Padding(
         padding: const EdgeInsets.all(16),
         child: Form(
           key: _formKey,
           child: ListView(
             children: [
-              SegmentedButton<String>(
+              SegmentedButton<TransactionType>(
                 segments: const [
-                  ButtonSegment(value: 'expense', label: Text('Expense')),
-                  ButtonSegment(value: 'income', label: Text('Income')),
+                  ButtonSegment(value: TransactionType.expense, label: Text('Out')),
+                  ButtonSegment(value: TransactionType.income, label: Text('In')),
                 ],
                 selected: {_type},
                 onSelectionChanged: (value) => setState(() => _type = value.first),
@@ -61,7 +91,6 @@ class _TransactionFormScreenState extends State<TransactionFormScreen> {
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
                 decoration: const InputDecoration(
                   labelText: 'Amount',
-                  prefixText: '\$',
                   border: OutlineInputBorder(),
                 ),
                 validator: (value) {
@@ -74,8 +103,19 @@ class _TransactionFormScreenState extends State<TransactionFormScreen> {
               ),
               const SizedBox(height: 12),
               DropdownButtonFormField<String>(
+                initialValue: _currency,
+                items: const ['USD', 'EUR', 'SAR', 'EGP', 'AED']
+                    .map((item) => DropdownMenuItem(value: item, child: Text(item)))
+                    .toList(growable: false),
+                onChanged: (value) => setState(() => _currency = value ?? _currency),
+                decoration: const InputDecoration(labelText: 'Currency', border: OutlineInputBorder()),
+              ),
+              const SizedBox(height: 12),
+              DropdownButtonFormField<String>(
                 initialValue: _category,
-                items: const ['Food', 'Transport', 'Health', 'Entertainment', 'Bills', 'Salary', 'Investment']
+                items: (filteredCategories.isEmpty
+                        ? const ['General']
+                        : filteredCategories)
                     .map((item) => DropdownMenuItem(value: item, child: Text(item)))
                     .toList(growable: false),
                 onChanged: (value) => setState(() => _category = value ?? _category),
@@ -120,21 +160,93 @@ class _TransactionFormScreenState extends State<TransactionFormScreen> {
               ),
               const SizedBox(height: 20),
               FilledButton.icon(
-                onPressed: () {
-                  if (_formKey.currentState?.validate() ?? false) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Transaction saved')),
-                    );
+                onPressed: () async {
+                  if (!(_formKey.currentState?.validate() ?? false)) {
+                    return;
+                  }
+                  final amount = double.tryParse(_amountController.text.trim()) ?? 0;
+                  final tags = _tagsController.text
+                      .split(',')
+                      .map((tag) => tag.trim())
+                      .where((tag) => tag.isNotEmpty)
+                      .toList(growable: false);
+
+                  final message = await ref
+                      .read(financialTransactionsControllerProvider.notifier)
+                      .addTransaction(
+                        amount: amount,
+                        category: _category,
+                        currency: _currency,
+                        direction: _type,
+                        date: _selectedDate,
+                        description: _descriptionController.text.trim(),
+                        paymentMethod: _paymentMethod,
+                        tags: tags,
+                      );
+
+                  if (!context.mounted) {
+                    return;
+                  }
+
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text(message ?? 'Financial record saved')),
+                  );
+                  if (message == null) {
                     Navigator.of(context).maybePop();
                   }
                 },
                 icon: const Icon(Icons.save_outlined),
-                label: const Text('Save Transaction'),
+                label: const Text('Save Record'),
               ),
             ],
           ),
         ),
       ),
+    );
+  }
+
+  Future<void> _showAddCategoryDialog(BuildContext context) async {
+    final nameController = TextEditingController();
+
+    final save = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Create Category'),
+          content: TextField(
+            controller: nameController,
+            decoration: const InputDecoration(labelText: 'Category name'),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('Add'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (save != true) {
+      nameController.dispose();
+      return;
+    }
+
+    final message = await ref.read(financialCategoriesControllerProvider.notifier).addCategory(
+          name: nameController.text.trim(),
+          type: _type == TransactionType.income ? CategoryType.income : CategoryType.expense,
+        );
+    nameController.dispose();
+
+    if (!context.mounted) {
+      return;
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message ?? 'Category created')),
     );
   }
 }
