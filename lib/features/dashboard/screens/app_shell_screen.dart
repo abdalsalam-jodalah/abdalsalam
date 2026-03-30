@@ -243,7 +243,25 @@ class _AppShellScreenState extends State<AppShellScreen> {
                                         (_openHandleTop + details.delta.dy).clamp(minTop, maxTop);
                                   });
                                 },
-                                child: Container(
+                                         onVerticalDragEnd: (_) {
+                                           // Open sidebar on drag end
+                                           _openIconsOnly();
+                                         },
+                                         onVerticalDragDown: (_) {
+                                           // Optionally open sidebar on drag start
+                                           // _openIconsOnly();
+                                         },
+                                         onPanEnd: (_) {
+                                           // Fallback: open sidebar on any pan end
+                                           //_openIconsOnly();
+                                         },
+                                child: Listener(
+                                  onPointerSignal: (event) {
+                                    if (event is PointerScrollEvent && event.scrollDelta.dy.abs() > 0) {
+                                      _openIconsOnly();
+                                    }
+                                  },
+                                  child: Container(
                                   width: 20,
                                   height: 64,
                                   decoration: BoxDecoration(
@@ -258,6 +276,7 @@ class _AppShellScreenState extends State<AppShellScreen> {
                               ),
                             ),
                           ),
+                        ),
                         if (_logWheelOpen)
                           Positioned.fill(
                             child: GestureDetector(
