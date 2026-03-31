@@ -84,6 +84,21 @@ class LoggerService {
     }
     return output.getRecentLogs(recentCount);
   }
+
+  /// Get all log strings from memory
+  static List<String> getAllLogs() {
+    final output = LoggerImpl.getMemoryOutput();
+    if (output == null) {
+      return const <String>[];
+    }
+    return output.getLogs();
+  }
+
+  /// Clear all logs from memory
+  static void clearLogs() {
+    final output = LoggerImpl.getMemoryOutput();
+    output?.clear();
+  }
 }
 
 class _FallbackLogger implements Logger {

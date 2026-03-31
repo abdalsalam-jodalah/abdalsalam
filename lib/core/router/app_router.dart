@@ -51,6 +51,8 @@ import '../../features/sports/screens/workout_list_screen.dart';
 import '../../features/settings/screens/settings_screen.dart';
 import '../../features/settings/screens/backup_screen.dart';
 import '../../features/settings/screens/restore_screen.dart';
+import '../../shared/widgets/log_viewer_screen.dart';
+import '../../shared/widgets/database_viewer_screen.dart';
 
 class AppRouter {
   static Route<dynamic>? onGenerateRoute(RouteSettings settings) {
@@ -308,6 +310,16 @@ class AppRouter {
       case RestoreScreen.routeName:
         return MaterialPageRoute<void>(
           builder: (_) => const RestoreScreen(),
+          settings: settings,
+        );
+      case '/dev/logs':
+        return MaterialPageRoute<void>(
+          builder: (_) => const LogViewerScreen(),
+          settings: settings,
+        );
+      case '/dev/database':
+        return MaterialPageRoute<void>(
+          builder: (_) => const DatabaseViewerScreen(),
           settings: settings,
         );
       default:

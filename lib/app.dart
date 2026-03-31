@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -6,6 +7,7 @@ import 'features/religious/providers/religious_tracking_providers.dart';
 import 'core/theme/app_theme.dart';
 import 'features/dashboard/screens/app_shell_screen.dart';
 import 'providers/app_providers.dart';
+import 'shared/widgets/dev_tools_overlay.dart';
 
 class AbdalsalamApp extends ConsumerStatefulWidget {
   const AbdalsalamApp({super.key});
@@ -26,7 +28,6 @@ class _AbdalsalamAppState extends ConsumerState<AbdalsalamApp> {
 
   @override
   Widget build(BuildContext context) {
-
     return MaterialApp(
       title: 'Abdalsalam',
       debugShowCheckedModeBanner: false,
@@ -34,7 +35,9 @@ class _AbdalsalamAppState extends ConsumerState<AbdalsalamApp> {
       darkTheme: AppTheme.darkTheme,
       themeMode: ThemeMode.system,
       onGenerateRoute: AppRouter.onGenerateRoute,
-      home: const AppShellScreen(),
+      home: kDebugMode
+          ? DevToolsOverlay(child: const AppShellScreen())
+          : const AppShellScreen(),
     );
   }
 }
