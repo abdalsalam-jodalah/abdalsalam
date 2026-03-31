@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import 'financial_home_screen.dart';
+import 'financial_dashboard_screen.dart';
 
 class FinancialScreen extends StatelessWidget {
   static const routeName = '/financial';
@@ -9,6 +9,6 @@ class FinancialScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const FinancialHomeScreen();
+    return const FinancialDashboardScreen();
   }
 }

@@ -13,11 +13,18 @@ abstract class BaseModel extends Equatable {
     this.deletedAt,
   });
 
+  /// Convert model to JSON
   Map<String, dynamic> toJson();
 
+  /// Check if model is soft deleted
   bool get isDeleted => deletedAt != null;
+
+  /// Check if model is active
   bool get isActive => deletedAt == null;
 
   @override
   List<Object?> get props => [id];
+
+  @override
+  String toString() => '$runtimeType(id: $id)';
 }

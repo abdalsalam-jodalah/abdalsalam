@@ -7,12 +7,10 @@ import '../../features/calendar/screens/event_list_screen.dart';
 import '../../features/calendar/screens/google_calendar_sync_screen.dart';
 import '../../features/calendar/screens/unified_timeline_screen.dart';
 import '../../features/financial/screens/financial_screen.dart';
-import '../../features/financial/screens/budget_management_screen.dart';
-import '../../features/financial/screens/financial_categories_screen.dart';
-import '../../features/financial/screens/financial_home_screen.dart';
-import '../../features/financial/screens/financial_reports_screen.dart';
+import '../../features/financial/screens/budgets_page.dart';
+import '../../features/financial/screens/categories_page.dart';
+import '../../features/financial/screens/transactions_page.dart';
 import '../../features/financial/screens/transaction_form_screen.dart';
-import '../../features/financial/screens/transaction_list_screen.dart';
 import '../../features/habits/screens/habits_screen.dart';
 import '../../features/habits/screens/daily_events_screen.dart';
 import '../../features/habits/screens/habit_detail_screen.dart';
@@ -97,34 +95,24 @@ class AppRouter {
           builder: (_) => const FinancialScreen(),
           settings: settings,
         );
-      case FinancialHomeScreen.routeName:
+      case BudgetsPage.routeName:
         return MaterialPageRoute<void>(
-          builder: (_) => const FinancialHomeScreen(),
+          builder: (_) => const BudgetsPage(),
           settings: settings,
         );
-      case TransactionListScreen.routeName:
+      case TransactionsPage.routeName:
         return MaterialPageRoute<void>(
-          builder: (_) => const TransactionListScreen(),
+          builder: (_) => const TransactionsPage(),
+          settings: settings,
+        );
+      case CategoriesPage.routeName:
+        return MaterialPageRoute<void>(
+          builder: (_) => const CategoriesPage(),
           settings: settings,
         );
       case TransactionFormScreen.routeName:
         return MaterialPageRoute<void>(
           builder: (_) => const TransactionFormScreen(),
-          settings: settings,
-        );
-      case BudgetManagementScreen.routeName:
-        return MaterialPageRoute<void>(
-          builder: (_) => const BudgetManagementScreen(),
-          settings: settings,
-        );
-      case FinancialReportsScreen.routeName:
-        return MaterialPageRoute<void>(
-          builder: (_) => const FinancialReportsScreen(),
-          settings: settings,
-        );
-      case FinancialCategoriesScreen.routeName:
-        return MaterialPageRoute<void>(
-          builder: (_) => const FinancialCategoriesScreen(),
           settings: settings,
         );
       case HabitsScreen.routeName:
