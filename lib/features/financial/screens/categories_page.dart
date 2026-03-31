@@ -1,16 +1,18 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../data/models/financial/category_model.dart';
+import '../providers/financial_providers.dart';
 
-class CategoriesPage extends StatefulWidget {
+class CategoriesPage extends ConsumerStatefulWidget {
   static const routeName = '/financial/categories';
 
   const CategoriesPage({super.key});
 
   @override
-  State<CategoriesPage> createState() => _CategoriesPageState();
+  ConsumerState<CategoriesPage> createState() => _CategoriesPageState();
 }
 
-class _CategoriesPageState extends State<CategoriesPage> {
+class _CategoriesPageState extends ConsumerState<CategoriesPage> {
   CategoryType _selectedType = CategoryType.expense;
 
   @override
@@ -21,7 +23,9 @@ class _CategoriesPageState extends State<CategoriesPage> {
         actions: [
           IconButton(
             icon: const Icon(Icons.add),
-            onPressed: _showAddCategoryDialog,
+            onPressed: () {
+              _showAddCategoryDialog();
+            },
           ),
         ],
       ),
@@ -391,9 +395,18 @@ class _CategoriesPageState extends State<CategoriesPage> {
           ),
           FilledButton(
             onPressed: () {
+              // TODO: Actually save category to database
               Navigator.pop(context);
+              
+              // Refresh categories list
+              ref.invalidate(allCategoriesProvider);
+              ref.invalidate(categoryTotalsProvider);
+              
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Category created successfully')),
+                const SnackBar(
+                  content: Text('Category created successfully'),
+                  backgroundColor: Colors.green,
+                ),
               );
             },
             child: const Text('Create'),
@@ -437,9 +450,18 @@ class _CategoriesPageState extends State<CategoriesPage> {
           ),
           FilledButton(
             onPressed: () {
+              // TODO: Actually delete category from database
               Navigator.pop(context);
+              
+              // Refresh categories list
+              ref.invalidate(allCategoriesProvider);
+              ref.invalidate(categoryTotalsProvider);
+              
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Category deleted')),
+                const SnackBar(
+                  content: Text('Category deleted'),
+                  backgroundColor: Colors.red,
+                ),
               );
             },
             style: FilledButton.styleFrom(

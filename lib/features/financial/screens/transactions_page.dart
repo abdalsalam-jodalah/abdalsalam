@@ -29,11 +29,16 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
           ),
           IconButton(
             icon: const Icon(Icons.add),
-            onPressed: () {
-              Navigator.pushNamed(
+            onPressed: () async {
+              final result = await Navigator.pushNamed(
                 context,
                 '/financial/transaction-form',
               );
+              
+              // Refresh the list after adding/editing
+              if (result != null) {
+                ref.invalidate(allTransactionsProvider);
+              }
             },
           ),
         ],
@@ -339,9 +344,20 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
               children: [
                 Expanded(
                   child: OutlinedButton.icon(
-                    onPressed: () {
+                    onPressed: () async {
                       Navigator.pop(context);
-                      // Edit transaction
+                      
+                      // Navigate to edit form
+                      final result = await Navigator.pushNamed(
+                        context,
+                        '/financial/transaction-form',
+                        arguments: transaction,
+                      );
+                      
+                      // Refresh after edit
+                      if (result != null) {
+                        ref.invalidate(allTransactionsProvider);
+                      }
                     },
                     icon: const Icon(Icons.edit),
                     label: const Text('Edit'),
@@ -352,7 +368,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
                   child: FilledButton.icon(
                     onPressed: () {
                       Navigator.pop(context);
-                      // Delete transaction
+                      _deleteTransaction(transaction);
                     },
                     icon: const Icon(Icons.delete),
                     label: const Text('Delete'),
@@ -392,6 +408,42 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
                 fontWeight: FontWeight.w600,
               ),
             ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _deleteTransaction(TransactionModel transaction) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Transaction'),
+        content: const Text('Are you sure you want to delete this transaction?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () async {
+              // TODO: Actually delete transaction from database
+              Navigator.pop(context);
+              
+              // Refresh transactions list
+              ref.invalidate(allTransactionsProvider);
+              
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Transaction deleted'),
+                  backgroundColor: Colors.red,
+                ),
+              );
+            },
+            style: FilledButton.styleFrom(
+              backgroundColor: Colors.red,
+            ),
+            child: const Text('Delete'),
           ),
         ],
       ),

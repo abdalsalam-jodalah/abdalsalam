@@ -1,16 +1,18 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../data/models/financial/budget_model.dart';
+import '../providers/financial_providers.dart';
 
-class BudgetsPage extends StatefulWidget {
+class BudgetsPage extends ConsumerStatefulWidget {
   static const routeName = '/financial/budgets';
 
   const BudgetsPage({super.key});
 
   @override
-  State<BudgetsPage> createState() => _BudgetsPageState();
+  ConsumerState<BudgetsPage> createState() => _BudgetsPageState();
 }
 
-class _BudgetsPageState extends State<BudgetsPage> {
+class _BudgetsPageState extends ConsumerState<BudgetsPage> {
   BudgetPeriod _selectedPeriod = BudgetPeriod.monthly;
 
   @override
@@ -327,9 +329,17 @@ class _BudgetsPageState extends State<BudgetsPage> {
           ),
           FilledButton(
             onPressed: () {
+              // TODO: Actually save budget to database
               Navigator.pop(context);
+              
+              // Refresh budgets list
+              ref.invalidate(activeBudgetsProvider);
+              
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Budget created successfully')),
+                const SnackBar(
+                  content: Text('Budget created successfully'),
+                  backgroundColor: Colors.green,
+                ),
               );
             },
             child: const Text('Create'),
@@ -358,9 +368,17 @@ class _BudgetsPageState extends State<BudgetsPage> {
           ),
           FilledButton(
             onPressed: () {
+              // TODO: Actually delete budget from database
               Navigator.pop(context);
+              
+              // Refresh budgets list
+              ref.invalidate(activeBudgetsProvider);
+              
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Budget deleted')),
+                const SnackBar(
+                  content: Text('Budget deleted'),
+                  backgroundColor: Colors.red,
+                ),
               );
             },
             style: FilledButton.styleFrom(

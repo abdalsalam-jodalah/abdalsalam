@@ -236,11 +236,20 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
               ),
               const SizedBox(width: 4),
               Text(
-                '\$${amount.toStringAsFixed(2)}',
+                '${_selectedCurrency.symbol}${amount.toStringAsFixed(2)}',
                 style: const TextStyle(
                   color: Colors.white,
                   fontSize: 36,
                   fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                _selectedCurrency.code,
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.8),
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
                 ),
               ),
             ],
@@ -311,47 +320,94 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
           ),
         ),
         const SizedBox(height: 12),
-        TextField(
-          controller: _amountController,
-          keyboardType: const TextInputType.numberWithOptions(decimal: true),
-          onChanged: (_) => setState(() {}),
-          decoration: InputDecoration(
-            hintText: '0.00',
-            prefixText: '\$ ',
-            prefixStyle: const TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-            ),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(
-                color: Colors.grey.withValues(alpha: 0.2),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Currency Selector
+            Container(
+              width: 100,
+              decoration: BoxDecoration(
+                border: Border.all(
+                  color: Colors.grey.withValues(alpha: 0.2),
+                ),
+                borderRadius: BorderRadius.circular(12),
+                color: Colors.grey.withValues(alpha: 0.05),
+              ),
+              child: DropdownButtonFormField<Currency>(
+                value: _selectedCurrency,
+                decoration: const InputDecoration(
+                  border: InputBorder.none,
+                  contentPadding: EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 16,
+                  ),
+                ),
+                items: Currency.values.map((currency) {
+                  return DropdownMenuItem(
+                    value: currency,
+                    child: Text(
+                      currency.code,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  );
+                }).toList(),
+                onChanged: (value) {
+                  if (value != null) {
+                    setState(() => _selectedCurrency = value);
+                  }
+                },
               ),
             ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(
-                color: Colors.grey.withValues(alpha: 0.2),
+            const SizedBox(width: 12),
+            // Amount Input
+            Expanded(
+              child: TextField(
+                controller: _amountController,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                onChanged: (_) => setState(() {}),
+                decoration: InputDecoration(
+                  hintText: '0.00',
+                  prefixText: '${_selectedCurrency.symbol} ',
+                  prefixStyle: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(
+                      color: Colors.grey.withValues(alpha: 0.2),
+                    ),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(
+                      color: Colors.grey.withValues(alpha: 0.2),
+                    ),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(
+                      color: Theme.of(context).colorScheme.primary,
+                      width: 2,
+                    ),
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 16,
+                  ),
+                  filled: true,
+                  fillColor: Colors.grey.withValues(alpha: 0.05),
+                ),
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(
-                color: Theme.of(context).colorScheme.primary,
-                width: 2,
-              ),
-            ),
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 16,
-              vertical: 16,
-            ),
-            filled: true,
-            fillColor: Colors.grey.withValues(alpha: 0.05),
-          ),
-          style: const TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-          ),
+          ],
         ),
       ],
     );
@@ -788,7 +844,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
       userId: 'user1',
       type: _type,
       amount: amount,
-      currency: 'USD',
+      currency: _selectedCurrency.code,
       categoryId: _selectedCategory,
       date: _selectedDate,
       description: description,
@@ -800,19 +856,27 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
       updatedAt: DateTime.now(),
     );
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          widget.transaction == null
-              ? 'Transaction created successfully'
-              : 'Transaction updated successfully',
-        ),
-        duration: const Duration(seconds: 2),
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
-
-    Navigator.pop(context, transaction);
+    // Save to database
+    final financialService = ref.read(financialServiceProvider);
+    financialService.createTransaction(transaction).then((result) {
+      if (result.isSuccess) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              widget.transaction == null
+                  ? 'Transaction created successfully'
+                  : 'Transaction updated successfully',
+            ),
+            duration: const Duration(seconds: 2),
+            behavior: SnackBarBehavior.floating,
+            backgroundColor: Colors.green,
+          ),
+        );
+        Navigator.pop(context, transaction);
+      } else {
+        _showError('Failed to save transaction: ${result.error}');
+      }
+    });
   }
 
   void _deleteTransaction() {

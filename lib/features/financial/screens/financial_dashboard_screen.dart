@@ -59,11 +59,19 @@ class _FinancialDashboardScreenState extends ConsumerState<FinancialDashboardScr
         actions: [
           IconButton(
             icon: const Icon(Icons.add),
-            onPressed: () {
-              Navigator.pushNamed(
+            onPressed: () async {
+              final result = await Navigator.pushNamed(
                 context,
                 '/financial/transaction-form',
               );
+              
+              // Refresh all data after adding transaction
+              if (result != null) {
+                ref.invalidate(allTransactionsProvider);
+                ref.invalidate(recentTransactionsProvider);
+                ref.invalidate(financialSummaryProvider);
+                ref.invalidate(categoryTotalsProvider);
+              }
             },
           ),
         ],
@@ -441,13 +449,16 @@ class _FinancialDashboardScreenState extends ConsumerState<FinancialDashboardScr
               ),
             ),
             TextButton(
-              onPressed: () {
-                Navigator.push(
+              onPressed: () async {
+                await Navigator.push(
                   context,
                   MaterialPageRoute(
                     builder: (context) => const BudgetsPage(),
                   ),
                 );
+                
+                // Refresh budgets after returning
+                ref.invalidate(activeBudgetsProvider);
               },
               child: const Text('View More'),
             ),
@@ -638,13 +649,19 @@ class _FinancialDashboardScreenState extends ConsumerState<FinancialDashboardScr
               ),
             ),
             TextButton(
-              onPressed: () {
-                Navigator.push(
+              onPressed: () async {
+                await Navigator.push(
                   context,
                   MaterialPageRoute(
                     builder: (context) => const TransactionsPage(),
                   ),
                 );
+                
+                // Refresh transactions after returning
+                ref.invalidate(allTransactionsProvider);
+                ref.invalidate(recentTransactionsProvider);
+                ref.invalidate(financialSummaryProvider);
+                ref.invalidate(categoryTotalsProvider);
               },
               child: const Text('View More'),
             ),
@@ -767,13 +784,17 @@ class _FinancialDashboardScreenState extends ConsumerState<FinancialDashboardScr
               ),
             ),
             TextButton(
-              onPressed: () {
-                Navigator.push(
+              onPressed: () async {
+                await Navigator.push(
                   context,
                   MaterialPageRoute(
                     builder: (context) => const CategoriesPage(),
                   ),
                 );
+                
+                // Refresh categories after returning
+                ref.invalidate(allCategoriesProvider);
+                ref.invalidate(categoryTotalsProvider);
               },
               child: const Text('View More'),
             ),
