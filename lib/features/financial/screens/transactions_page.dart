@@ -1,17 +1,19 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../../../data/models/financial/transaction_model.dart';
+import '../providers/financial_providers.dart';
 
-class TransactionsPage extends StatefulWidget {
+class TransactionsPage extends ConsumerStatefulWidget {
   static const routeName = '/financial/transactions';
 
   const TransactionsPage({super.key});
 
   @override
-  State<TransactionsPage> createState() => _TransactionsPageState();
+  ConsumerState<TransactionsPage> createState() => _TransactionsPageState();
 }
 
-class _TransactionsPageState extends State<TransactionsPage> {
+class _TransactionsPageState extends ConsumerState<TransactionsPage> {
   String? _selectedCategory;
   TransactionType? _selectedType;
 
@@ -75,16 +77,93 @@ class _TransactionsPageState extends State<TransactionsPage> {
   }
 
   Widget _buildTransactionsList() {
-    // Sample data - replace with real data from service
-    final transactions = _getSampleTransactions();
+    final transactionsAsync = ref.watch(allTransactionsProvider);
 
-    return ListView.builder(
-      padding: const EdgeInsets.all(16),
-      itemCount: transactions.length,
-      itemBuilder: (context, index) {
-        final transaction = transactions[index];
-        return _buildTransactionCard(transaction);
+    return transactionsAsync.when(
+      data: (transactions) {
+        if (transactions.isEmpty) {
+          return Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  Icons.receipt_long_outlined,
+                  size: 64,
+                  color: Colors.grey[400],
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'No transactions yet',
+                  style: TextStyle(
+                    fontSize: 18,
+                    color: Colors.grey[600],
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Tap + to add your first transaction',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Colors.grey[500],
+                  ),
+                ),
+              ],
+            ),
+          );
+        }
+
+        // Apply filters
+        var filtered = transactions;
+        if (_selectedType != null) {
+          filtered = filtered.where((t) => t.type == _selectedType).toList();
+        }
+        if (_selectedCategory != null) {
+          filtered = filtered.where((t) => t.categoryId == _selectedCategory).toList();
+        }
+
+        if (filtered.isEmpty) {
+          return Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  Icons.filter_list_off,
+                  size: 64,
+                  color: Colors.grey[400],
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'No transactions match filters',
+                  style: TextStyle(
+                    fontSize: 18,
+                    color: Colors.grey[600],
+                  ),
+                ),
+              ],
+            ),
+          );
+        }
+
+        return ListView.builder(
+          padding: const EdgeInsets.all(16),
+          itemCount: filtered.length,
+          itemBuilder: (context, index) {
+            final transaction = filtered[index];
+            return _buildTransactionCard(transaction);
+          },
+        );
       },
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (error, stack) => Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.error_outline, size: 64, color: Colors.red),
+            const SizedBox(height: 16),
+            Text('Error loading transactions: $error'),
+          ],
+        ),
+      ),
     );
   }
 
@@ -144,6 +223,8 @@ class _TransactionsPageState extends State<TransactionsPage> {
   }
 
   void _showFilterDialog() {
+    final categoriesAsync = ref.read(allCategoriesProvider);
+
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -151,21 +232,30 @@ class _TransactionsPageState extends State<TransactionsPage> {
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            DropdownButtonFormField<String>(
-              decoration: const InputDecoration(
-                labelText: 'Category',
-                border: OutlineInputBorder(),
-              ),
-              initialValue: _selectedCategory,
-              items: const [
-                DropdownMenuItem(value: 'Food', child: Text('Food & Dining')),
-                DropdownMenuItem(value: 'Transport', child: Text('Transport')),
-                DropdownMenuItem(value: 'Shopping', child: Text('Shopping')),
-                DropdownMenuItem(value: 'Bills', child: Text('Bills')),
-              ],
-              onChanged: (value) {
-                setState(() => _selectedCategory = value);
+            categoriesAsync.when(
+              data: (categories) {
+                if (categories.isEmpty) {
+                  return const Text('No categories available');
+                }
+                return DropdownButtonFormField<String>(
+                  decoration: const InputDecoration(
+                    labelText: 'Category',
+                    border: OutlineInputBorder(),
+                  ),
+                  initialValue: _selectedCategory,
+                  items: categories.map((cat) {
+                    return DropdownMenuItem(
+                      value: cat.id,
+                      child: Text(cat.name),
+                    );
+                  }).toList(),
+                  onChanged: (value) {
+                    setState(() => _selectedCategory = value);
+                  },
+                );
               },
+              loading: () => const CircularProgressIndicator(),
+              error: (_, __) => const Text('Error loading categories'),
             ),
             const SizedBox(height: 16),
             DropdownButtonFormField<TransactionType>(
@@ -306,50 +396,5 @@ class _TransactionsPageState extends State<TransactionsPage> {
         ],
       ),
     );
-  }
-
-  List<TransactionModel> _getSampleTransactions() {
-    final now = DateTime.now();
-    return [
-      TransactionModel(
-        id: '1',
-        userId: 'user1',
-        type: TransactionType.expense,
-        amount: 85.50,
-        currency: 'USD',
-        categoryId: 'cat1',
-        date: now,
-        description: 'Grocery Shopping',
-        paymentMethod: 'Credit Card',
-        createdAt: now,
-        updatedAt: now,
-      ),
-      TransactionModel(
-        id: '2',
-        userId: 'user1',
-        type: TransactionType.income,
-        amount: 3500.00,
-        currency: 'USD',
-        categoryId: 'cat2',
-        date: now.subtract(const Duration(days: 1)),
-        description: 'Monthly Salary',
-        paymentMethod: 'Bank Transfer',
-        createdAt: now,
-        updatedAt: now,
-      ),
-      TransactionModel(
-        id: '3',
-        userId: 'user1',
-        type: TransactionType.expense,
-        amount: 45.00,
-        currency: 'USD',
-        categoryId: 'cat3',
-        date: now.subtract(const Duration(days: 2)),
-        description: 'Gas Station',
-        paymentMethod: 'Debit Card',
-        createdAt: now,
-        updatedAt: now,
-      ),
-    ];
   }
 }

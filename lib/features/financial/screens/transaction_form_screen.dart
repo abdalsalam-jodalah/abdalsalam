@@ -1,19 +1,22 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:uuid/uuid.dart';
 import '../../../data/models/financial/transaction_model.dart';
+import '../services/currency_service.dart';
+import '../providers/financial_providers.dart';
 
-class TransactionFormScreen extends StatefulWidget {
+class TransactionFormScreen extends ConsumerStatefulWidget {
   static const routeName = '/financial/transaction-form';
   final TransactionModel? transaction;
 
   const TransactionFormScreen({super.key, this.transaction});
 
   @override
-  State<TransactionFormScreen> createState() => _TransactionFormScreenState();
+  ConsumerState<TransactionFormScreen> createState() => _TransactionFormScreenState();
 }
 
-class _TransactionFormScreenState extends State<TransactionFormScreen> {
+class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
   late final TextEditingController _descriptionController;
   late final TextEditingController _amountController;
 
@@ -21,6 +24,7 @@ class _TransactionFormScreenState extends State<TransactionFormScreen> {
   String _selectedCategory = 'Food & Dining';
   DateTime _selectedDate = DateTime.now();
   String _selectedPaymentMethod = 'Cash';
+  Currency _selectedCurrency = Currency.ils; // Default to ILS
   List<String> _tags = [];
   final _tagController = TextEditingController();
   bool _isRecurring = false;
@@ -75,6 +79,18 @@ class _TransactionFormScreenState extends State<TransactionFormScreen> {
     _tags = List.from(widget.transaction?.tags ?? []);
     _isRecurring = widget.transaction?.isRecurring ?? false;
     _recurringPattern = widget.transaction?.recurringPattern ?? 'monthly';
+    
+    // Parse currency from transaction
+    if (widget.transaction != null) {
+      try {
+        _selectedCurrency = Currency.values.firstWhere(
+          (c) => c.code == widget.transaction!.currency,
+          orElse: () => Currency.ils,
+        );
+      } catch (e) {
+        _selectedCurrency = Currency.ils;
+      }
+    }
   }
 
   @override

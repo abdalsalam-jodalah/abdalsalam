@@ -1,20 +1,32 @@
 import '../../../core/result/result.dart';
 import '../../../core/errors/financial_errors.dart';
+import '../../../shared/infrastructure/logger_service.dart';
+import '../../../shared/infrastructure/storage_gateway.dart';
 import '../../models/financial/transaction_model.dart';
 import 'transaction_repository.dart';
 
 class TransactionRepositoryImpl implements TransactionRepository {
-  // Mock in-memory storage
-  final Map<String, TransactionModel> _storage = {};
+  final StorageGateway _storage;
+  final LoggerService _logger;
+  static const String _tableName = 'transactions';
+
+  TransactionRepositoryImpl(this._storage, this._logger);
 
   @override
   Future<Result<TransactionModel, Error>> create(
     TransactionModel transaction,
   ) async {
     try {
-      _storage[transaction.id] = transaction;
+      await _storage.upsertRecord(
+        table: _tableName,
+        id: transaction.id,
+        record: transaction.toJson(),
+        userId: transaction.userId,
+      );
+      _logger.info('Transaction created: ${transaction.id}');
       return Success(transaction);
-    } catch (e) {
+    } catch (e, st) {
+      _logger.error('Failed to create transaction', error: e, stackTrace: st);
       return Failure(DatabaseError(e.toString()));
     }
   }
@@ -22,9 +34,13 @@ class TransactionRepositoryImpl implements TransactionRepository {
   @override
   Future<Result<TransactionModel?, Error>> getById(String id) async {
     try {
-      final transaction = _storage[id];
-      return Success(transaction);
-    } catch (e) {
+      final record = await _storage.getRecord(table: _tableName, id: id);
+      if (record == null) {
+        return const Success(null);
+      }
+      return Success(TransactionModel.fromJson(record));
+    } catch (e, st) {
+      _logger.error('Failed to get transaction', error: e, stackTrace: st);
       return Failure(DatabaseError(e.toString()));
     }
   }
@@ -32,9 +48,14 @@ class TransactionRepositoryImpl implements TransactionRepository {
   @override
   Future<Result<List<TransactionModel>, Error>> getAll() async {
     try {
-      final results = _storage.values.toList();
-      return Success(results);
-    } catch (e) {
+      final records = await _storage.getAllRecords(table: _tableName);
+      final transactions = records
+          .map((r) => TransactionModel.fromJson(r))
+          .where((t) => t.deletedAt == null)
+          .toList();
+      return Success(transactions);
+    } catch (e, st) {
+      _logger.error('Failed to get all transactions', error: e, stackTrace: st);
       return Failure(DatabaseError(e.toString()));
     }
   }
@@ -45,11 +66,20 @@ class TransactionRepositoryImpl implements TransactionRepository {
     DateTime end,
   ) async {
     try {
-      final results = _storage.values
-          .where((t) => t.date.isAfter(start) && t.date.isBefore(end))
+      final allResult = await getAll();
+      if (allResult.isFailure) {
+        return Failure(allResult.error!);
+      }
+
+      final filtered = allResult.data!
+          .where((t) =>
+              t.date.isAfter(start.subtract(const Duration(seconds: 1))) &&
+              t.date.isBefore(end.add(const Duration(seconds: 1))))
           .toList();
-      return Success(results);
-    } catch (e) {
+
+      return Success(filtered);
+    } catch (e, st) {
+      _logger.error('Failed to get transactions by date range', error: e, stackTrace: st);
       return Failure(DatabaseError(e.toString()));
     }
   }
@@ -59,11 +89,18 @@ class TransactionRepositoryImpl implements TransactionRepository {
     String categoryId,
   ) async {
     try {
-      final results = _storage.values
+      final allResult = await getAll();
+      if (allResult.isFailure) {
+        return Failure(allResult.error!);
+      }
+
+      final filtered = allResult.data!
           .where((t) => t.categoryId == categoryId)
           .toList();
-      return Success(results);
-    } catch (e) {
+
+      return Success(filtered);
+    } catch (e, st) {
+      _logger.error('Failed to get transactions by category', error: e, stackTrace: st);
       return Failure(DatabaseError(e.toString()));
     }
   }
@@ -73,9 +110,16 @@ class TransactionRepositoryImpl implements TransactionRepository {
     TransactionType type,
   ) async {
     try {
-      final results = _storage.values.where((t) => t.type == type).toList();
-      return Success(results);
-    } catch (e) {
+      final allResult = await getAll();
+      if (allResult.isFailure) {
+        return Failure(allResult.error!);
+      }
+
+      final filtered = allResult.data!.where((t) => t.type == type).toList();
+
+      return Success(filtered);
+    } catch (e, st) {
+      _logger.error('Failed to get transactions by type', error: e, stackTrace: st);
       return Failure(DatabaseError(e.toString()));
     }
   }
@@ -83,9 +127,17 @@ class TransactionRepositoryImpl implements TransactionRepository {
   @override
   Future<Result<void, Error>> update(TransactionModel transaction) async {
     try {
-      _storage[transaction.id] = transaction;
+      final updated = transaction.copyWith(updatedAt: DateTime.now());
+      await _storage.upsertRecord(
+        table: _tableName,
+        id: updated.id,
+        record: updated.toJson(),
+        userId: updated.userId,
+      );
+      _logger.info('Transaction updated: ${transaction.id}');
       return const Success(null);
-    } catch (e) {
+    } catch (e, st) {
+      _logger.error('Failed to update transaction', error: e, stackTrace: st);
       return Failure(DatabaseError(e.toString()));
     }
   }
@@ -93,9 +145,11 @@ class TransactionRepositoryImpl implements TransactionRepository {
   @override
   Future<Result<void, Error>> delete(String id) async {
     try {
-      _storage.remove(id);
+      await _storage.deleteRecord(table: _tableName, id: id);
+      _logger.info('Transaction deleted: $id');
       return const Success(null);
-    } catch (e) {
+    } catch (e, st) {
+      _logger.error('Failed to delete transaction', error: e, stackTrace: st);
       return Failure(DatabaseError(e.toString()));
     }
   }
@@ -117,7 +171,8 @@ class TransactionRepositoryImpl implements TransactionRepository {
           .fold<double>(0, (sum, t) => sum + t.amount);
 
       return Success(total);
-    } catch (e) {
+    } catch (e, st) {
+      _logger.error('Failed to get total by type', error: e, stackTrace: st);
       return Failure(DatabaseError(e.toString()));
     }
   }
@@ -140,7 +195,8 @@ class TransactionRepositoryImpl implements TransactionRepository {
       }
 
       return Success(totals);
-    } catch (e) {
+    } catch (e, st) {
+      _logger.error('Failed to get total by category', error: e, stackTrace: st);
       return Failure(DatabaseError(e.toString()));
     }
   }
@@ -159,7 +215,8 @@ class TransactionRepositoryImpl implements TransactionRepository {
       final recent = sorted.take(limit).toList();
 
       return Success(recent);
-    } catch (e) {
+    } catch (e, st) {
+      _logger.error('Failed to get recent transactions', error: e, stackTrace: st);
       return Failure(DatabaseError(e.toString()));
     }
   }

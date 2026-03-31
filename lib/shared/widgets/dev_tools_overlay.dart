@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:abdalsalam_logic_flutter/abdalsalam_logic_flutter.dart' as logic;
 import '../../providers/app_providers.dart';
+import '../../features/financial/providers/financial_providers.dart';
 
 /// Dev Tools Overlay for monitoring app state and diagnostics
 /// Only visible in debug mode
@@ -195,6 +196,34 @@ class _DevToolsOverlayState extends ConsumerState<DevToolsOverlay> {
           Icons.storage_outlined,
           () {
             Navigator.of(context).pushNamed('/dev/database');
+          },
+        ),
+        const SizedBox(height: 4),
+        _buildActionButton(
+          'Seed Financial Data',
+          Icons.add_circle_outline,
+          () async {
+            try {
+              final seeder = ref.read(financialDataSeederProvider);
+              await seeder.seedAll();
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Financial data seeded successfully!'),
+                    backgroundColor: Colors.green,
+                  ),
+                );
+              }
+            } catch (e) {
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Failed to seed data: $e'),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+              }
+            }
           },
         ),
         const SizedBox(height: 4),

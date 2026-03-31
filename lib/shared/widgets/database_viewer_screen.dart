@@ -58,11 +58,10 @@ class _DatabaseViewerScreenState extends State<DatabaseViewerScreen> {
       for (final table in _knownTables) {
         try {
           final data = await StorageGateway.instance.query(table: table);
-          if (data.isNotEmpty) {
-            existingTables.add(table);
-          }
+          // Show table even if empty (removed the isNotEmpty check)
+          existingTables.add(table);
         } catch (e) {
-          // Table might not exist or be empty, skip it
+          // Table doesn't exist, skip it
         }
       }
       
