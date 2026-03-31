@@ -254,14 +254,8 @@ class _AppShellScreenState extends State<AppShellScreen> {
                                          onPanEnd: (_) {
                                            // Fallback: open sidebar on any pan end
                                            //_openIconsOnly();
-                                         },
-                                child: Listener(
-                                  onPointerSignal: (event) {
-                                    if (event is PointerScrollEvent && event.scrollDelta.dy.abs() > 0) {
-                                      _openIconsOnly();
-                                    }
-                                  },
-                                  child: Container(
+                                          },
+                                child: Container(
                                   width: 20,
                                   height: 64,
                                   decoration: BoxDecoration(
@@ -273,10 +267,11 @@ class _AppShellScreenState extends State<AppShellScreen> {
                                     child: Icon(Icons.chevron_right_rounded, size: 18),
                                   ),
                                 ),
+
+                                        
                               ),
                             ),
                           ),
-                        ),
                         if (_logWheelOpen)
                           Positioned.fill(
                             child: GestureDetector(

@@ -3,6 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../religious/providers/prayer_providers.dart';
 import '../../religious/providers/quran_providers.dart';
+import '../../weather/widgets/weather_widget.dart';
+import '../../financial/widgets/currency_rates_widget.dart';
+import '../providers/dashboard_providers.dart';
 import '../../../providers/app_providers.dart';
 import '../../../shared/widgets/offline_banner.dart';
 
@@ -17,6 +20,13 @@ class DashboardScreen extends ConsumerWidget {
     final batteryInfo = ref.watch(batteryInfoProvider);
     final storageInfo = ref.watch(storageInfoProvider);
     final stateAware = ref.watch(stateAwareServiceProvider);
+    
+    // Weather and Currency data
+    final weatherAsync = ref.watch(weatherProvider);
+    final currencyRatesAsync = ref.watch(currencyRatesProvider);
+    final usdHistoryAsync = ref.watch(usdHistoryProvider);
+    final jodHistoryAsync = ref.watch(jodHistoryProvider);
+    
     final lowStorage = storageInfo.maybeWhen(
       data: (info) => info.usagePercentage >= 90,
       orElse: () => false,
@@ -78,6 +88,109 @@ class DashboardScreen extends ConsumerWidget {
               ),
               const SizedBox(height: 12),
             ],
+            
+            // Weather Widget
+            weatherAsync.when(
+              data: (weather) {
+                print('[DASHBOARD] Weather data received: ${weather != null ? weather.toString() : 'null'}');
+                if (weather == null) {
+                  print('[DASHBOARD] Weather is null, widget will not display.');
+                  return const SizedBox.shrink();
+                }
+                print('[DASHBOARD] WeatherWidget will be displayed.');
+                return Column(
+                  children: [
+                    WeatherWidget(
+                      weather: weather,
+                      onRefresh: () {
+                        ref.invalidate(weatherProvider);
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                  ],
+                );
+              },
+              loading: () {
+                print('[DASHBOARD] Weather loading...');
+                return const Card(
+                  child: Padding(
+                    padding: EdgeInsets.all(20),
+                    child: Center(child: CircularProgressIndicator()),
+                  ),
+                );
+              },
+              error: (error, stack) {
+                print('[DASHBOARD] Weather error: $error');
+                return Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.error_outline, color: Colors.orange),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            'Weather unavailable',
+                            style: TextStyle(color: Colors.grey[600]),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+            
+            // Currency Rates Widget
+            currencyRatesAsync.when(
+              data: (rates) {
+                return Column(
+                  children: [
+                    CurrencyRatesWidget(
+                      currentRates: rates,
+                      usdHistory: usdHistoryAsync.maybeWhen(
+                        data: (history) => history,
+                        orElse: () => [],
+                      ),
+                      jodHistory: jodHistoryAsync.maybeWhen(
+                        data: (history) => history,
+                        orElse: () => [],
+                      ),
+                      onRefresh: () {
+                        ref.invalidate(currencyRatesProvider);
+                        ref.invalidate(usdHistoryProvider);
+                        ref.invalidate(jodHistoryProvider);
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                  ],
+                );
+              },
+              loading: () => const Card(
+                child: Padding(
+                  padding: EdgeInsets.all(20),
+                  child: Center(child: CircularProgressIndicator()),
+                ),
+              ),
+              error: (error, stack) => Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.error_outline, color: Colors.orange),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          'Exchange rates unavailable',
+                          style: TextStyle(color: Colors.grey[600]),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            
             Card(
               child: Padding(
                 padding: const EdgeInsets.all(16),

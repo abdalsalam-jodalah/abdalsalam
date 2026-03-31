@@ -228,6 +228,33 @@ class StorageGateway {
     }
   }
 
+  Future<List<String>> getAllKeys({StorageType storageType = StorageType.sharedPreferences}) async {
+    await _ensureInitialized();
+    switch (storageType) {
+      case StorageType.sharedPreferences:
+        return await _preferencesStorage.keys();
+      case StorageType.sqlite:
+        // Return all table names
+        return _sqliteStores.keys.toList();
+      case StorageType.hive:
+        final allKeys = await _preferencesStorage.keys();
+        return allKeys.where((key) => key.startsWith('hive:')).toList();
+    }
+  }
+
+  Future<void> delete(String key, {StorageType storageType = StorageType.sharedPreferences}) async {
+    await _ensureInitialized();
+    switch (storageType) {
+      case StorageType.sharedPreferences:
+        await _preferencesStorage.delete(key);
+      case StorageType.sqlite:
+        final store = await _getSqliteStore('_key_value');
+        await store.delete(key);
+      case StorageType.hive:
+        await _preferencesStorage.delete('hive:$key');
+    }
+  }
+
   Future<void> _ensureInitialized() async {
     if (!_initialized) {
       await initialize();
