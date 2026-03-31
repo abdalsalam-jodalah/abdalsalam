@@ -12,22 +12,17 @@ class CategoryModel extends BaseModel {
   final String? parentCategoryId;
 
   const CategoryModel({
-    required String id,
+    required super.id,
     required this.userId,
     required this.name,
     required this.type,
     required this.icon,
     required this.color,
     this.parentCategoryId,
-    required DateTime createdAt,
-    required DateTime updatedAt,
-    DateTime? deletedAt,
-  }) : super(
-          id: id,
-          createdAt: createdAt,
-          updatedAt: updatedAt,
-          deletedAt: deletedAt,
-        );
+    required super.createdAt,
+    required super.updatedAt,
+    super.deletedAt,
+  });
 
   @override
   Map<String, dynamic> toJson() => {

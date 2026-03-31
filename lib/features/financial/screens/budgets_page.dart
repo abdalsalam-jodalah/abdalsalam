@@ -300,7 +300,7 @@ class _BudgetsPageState extends State<BudgetsPage> {
                   labelText: 'Period',
                   border: OutlineInputBorder(),
                 ),
-                value: BudgetPeriod.monthly,
+                initialValue: BudgetPeriod.monthly,
                 items: const [
                   DropdownMenuItem(
                     value: BudgetPeriod.daily,

@@ -81,7 +81,10 @@ class _FinancialDashboardScreenState extends State<FinancialDashboardScreen> {
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-                _buildPeriodSelector(),
+                const SizedBox(width: 8),
+                Flexible(
+                  child: _buildPeriodSelector(),
+                ),
               ],
             ),
             const SizedBox(height: 16),
@@ -98,27 +101,30 @@ class _FinancialDashboardScreenState extends State<FinancialDashboardScreen> {
   }
 
   Widget _buildPeriodSelector() {
-    return SegmentedButton<TimePeriod>(
-      segments: const [
-        ButtonSegment(
-          value: TimePeriod.week,
-          label: Text('Week'),
-        ),
-        ButtonSegment(
-          value: TimePeriod.month,
-          label: Text('Month'),
-        ),
-        ButtonSegment(
-          value: TimePeriod.year,
-          label: Text('Year'),
-        ),
-      ],
-      selected: {_selectedPeriod},
-      onSelectionChanged: (Set<TimePeriod> newSelection) {
-        setState(() {
-          _selectedPeriod = newSelection.first;
-        });
-      },
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: SegmentedButton<TimePeriod>(
+        segments: const [
+          ButtonSegment(
+            value: TimePeriod.week,
+            label: Text('Week'),
+          ),
+          ButtonSegment(
+            value: TimePeriod.month,
+            label: Text('Month'),
+          ),
+          ButtonSegment(
+            value: TimePeriod.year,
+            label: Text('Year'),
+          ),
+        ],
+        selected: {_selectedPeriod},
+        onSelectionChanged: (Set<TimePeriod> newSelection) {
+          setState(() {
+            _selectedPeriod = newSelection.first;
+          });
+        },
+      ),
     );
   }
 
@@ -363,32 +369,29 @@ class _FinancialDashboardScreenState extends State<FinancialDashboardScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        const Text(
+          'Budgets',
+          style: TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        const SizedBox(height: 8),
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            const Text(
-              'Budgets',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            Row(
-              children: [
-                _buildFilterChip('Month'),
-                const SizedBox(width: 8),
-                TextButton(
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const BudgetsPage(),
-                      ),
-                    );
-                  },
-                  child: const Text('View More'),
-                ),
-              ],
+            _buildFilterChip('Month'),
+            const SizedBox(width: 4),
+            TextButton(
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const BudgetsPage(),
+                  ),
+                );
+              },
+              child: const Text('View More'),
             ),
           ],
         ),
@@ -501,16 +504,17 @@ class _FinancialDashboardScreenState extends State<FinancialDashboardScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        const Text(
+          'Recent Transactions',
+          style: TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        const SizedBox(height: 8),
         Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          mainAxisAlignment: MainAxisAlignment.end,
           children: [
-            const Text(
-              'Recent Transactions',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
             TextButton(
               onPressed: () {
                 Navigator.push(
@@ -574,11 +578,11 @@ class _FinancialDashboardScreenState extends State<FinancialDashboardScreen> {
           ),
         ),
         subtitle: Text(
-          '${category} • ${formatter.format(date)}',
+          '$category • ${formatter.format(date)}',
           style: const TextStyle(fontSize: 12),
         ),
         trailing: Text(
-          '${isIncome ? '+' : ''}\$${amount.abs().toStringAsFixed(2)}',
+          '${isIncome ? '+' : ''}${amount.abs().toStringAsFixed(2)}',
           style: TextStyle(
             fontSize: 16,
             fontWeight: FontWeight.bold,
@@ -593,16 +597,17 @@ class _FinancialDashboardScreenState extends State<FinancialDashboardScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        const Text(
+          'Categories',
+          style: TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        const SizedBox(height: 8),
         Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          mainAxisAlignment: MainAxisAlignment.end,
           children: [
-            const Text(
-              'Categories',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
             TextButton(
               onPressed: () {
                 Navigator.push(
@@ -623,7 +628,7 @@ class _FinancialDashboardScreenState extends State<FinancialDashboardScreen> {
           physics: const NeverScrollableScrollPhysics(),
           mainAxisSpacing: 12,
           crossAxisSpacing: 12,
-          childAspectRatio: 1.5,
+          childAspectRatio: 1.2,
           children: [
             _buildCategoryCard('Food & Dining', 450.00, Icons.restaurant, Colors.orange),
             _buildCategoryCard('Transport', 180.00, Icons.directions_car, Colors.blue),
@@ -643,7 +648,7 @@ class _FinancialDashboardScreenState extends State<FinancialDashboardScreen> {
   ) {
     return Card(
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(12),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -651,12 +656,12 @@ class _FinancialDashboardScreenState extends State<FinancialDashboardScreen> {
             Row(
               children: [
                 Container(
-                  padding: const EdgeInsets.all(8),
+                  padding: const EdgeInsets.all(6),
                   decoration: BoxDecoration(
                     color: color.withValues(alpha: 0.2),
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(6),
                   ),
-                  child: Icon(icon, color: color, size: 20),
+                  child: Icon(icon, color: color, size: 18),
                 ),
               ],
             ),
@@ -666,15 +671,17 @@ class _FinancialDashboardScreenState extends State<FinancialDashboardScreen> {
                 Text(
                   name,
                   style: const TextStyle(
-                    fontSize: 14,
+                    fontSize: 12,
                     fontWeight: FontWeight.w600,
                   ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: 2),
                 Text(
-                  '\$${amount.toStringAsFixed(2)}',
+                  '\$${amount.toStringAsFixed(0)}',
                   style: const TextStyle(
-                    fontSize: 18,
+                    fontSize: 16,
                     fontWeight: FontWeight.bold,
                   ),
                 ),

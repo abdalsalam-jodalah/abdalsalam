@@ -10,10 +10,11 @@ class BudgetModel extends BaseModel {
   final DateTime startDate;
   final DateTime endDate;
   final double alertThreshold; // Percentage (0-100)
+  @override
   final bool isActive;
 
   const BudgetModel({
-    required String id,
+    required super.id,
     required this.userId,
     required this.categoryId,
     required this.amount,
@@ -22,15 +23,10 @@ class BudgetModel extends BaseModel {
     required this.endDate,
     this.alertThreshold = 80.0,
     this.isActive = true,
-    required DateTime createdAt,
-    required DateTime updatedAt,
-    DateTime? deletedAt,
-  }) : super(
-          id: id,
-          createdAt: createdAt,
-          updatedAt: updatedAt,
-          deletedAt: deletedAt,
-        );
+    required super.createdAt,
+    required super.updatedAt,
+    super.deletedAt,
+  });
 
   @override
   Map<String, dynamic> toJson() => {

@@ -16,7 +16,6 @@ class TransactionFormScreen extends StatefulWidget {
 class _TransactionFormScreenState extends State<TransactionFormScreen> {
   late final TextEditingController _descriptionController;
   late final TextEditingController _amountController;
-  late final TextEditingController _notesController;
 
   TransactionType _type = TransactionType.expense;
   String _selectedCategory = 'Food & Dining';
@@ -24,36 +23,41 @@ class _TransactionFormScreenState extends State<TransactionFormScreen> {
   String _selectedPaymentMethod = 'Cash';
   List<String> _tags = [];
   final _tagController = TextEditingController();
+  bool _isRecurring = false;
+  String _recurringPattern = 'monthly';
+  bool _showAdvanced = false;
 
   final _categories = {
-    TransactionType.expense: [
-      'Food & Dining',
-      'Transport',
-      'Shopping',
-      'Bills',
-      'Entertainment',
-      'Health',
-      'Education',
-      'Other',
-    ],
-    TransactionType.income: [
-      'Salary',
-      'Freelance',
-      'Investment',
-      'Bonus',
-      'Gift',
-      'Other',
-    ],
+    TransactionType.expense: {
+      'Food & Dining': Icons.restaurant,
+      'Transport': Icons.directions_car,
+      'Shopping': Icons.shopping_bag,
+      'Bills': Icons.receipt,
+      'Entertainment': Icons.movie,
+      'Health': Icons.health_and_safety,
+      'Education': Icons.school,
+      'Other': Icons.category,
+    },
+    TransactionType.income: {
+      'Salary': Icons.attach_money,
+      'Freelance': Icons.work,
+      'Investment': Icons.trending_up,
+      'Bonus': Icons.card_giftcard,
+      'Gift': Icons.card_giftcard,
+      'Other': Icons.category,
+    },
   };
 
   final _paymentMethods = [
-    'Cash',
-    'Credit Card',
-    'Debit Card',
-    'Bank Transfer',
-    'Mobile Payment',
-    'Check',
+    ('Cash', Icons.money),
+    ('Credit Card', Icons.credit_card),
+    ('Debit Card', Icons.credit_card),
+    ('Bank Transfer', Icons.account_balance),
+    ('Mobile Payment', Icons.phone_android),
+    ('Check', Icons.receipt),
   ];
+
+  final _recurringOptions = ['daily', 'weekly', 'monthly', 'yearly'];
 
   @override
   void initState() {
@@ -64,19 +68,19 @@ class _TransactionFormScreenState extends State<TransactionFormScreen> {
     _amountController = TextEditingController(
       text: widget.transaction?.amount.toString() ?? '',
     );
-    _notesController = TextEditingController();
     _type = widget.transaction?.type ?? TransactionType.expense;
     _selectedCategory = widget.transaction?.categoryId ?? 'Food & Dining';
     _selectedDate = widget.transaction?.date ?? DateTime.now();
     _selectedPaymentMethod = widget.transaction?.paymentMethod ?? 'Cash';
     _tags = List.from(widget.transaction?.tags ?? []);
+    _isRecurring = widget.transaction?.isRecurring ?? false;
+    _recurringPattern = widget.transaction?.recurringPattern ?? 'monthly';
   }
 
   @override
   void dispose() {
     _descriptionController.dispose();
     _amountController.dispose();
-    _notesController.dispose();
     _tagController.dispose();
     super.dispose();
   }
@@ -86,6 +90,7 @@ class _TransactionFormScreenState extends State<TransactionFormScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.transaction == null ? 'Add Transaction' : 'Edit Transaction'),
+        elevation: 0,
         actions: [
           if (widget.transaction != null)
             IconButton(
@@ -94,43 +99,137 @@ class _TransactionFormScreenState extends State<TransactionFormScreen> {
             ),
         ],
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Transaction Type Selector
-            _buildTypeSelector(),
-            const SizedBox(height: 24),
+      body: Stack(
+        children: [
+          // Background gradient
+          Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.3),
+                  Theme.of(context).colorScheme.surface,
+                ],
+              ),
+            ),
+          ),
+          // Form content
+          SingleChildScrollView(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Quick amount display
+                _buildAmountPreview(),
+                const SizedBox(height: 24),
 
-            // Amount Input
-            _buildAmountInput(),
-            const SizedBox(height: 20),
+                // Transaction Type Selector
+                _buildTypeSelector(),
+                const SizedBox(height: 24),
 
-            // Description Input
-            _buildDescriptionInput(),
-            const SizedBox(height: 20),
+                // Amount Input
+                _buildAmountInput(),
+                const SizedBox(height: 20),
 
-            // Category Selector
-            _buildCategorySelector(),
-            const SizedBox(height: 20),
+                // Description Input
+                _buildDescriptionInput(),
+                const SizedBox(height: 20),
 
-            // Date Picker
-            _buildDatePicker(),
-            const SizedBox(height: 20),
+                // Category Selector with icons
+                _buildCategorySelector(),
+                const SizedBox(height: 20),
 
-            // Payment Method
-            _buildPaymentMethodSelector(),
-            const SizedBox(height: 20),
+                // Date Picker
+                _buildDatePicker(),
+                const SizedBox(height: 20),
 
-            // Tags
-            _buildTagsInput(),
-            const SizedBox(height: 24),
+                // Payment Method with icons
+                _buildPaymentMethodSelector(),
+                const SizedBox(height: 20),
 
-            // Action Buttons
-            _buildActionButtons(),
+                // Tags
+                _buildTagsInput(),
+                const SizedBox(height: 20),
+
+                // Advanced Options
+                _buildAdvancedOptions(),
+                const SizedBox(height: 24),
+
+                // Action Buttons
+                _buildActionButtons(),
+                const SizedBox(height: 20),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAmountPreview() {
+    final amount = double.tryParse(_amountController.text) ?? 0;
+    final isIncome = _type == TransactionType.income;
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            isIncome
+                ? Colors.green.withValues(alpha: 0.8)
+                : Colors.red.withValues(alpha: 0.8),
+            isIncome
+                ? Colors.green.withValues(alpha: 0.6)
+                : Colors.red.withValues(alpha: 0.6),
           ],
         ),
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: (isIncome ? Colors.green : Colors.red).withValues(alpha: 0.3),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            isIncome ? 'Income' : 'Expense',
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+              letterSpacing: 1,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.baseline,
+            textBaseline: TextBaseline.alphabetic,
+            children: [
+              Text(
+                isIncome ? '+' : '-',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 28,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(width: 4),
+              Text(
+                '\$${amount.toStringAsFixed(2)}',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 36,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
@@ -147,26 +246,38 @@ class _TransactionFormScreenState extends State<TransactionFormScreen> {
           ),
         ),
         const SizedBox(height: 12),
-        SegmentedButton<TransactionType>(
-          segments: const [
-            ButtonSegment(
-              value: TransactionType.expense,
-              label: Text('Expense'),
-              icon: Icon(Icons.arrow_upward),
-            ),
-            ButtonSegment(
-              value: TransactionType.income,
-              label: Text('Income'),
-              icon: Icon(Icons.arrow_downward),
-            ),
-          ],
-          selected: {_type},
-          onSelectionChanged: (Set<TransactionType> newSelection) {
-            setState(() {
-              _type = newSelection.first;
-              _selectedCategory = _categories[_type]!.first;
-            });
-          },
+        Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.05),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: SegmentedButton<TransactionType>(
+            segments: const [
+              ButtonSegment(
+                value: TransactionType.expense,
+                label: Text('Expense'),
+                icon: Icon(Icons.arrow_upward),
+              ),
+              ButtonSegment(
+                value: TransactionType.income,
+                label: Text('Income'),
+                icon: Icon(Icons.arrow_downward),
+              ),
+            ],
+            selected: {_type},
+            onSelectionChanged: (Set<TransactionType> newSelection) {
+              setState(() {
+                _type = newSelection.first;
+                _selectedCategory = _categories[_type]!.keys.first;
+              });
+            },
+          ),
         ),
       ],
     );
@@ -187,6 +298,7 @@ class _TransactionFormScreenState extends State<TransactionFormScreen> {
         TextField(
           controller: _amountController,
           keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          onChanged: (_) => setState(() {}),
           decoration: InputDecoration(
             hintText: '0.00',
             prefixText: '\$ ',
@@ -196,11 +308,29 @@ class _TransactionFormScreenState extends State<TransactionFormScreen> {
             ),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(
+                color: Colors.grey.withValues(alpha: 0.2),
+              ),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(
+                color: Colors.grey.withValues(alpha: 0.2),
+              ),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(
+                color: Theme.of(context).colorScheme.primary,
+                width: 2,
+              ),
             ),
             contentPadding: const EdgeInsets.symmetric(
               horizontal: 16,
               vertical: 16,
             ),
+            filled: true,
+            fillColor: Colors.grey.withValues(alpha: 0.05),
           ),
           style: const TextStyle(
             fontSize: 18,
@@ -229,11 +359,29 @@ class _TransactionFormScreenState extends State<TransactionFormScreen> {
             hintText: 'What did you spend on?',
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(
+                color: Colors.grey.withValues(alpha: 0.2),
+              ),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(
+                color: Colors.grey.withValues(alpha: 0.2),
+              ),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(
+                color: Theme.of(context).colorScheme.primary,
+                width: 2,
+              ),
             ),
             contentPadding: const EdgeInsets.symmetric(
               horizontal: 16,
               vertical: 16,
             ),
+            filled: true,
+            fillColor: Colors.grey.withValues(alpha: 0.05),
           ),
           maxLines: 2,
         ),
@@ -242,6 +390,8 @@ class _TransactionFormScreenState extends State<TransactionFormScreen> {
   }
 
   Widget _buildCategorySelector() {
+    final categoryIcons = _categories[_type]!;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -253,28 +403,48 @@ class _TransactionFormScreenState extends State<TransactionFormScreen> {
           ),
         ),
         const SizedBox(height: 12),
-        DropdownButtonFormField<String>(
-          value: _selectedCategory,
-          decoration: InputDecoration(
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
+        Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: Colors.grey.withValues(alpha: 0.2),
             ),
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 16,
-              vertical: 16,
-            ),
+            color: Colors.grey.withValues(alpha: 0.05),
           ),
-          items: _categories[_type]!
-              .map((category) => DropdownMenuItem(
-                    value: category,
-                    child: Text(category),
-                  ))
-              .toList(),
-          onChanged: (value) {
-            if (value != null) {
-              setState(() => _selectedCategory = value);
-            }
-          },
+          child: DropdownButtonFormField<String>(
+            initialValue: _selectedCategory,
+            decoration: InputDecoration(
+              border: InputBorder.none,
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: 12,
+              ),
+              prefixIcon: Padding(
+                padding: const EdgeInsets.only(left: 12, right: 8),
+                child: Icon(
+                  categoryIcons[_selectedCategory],
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+              ),
+            ),
+            items: categoryIcons.entries
+                .map((entry) => DropdownMenuItem(
+                      value: entry.key,
+                      child: Row(
+                        children: [
+                          Icon(entry.value, size: 20),
+                          const SizedBox(width: 12),
+                          Text(entry.key),
+                        ],
+                      ),
+                    ))
+                .toList(),
+            onChanged: (value) {
+              if (value != null) {
+                setState(() => _selectedCategory = value);
+              }
+            },
+          ),
         ),
       ],
     );
@@ -303,9 +473,10 @@ class _TransactionFormScreenState extends State<TransactionFormScreen> {
             ),
             decoration: BoxDecoration(
               border: Border.all(
-                color: Colors.grey.withValues(alpha: 0.3),
+                color: Colors.grey.withValues(alpha: 0.2),
               ),
               borderRadius: BorderRadius.circular(12),
+              color: Colors.grey.withValues(alpha: 0.05),
             ),
             child: Row(
               children: [
@@ -320,6 +491,12 @@ class _TransactionFormScreenState extends State<TransactionFormScreen> {
                     fontSize: 16,
                     fontWeight: FontWeight.w500,
                   ),
+                ),
+                const Spacer(),
+                Icon(
+                  Icons.edit,
+                  size: 18,
+                  color: Colors.grey[400],
                 ),
               ],
             ),
@@ -341,28 +518,28 @@ class _TransactionFormScreenState extends State<TransactionFormScreen> {
           ),
         ),
         const SizedBox(height: 12),
-        DropdownButtonFormField<String>(
-          value: _selectedPaymentMethod,
-          decoration: InputDecoration(
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 16,
-              vertical: 16,
-            ),
-          ),
-          items: _paymentMethods
-              .map((method) => DropdownMenuItem(
-                    value: method,
-                    child: Text(method),
-                  ))
-              .toList(),
-          onChanged: (value) {
-            if (value != null) {
-              setState(() => _selectedPaymentMethod = value);
-            }
-          },
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: _paymentMethods.map((method) {
+            final isSelected = _selectedPaymentMethod == method.$1;
+            return FilterChip(
+              selected: isSelected,
+              onSelected: (selected) {
+                setState(() => _selectedPaymentMethod = method.$1);
+              },
+              avatar: Icon(method.$2, size: 18),
+              label: Text(method.$1),
+              backgroundColor: Colors.grey.withValues(alpha: 0.1),
+              selectedColor: Theme.of(context).colorScheme.primaryContainer,
+              labelStyle: TextStyle(
+                color: isSelected
+                    ? Theme.of(context).colorScheme.onPrimaryContainer
+                    : Colors.black87,
+                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+              ),
+            );
+          }).toList(),
         ),
       ],
     );
@@ -373,7 +550,7 @@ class _TransactionFormScreenState extends State<TransactionFormScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Text(
-          'Tags',
+          'Tags (Optional)',
           style: TextStyle(
             fontSize: 16,
             fontWeight: FontWeight.w600,
@@ -390,10 +567,14 @@ class _TransactionFormScreenState extends State<TransactionFormScreen> {
                       onDeleted: () {
                         setState(() => _tags.remove(tag));
                       },
+                      backgroundColor: Theme.of(context)
+                          .colorScheme
+                          .secondaryContainer
+                          .withValues(alpha: 0.5),
                     ))
                 .toList(),
           ),
-        const SizedBox(height: 12),
+        if (_tags.isNotEmpty) const SizedBox(height: 12),
         Row(
           children: [
             Expanded(
@@ -403,11 +584,22 @@ class _TransactionFormScreenState extends State<TransactionFormScreen> {
                   hintText: 'Add a tag',
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(
+                      color: Colors.grey.withValues(alpha: 0.2),
+                    ),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(
+                      color: Colors.grey.withValues(alpha: 0.2),
+                    ),
                   ),
                   contentPadding: const EdgeInsets.symmetric(
                     horizontal: 16,
                     vertical: 12,
                   ),
+                  filled: true,
+                  fillColor: Colors.grey.withValues(alpha: 0.05),
                 ),
               ),
             ),
@@ -419,6 +611,101 @@ class _TransactionFormScreenState extends State<TransactionFormScreen> {
             ),
           ],
         ),
+      ],
+    );
+  }
+
+  Widget _buildAdvancedOptions() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        GestureDetector(
+          onTap: () => setState(() => _showAdvanced = !_showAdvanced),
+          child: Container(
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            child: Row(
+              children: [
+                Icon(
+                  _showAdvanced ? Icons.expand_less : Icons.expand_more,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+                const SizedBox(width: 8),
+                const Text(
+                  'Advanced Options',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        if (_showAdvanced) ...[
+          const SizedBox(height: 16),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              border: Border.all(
+                color: Colors.grey.withValues(alpha: 0.2),
+              ),
+              borderRadius: BorderRadius.circular(12),
+              color: Colors.grey.withValues(alpha: 0.05),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: const Text(
+                        'Recurring Transaction',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                    Switch(
+                      value: _isRecurring,
+                      onChanged: (value) {
+                        setState(() => _isRecurring = value);
+                      },
+                    ),
+                  ],
+                ),
+                if (_isRecurring) ...[
+                  const SizedBox(height: 12),
+                  DropdownButtonFormField<String>(
+                    initialValue: _recurringPattern,
+                    decoration: InputDecoration(
+                      labelText: 'Repeat',
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 12,
+                      ),
+                    ),
+                    items: _recurringOptions
+                        .map((option) => DropdownMenuItem(
+                              value: option,
+                              child: Text(
+                                option[0].toUpperCase() + option.substring(1),
+                              ),
+                            ))
+                        .toList(),
+                    onChanged: (value) {
+                      if (value != null) {
+                        setState(() => _recurringPattern = value);
+                      }
+                    },
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
       ],
     );
   }
@@ -491,6 +778,8 @@ class _TransactionFormScreenState extends State<TransactionFormScreen> {
       description: description,
       tags: _tags,
       paymentMethod: _selectedPaymentMethod,
+      isRecurring: _isRecurring,
+      recurringPattern: _isRecurring ? _recurringPattern : null,
       createdAt: widget.transaction?.createdAt ?? DateTime.now(),
       updatedAt: DateTime.now(),
     );
@@ -503,6 +792,7 @@ class _TransactionFormScreenState extends State<TransactionFormScreen> {
               : 'Transaction updated successfully',
         ),
         duration: const Duration(seconds: 2),
+        behavior: SnackBarBehavior.floating,
       ),
     );
 
@@ -541,6 +831,7 @@ class _TransactionFormScreenState extends State<TransactionFormScreen> {
         content: Text(message),
         backgroundColor: Colors.red,
         duration: const Duration(seconds: 2),
+        behavior: SnackBarBehavior.floating,
       ),
     );
   }

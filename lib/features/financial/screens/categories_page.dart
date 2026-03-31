@@ -354,7 +354,7 @@ class _CategoriesPageState extends State<CategoriesPage> {
                   labelText: 'Type',
                   border: OutlineInputBorder(),
                 ),
-                value: CategoryType.expense,
+                initialValue: CategoryType.expense,
                 items: const [
                   DropdownMenuItem(
                     value: CategoryType.expense,

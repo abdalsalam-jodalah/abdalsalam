@@ -16,7 +16,7 @@ class TransactionModel extends BaseModel {
   final String? recurringPattern;
 
   const TransactionModel({
-    required String id,
+    required super.id,
     required this.userId,
     required this.type,
     required this.amount,
@@ -28,15 +28,10 @@ class TransactionModel extends BaseModel {
     this.paymentMethod,
     this.isRecurring = false,
     this.recurringPattern,
-    required DateTime createdAt,
-    required DateTime updatedAt,
-    DateTime? deletedAt,
-  }) : super(
-          id: id,
-          createdAt: createdAt,
-          updatedAt: updatedAt,
-          deletedAt: deletedAt,
-        );
+    required super.createdAt,
+    required super.updatedAt,
+    super.deletedAt,
+  });
 
   @override
   Map<String, dynamic> toJson() => {

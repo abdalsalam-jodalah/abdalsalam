@@ -156,7 +156,7 @@ class _TransactionsPageState extends State<TransactionsPage> {
                 labelText: 'Category',
                 border: OutlineInputBorder(),
               ),
-              value: _selectedCategory,
+              initialValue: _selectedCategory,
               items: const [
                 DropdownMenuItem(value: 'Food', child: Text('Food & Dining')),
                 DropdownMenuItem(value: 'Transport', child: Text('Transport')),
@@ -173,7 +173,7 @@ class _TransactionsPageState extends State<TransactionsPage> {
                 labelText: 'Type',
                 border: OutlineInputBorder(),
               ),
-              value: _selectedType,
+              initialValue: _selectedType,
               items: const [
                 DropdownMenuItem(
                   value: TransactionType.income,
