@@ -203,7 +203,7 @@ class MedicationService extends BaseServiceImpl<Medication> {
 
       final logs = logsResult.data!;
       final resetLogs = logs.map((log) => log.copyWith(
-            takenAt: null,
+            takenAtIsNull: true,
             skipped: false,
             updatedAt: DateTime.now(),
           )).toList();
@@ -238,10 +238,19 @@ class MedicationService extends BaseServiceImpl<Medication> {
         }
       }
 
-      // Sort by medication display order, then by time
+      // Sort by:
+      // 1. Checked status (unchecked first)
+      // 2. Medication display order
+      // 3. Scheduled time
       checklist.sort((a, b) {
+        // Unchecked items first
+        if (a.isChecked != b.isChecked) {
+          return a.isChecked ? 1 : -1;
+        }
+        // Then by medication display order
         final orderCompare = a.medication.displayOrder.compareTo(b.medication.displayOrder);
         if (orderCompare != 0) return orderCompare;
+        // Finally by scheduled time
         return a.log.scheduledTime.compareTo(b.log.scheduledTime);
       });
 

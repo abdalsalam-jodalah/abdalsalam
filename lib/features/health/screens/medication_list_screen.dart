@@ -24,6 +24,7 @@ class _MedicationListScreenState extends State<MedicationListScreen> with Single
   late final MedicationService _service;
   DateTime _selectedDate = DateTime.now();
   bool _isLoading = true;
+  bool _hasLoadedOnce = false;
   List<Medication> _medications = [];
   List<DailyMedicationCheck> _dailyChecklist = [];
   Map<String, dynamic> _stats = {};
@@ -46,6 +47,15 @@ class _MedicationListScreenState extends State<MedicationListScreen> with Single
     );
     
     _loadData();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Reload data when returning to this screen (but not on first build)
+    if (_hasLoadedOnce && mounted) {
+      _loadData();
+    }
   }
 
   @override
@@ -78,14 +88,17 @@ class _MedicationListScreenState extends State<MedicationListScreen> with Single
       _stats = statsResult.data!;
     }
     
-    setState(() => _isLoading = false);
+    setState(() {
+      _isLoading = false;
+      _hasLoadedOnce = true;
+    });
   }
 
   Future<void> _toggleCheck(DailyMedicationCheck check) async {
     if (check.isChecked) {
       // Uncheck by resetting
       final updated = check.log.copyWith(
-        takenAt: null,
+        takenAtIsNull: true,
         updatedAt: DateTime.now(),
       );
       await _service.logRepository.update(updated);
@@ -387,6 +400,12 @@ class _MedicationListScreenState extends State<MedicationListScreen> with Single
                         _loadData();
                       },
                       onEdit: () async {
+                        await Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => MedicationFormScreen(medication: med),
+                          ),
+                        );
                         _loadData();
                       },
                       onDelete: () async {
@@ -520,12 +539,15 @@ class _MedicationCard extends StatelessWidget {
           children: [
             Text('${medication.dosage} • ${medication.frequency}'),
             Text('Times: ${medication.reminderTimes.join(", ")}'),
+            if (medication.timing != MedicationTiming.anytime)
+              Text('Take: ${medication.timingLabel}', style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+            if (medication.frequency == 'Weekly' && medication.weekDays.isNotEmpty)
+              Text('Days: ${medication.weekDaysLabel}', style: TextStyle(fontSize: 12, color: Colors.grey[600])),
           ],
         ),
         trailing: PopupMenuButton(
           itemBuilder: (context) => [
             PopupMenuItem(
-              onTap: onToggleActive,
               child: Row(
                 children: [
                   Icon(medication.isActive ? Icons.pause : Icons.play_arrow),
@@ -533,9 +555,11 @@ class _MedicationCard extends StatelessWidget {
                   Text(medication.isActive ? 'Pause' : 'Resume'),
                 ],
               ),
+              onTap: () {
+                Future.delayed(Duration.zero, onToggleActive);
+              },
             ),
             PopupMenuItem(
-              onTap: onEdit,
               child: const Row(
                 children: [
                   Icon(Icons.edit),
@@ -543,9 +567,11 @@ class _MedicationCard extends StatelessWidget {
                   Text('Edit'),
                 ],
               ),
+              onTap: () {
+                Future.delayed(Duration.zero, onEdit);
+              },
             ),
             PopupMenuItem(
-              onTap: onDelete,
               child: const Row(
                 children: [
                   Icon(Icons.delete, color: Colors.red),
@@ -553,6 +579,9 @@ class _MedicationCard extends StatelessWidget {
                   Text('Delete', style: TextStyle(color: Colors.red)),
                 ],
               ),
+              onTap: () {
+                Future.delayed(Duration.zero, onDelete);
+              },
             ),
           ],
         ),

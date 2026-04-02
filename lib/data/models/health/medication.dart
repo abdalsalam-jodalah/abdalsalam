@@ -1,5 +1,23 @@
 import '../../models/base_model.dart';
 
+enum MedicationTiming {
+  beforeMeal,
+  withMeal,
+  afterMeal,
+  beforeBed,
+  anytime,
+}
+
+enum WeekDay {
+  monday,
+  tuesday,
+  wednesday,
+  thursday,
+  friday,
+  saturday,
+  sunday,
+}
+
 class Medication extends BaseModel {
   final String userId;
   final String name;
@@ -13,6 +31,8 @@ class Medication extends BaseModel {
   final DateTime? refillDate;
   final int displayOrder; // For custom ordering in the list
   final bool isActive; // Quick toggle for pausing medication
+  final MedicationTiming timing; // When to take it (before/with/after meal, etc.)
+  final List<WeekDay> weekDays; // For weekly medications - which days
 
   const Medication({
     required super.id,
@@ -31,6 +51,8 @@ class Medication extends BaseModel {
     this.refillDate,
     this.displayOrder = 0,
     this.isActive = true,
+    this.timing = MedicationTiming.anytime,
+    this.weekDays = const [],
   });
 
   factory Medication.fromJson(Map<String, dynamic> json) => Medication(
@@ -50,6 +72,20 @@ class Medication extends BaseModel {
         refillDate: json['refillDate'] == null ? null : DateTime.parse(json['refillDate'] as String),
         displayOrder: json['displayOrder'] as int? ?? 0,
         isActive: json['isActive'] as bool? ?? true,
+        timing: json['timing'] != null 
+            ? MedicationTiming.values.firstWhere(
+                (e) => e.name == json['timing'],
+                orElse: () => MedicationTiming.anytime,
+              )
+            : MedicationTiming.anytime,
+        weekDays: json['weekDays'] != null
+            ? (json['weekDays'] as List<dynamic>)
+                .map((e) => WeekDay.values.firstWhere(
+                      (day) => day.name == e,
+                      orElse: () => WeekDay.monday,
+                    ))
+                .toList()
+            : const [],
       );
 
   Medication copyWith({
@@ -69,6 +105,8 @@ class Medication extends BaseModel {
     DateTime? refillDate,
     int? displayOrder,
     bool? isActive,
+    MedicationTiming? timing,
+    List<WeekDay>? weekDays,
   }) =>
       Medication(
         id: id ?? this.id,
@@ -87,6 +125,8 @@ class Medication extends BaseModel {
         refillDate: refillDate ?? this.refillDate,
         displayOrder: displayOrder ?? this.displayOrder,
         isActive: isActive ?? this.isActive,
+        timing: timing ?? this.timing,
+        weekDays: weekDays ?? this.weekDays,
       );
 
   @override
@@ -107,6 +147,8 @@ class Medication extends BaseModel {
         'refillDate': refillDate?.toIso8601String(),
         'displayOrder': displayOrder,
         'isActive': isActive,
+        'timing': timing.name,
+        'weekDays': weekDays.map((e) => e.name).toList(),
       };
 
   @override
@@ -124,5 +166,47 @@ class Medication extends BaseModel {
         refillDate,
         displayOrder,
         isActive,
+        timing,
+        weekDays,
       ];
+
+  String get timingLabel {
+    switch (timing) {
+      case MedicationTiming.beforeMeal:
+        return 'Before meal';
+      case MedicationTiming.withMeal:
+        return 'With meal';
+      case MedicationTiming.afterMeal:
+        return 'After meal';
+      case MedicationTiming.beforeBed:
+        return 'Before bed';
+      case MedicationTiming.anytime:
+        return 'Anytime';
+    }
+  }
+
+  String get weekDaysLabel {
+    if (weekDays.isEmpty) return 'All days';
+    if (weekDays.length == 7) return 'All days';
+    return weekDays.map((d) => _weekDayShort(d)).join(', ');
+  }
+
+  String _weekDayShort(WeekDay day) {
+    switch (day) {
+      case WeekDay.monday:
+        return 'Mon';
+      case WeekDay.tuesday:
+        return 'Tue';
+      case WeekDay.wednesday:
+        return 'Wed';
+      case WeekDay.thursday:
+        return 'Thu';
+      case WeekDay.friday:
+        return 'Fri';
+      case WeekDay.saturday:
+        return 'Sat';
+      case WeekDay.sunday:
+        return 'Sun';
+    }
+  }
 }

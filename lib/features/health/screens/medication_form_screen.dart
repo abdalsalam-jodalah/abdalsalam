@@ -31,6 +31,8 @@ class _MedicationFormScreenState extends State<MedicationFormScreen> {
   late List<TimeOfDay> _times;
   late String _frequency;
   late bool _isActive;
+  late MedicationTiming _timing;
+  late Set<WeekDay> _selectedWeekDays;
   late final MedicationService _service;
   final _uuid = const Uuid();
 
@@ -59,6 +61,8 @@ class _MedicationFormScreenState extends State<MedicationFormScreen> {
       _refillDate = widget.medication!.refillDate;
       _frequency = widget.medication!.frequency;
       _isActive = widget.medication!.isActive;
+      _timing = widget.medication!.timing;
+      _selectedWeekDays = widget.medication!.weekDays.toSet();
       _times = widget.medication!.reminderTimes
           .map((time) {
             final parts = time.split(':');
@@ -73,6 +77,8 @@ class _MedicationFormScreenState extends State<MedicationFormScreen> {
       _times = [const TimeOfDay(hour: 8, minute: 0)];
       _frequency = 'Daily';
       _isActive = true;
+      _timing = MedicationTiming.anytime;
+      _selectedWeekDays = {};
     }
   }
 
@@ -110,6 +116,8 @@ class _MedicationFormScreenState extends State<MedicationFormScreen> {
       refillDate: _refillDate,
       displayOrder: widget.medication?.displayOrder ?? 0,
       isActive: _isActive,
+      timing: _timing,
+      weekDays: _selectedWeekDays.toList(),
     );
 
     final result = widget.medication == null
@@ -181,6 +189,47 @@ class _MedicationFormScreenState extends State<MedicationFormScreen> {
                   prefixIcon: Icon(Icons.repeat),
                 ),
               ),
+              const SizedBox(height: 12),
+              DropdownButtonFormField<MedicationTiming>(
+                value: _timing,
+                items: MedicationTiming.values
+                    .map((timing) => DropdownMenuItem(
+                          value: timing,
+                          child: Text(_getTimingLabel(timing)),
+                        ))
+                    .toList(),
+                onChanged: (value) => setState(() => _timing = value ?? _timing),
+                decoration: const InputDecoration(
+                  labelText: 'When to take',
+                  border: OutlineInputBorder(),
+                  prefixIcon: Icon(Icons.restaurant),
+                ),
+              ),
+              if (_frequency == 'Weekly') ...[
+                const SizedBox(height: 12),
+                Text('Select Days', style: Theme.of(context).textTheme.titleMedium),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: WeekDay.values.map((day) {
+                    final isSelected = _selectedWeekDays.contains(day);
+                    return FilterChip(
+                      label: Text(_getWeekDayLabel(day)),
+                      selected: isSelected,
+                      onSelected: (selected) {
+                        setState(() {
+                          if (selected) {
+                            _selectedWeekDays.add(day);
+                          } else {
+                            _selectedWeekDays.remove(day);
+                          }
+                        });
+                      },
+                    );
+                  }).toList(),
+                ),
+              ],
               const SizedBox(height: 12),
               SwitchListTile(
                 title: const Text('Active'),
@@ -271,6 +320,40 @@ class _MedicationFormScreenState extends State<MedicationFormScreen> {
         ),
       ),
     );
+  }
+
+  String _getTimingLabel(MedicationTiming timing) {
+    switch (timing) {
+      case MedicationTiming.beforeMeal:
+        return 'Before meal';
+      case MedicationTiming.withMeal:
+        return 'With meal';
+      case MedicationTiming.afterMeal:
+        return 'After meal';
+      case MedicationTiming.beforeBed:
+        return 'Before bed';
+      case MedicationTiming.anytime:
+        return 'Anytime';
+    }
+  }
+
+  String _getWeekDayLabel(WeekDay day) {
+    switch (day) {
+      case WeekDay.monday:
+        return 'Monday';
+      case WeekDay.tuesday:
+        return 'Tuesday';
+      case WeekDay.wednesday:
+        return 'Wednesday';
+      case WeekDay.thursday:
+        return 'Thursday';
+      case WeekDay.friday:
+        return 'Friday';
+      case WeekDay.saturday:
+        return 'Saturday';
+      case WeekDay.sunday:
+        return 'Sunday';
+    }
   }
 }
 

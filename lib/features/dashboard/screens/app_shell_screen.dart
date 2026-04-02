@@ -9,6 +9,7 @@ import '../../dashboard/screens/dashboard_screen.dart';
 import '../../financial/screens/financial_screen.dart';
 import '../../habits/screens/habits_screen.dart';
 import '../../health/screens/health_screen.dart';
+import '../../health/screens/medication_list_screen.dart';
 import '../../notes/screens/notes_screen.dart';
 import '../../religious/screens/religious_home_screen.dart';
 import '../../security/screens/security_screen.dart';
@@ -46,6 +47,7 @@ class _AppShellScreenState extends State<AppShellScreen> {
     _ShellDestination('Habits', Icons.repeat_rounded, HabitsScreen()),
     _ShellDestination('Sports', Icons.fitness_center, SportsScreen()),
     _ShellDestination('Health', Icons.health_and_safety_outlined, HealthScreen()),
+    _ShellDestination('Medications', Icons.medication_outlined, MedicationListScreen()),
     _ShellDestination('Notes', Icons.sticky_note_2_outlined, NotesScreen()),
     _ShellDestination('Calendar', Icons.calendar_month_outlined, CalendarScreen()),
     _ShellDestination('Security', Icons.lock_outline, SecurityScreen()),
