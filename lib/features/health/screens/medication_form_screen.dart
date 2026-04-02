@@ -1,9 +1,19 @@
 import 'package:flutter/material.dart';
+import 'package:uuid/uuid.dart';
+import 'package:abdalsalam_logic_flutter/abdalsalam_logic_flutter.dart';
+
+import '../../../data/models/health/medication.dart';
+import '../../../data/repositories/health/health_repository.dart';
+import '../../../data/repositories/health/medication_log_repository.dart';
+import '../../../shared/infrastructure/logger_service.dart';
+import '../../../shared/infrastructure/storage_gateway.dart';
+import '../services/medication_service.dart';
 
 class MedicationFormScreen extends StatefulWidget {
   static const routeName = '/health/medication-form';
+  final Medication? medication;
 
-  const MedicationFormScreen({super.key});
+  const MedicationFormScreen({super.key, this.medication});
 
   @override
   State<MedicationFormScreen> createState() => _MedicationFormScreenState();
@@ -15,11 +25,56 @@ class _MedicationFormScreenState extends State<MedicationFormScreen> {
   final _dosageController = TextEditingController();
   final _prescribedByController = TextEditingController();
   final _notesController = TextEditingController();
-  DateTime _startDate = DateTime.now();
+  late DateTime _startDate;
   DateTime? _endDate;
   DateTime? _refillDate;
-  final List<TimeOfDay> _times = [const TimeOfDay(hour: 8, minute: 0)];
-  String _frequency = 'Daily';
+  late List<TimeOfDay> _times;
+  late String _frequency;
+  late bool _isActive;
+  late final MedicationService _service;
+  final _uuid = const Uuid();
+
+  @override
+  void initState() {
+    super.initState();
+    
+    final logger = LoggerService.forModule('MedicationService', moduleType: ModuleType.service);
+    final storage = StorageGateway.instance;
+    final repo = HealthRepositoryImpl(storage, logger);
+    final logRepo = MedicationLogRepositoryImpl(storage, logger);
+    
+    _service = MedicationService(
+      repository: repo,
+      logger: logger,
+      logRepository: logRepo,
+    );
+    
+    if (widget.medication != null) {
+      _nameController.text = widget.medication!.name;
+      _dosageController.text = widget.medication!.dosage;
+      _prescribedByController.text = widget.medication!.prescribedBy ?? '';
+      _notesController.text = widget.medication!.notes ?? '';
+      _startDate = widget.medication!.startDate;
+      _endDate = widget.medication!.endDate;
+      _refillDate = widget.medication!.refillDate;
+      _frequency = widget.medication!.frequency;
+      _isActive = widget.medication!.isActive;
+      _times = widget.medication!.reminderTimes
+          .map((time) {
+            final parts = time.split(':');
+            return TimeOfDay(
+              hour: int.parse(parts[0]),
+              minute: int.parse(parts[1]),
+            );
+          })
+          .toList();
+    } else {
+      _startDate = DateTime.now();
+      _times = [const TimeOfDay(hour: 8, minute: 0)];
+      _frequency = 'Daily';
+      _isActive = true;
+    }
+  }
 
   @override
   void dispose() {
@@ -30,10 +85,62 @@ class _MedicationFormScreenState extends State<MedicationFormScreen> {
     super.dispose();
   }
 
+  Future<void> _saveMedication() async {
+    if (!(_formKey.currentState?.validate() ?? false)) {
+      return;
+    }
+
+    final reminderTimes = _times
+        .map((time) => '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}')
+        .toList();
+
+    final medication = Medication(
+      id: widget.medication?.id ?? _uuid.v4(),
+      createdAt: widget.medication?.createdAt ?? DateTime.now(),
+      updatedAt: DateTime.now(),
+      userId: 'current_user_id',
+      name: _nameController.text.trim(),
+      dosage: _dosageController.text.trim(),
+      frequency: _frequency,
+      startDate: _startDate,
+      endDate: _endDate,
+      reminderTimes: reminderTimes,
+      prescribedBy: _prescribedByController.text.trim().isEmpty ? null : _prescribedByController.text.trim(),
+      notes: _notesController.text.trim().isEmpty ? null : _notesController.text.trim(),
+      refillDate: _refillDate,
+      displayOrder: widget.medication?.displayOrder ?? 0,
+      isActive: _isActive,
+    );
+
+    final result = widget.medication == null
+        ? await _service.create(medication)
+        : await _service.update(medication);
+
+    if (result.isSuccess) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Medication ${widget.medication == null ? 'added' : 'updated'}')),
+        );
+        Navigator.of(context).pop(true);
+      }
+    } else {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error: ${result.error?.message ?? 'Unknown error'}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Medication Form')),
+      appBar: AppBar(
+        title: Text(widget.medication == null ? 'Add Medication' : 'Edit Medication'),
+      ),
       body: Padding(
         padding: const EdgeInsets.all(16),
         child: Form(
@@ -46,8 +153,9 @@ class _MedicationFormScreenState extends State<MedicationFormScreen> {
                   labelText: 'Medication name',
                   hintText: 'e.g. Vitamin D3',
                   border: OutlineInputBorder(),
+                  prefixIcon: Icon(Icons.medication),
                 ),
-                validator: (value) => (value == null || value.trim().isEmpty) ? 'Medication name is required' : null,
+                validator: (value) => (value == null || value.trim().isEmpty) ? 'Required' : null,
               ),
               const SizedBox(height: 12),
               TextFormField(
@@ -56,17 +164,29 @@ class _MedicationFormScreenState extends State<MedicationFormScreen> {
                   labelText: 'Dosage',
                   hintText: 'e.g. 1000 IU',
                   border: OutlineInputBorder(),
+                  prefixIcon: Icon(Icons.science),
                 ),
-                validator: (value) => (value == null || value.trim().isEmpty) ? 'Dosage is required' : null,
+                validator: (value) => (value == null || value.trim().isEmpty) ? 'Required' : null,
               ),
               const SizedBox(height: 12),
               DropdownButtonFormField<String>(
-                initialValue: _frequency,
-                items: const ['Daily', 'Twice Daily', 'Weekly', 'Custom']
+                value: _frequency,
+                items: const ['Daily', 'Twice Daily', 'Three Times Daily', 'Weekly', 'As Needed']
                     .map((item) => DropdownMenuItem(value: item, child: Text(item)))
-                    .toList(growable: false),
+                    .toList(),
                 onChanged: (value) => setState(() => _frequency = value ?? _frequency),
-                decoration: const InputDecoration(labelText: 'Frequency', border: OutlineInputBorder()),
+                decoration: const InputDecoration(
+                  labelText: 'Frequency',
+                  border: OutlineInputBorder(),
+                  prefixIcon: Icon(Icons.repeat),
+                ),
+              ),
+              const SizedBox(height: 12),
+              SwitchListTile(
+                title: const Text('Active'),
+                subtitle: const Text('Currently taking'),
+                value: _isActive,
+                onChanged: (value) => setState(() => _isActive = value),
               ),
               const SizedBox(height: 12),
               _DateField(
@@ -79,16 +199,23 @@ class _MedicationFormScreenState extends State<MedicationFormScreen> {
                 label: 'End Date (optional)',
                 date: _endDate,
                 onPick: (date) => setState(() => _endDate = date),
+                onClear: () => setState(() => _endDate = null),
               ),
               const SizedBox(height: 8),
               _DateField(
                 label: 'Refill Date (optional)',
                 date: _refillDate,
                 onPick: (date) => setState(() => _refillDate = date),
+                onClear: () => setState(() => _refillDate = null),
               ),
-              const SizedBox(height: 12),
-              Text('Reminder Times', style: Theme.of(context).textTheme.titleSmall),
-              const SizedBox(height: 6),
+              const SizedBox(height: 16),
+              Text('Reminder Times', style: Theme.of(context).textTheme.titleMedium),
+              const SizedBox(height: 8),
+              Text(
+                'Add multiple times for multiple daily doses',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+              const SizedBox(height: 8),
               Wrap(
                 spacing: 8,
                 runSpacing: 8,
@@ -96,6 +223,7 @@ class _MedicationFormScreenState extends State<MedicationFormScreen> {
                   for (var i = 0; i < _times.length; i++)
                     InputChip(
                       label: Text(_times[i].format(context)),
+                      avatar: const Icon(Icons.access_time, size: 18),
                       onPressed: () async {
                         final picked = await showTimePicker(context: context, initialTime: _times[i]);
                         if (picked != null) {
@@ -111,12 +239,14 @@ class _MedicationFormScreenState extends State<MedicationFormScreen> {
                   ),
                 ],
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 16),
               TextFormField(
                 controller: _prescribedByController,
                 decoration: const InputDecoration(
                   labelText: 'Prescribed By (optional)',
+                  hintText: 'Doctor name',
                   border: OutlineInputBorder(),
+                  prefixIcon: Icon(Icons.person),
                 ),
               ),
               const SizedBox(height: 12),
@@ -124,22 +254,17 @@ class _MedicationFormScreenState extends State<MedicationFormScreen> {
                 controller: _notesController,
                 maxLines: 3,
                 decoration: const InputDecoration(
-                  labelText: 'Notes',
+                  labelText: 'Notes (optional)',
+                  hintText: 'Additional info',
                   border: OutlineInputBorder(),
+                  prefixIcon: Icon(Icons.notes),
                 ),
               ),
               const SizedBox(height: 20),
               FilledButton.icon(
-                onPressed: () {
-                  if (_formKey.currentState?.validate() ?? false) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Medication saved')),
-                    );
-                    Navigator.of(context).maybePop();
-                  }
-                },
+                onPressed: _saveMedication,
                 icon: const Icon(Icons.save_outlined),
-                label: const Text('Save Medication'),
+                label: Text(widget.medication == null ? 'Add' : 'Update'),
               ),
             ],
           ),
@@ -153,8 +278,14 @@ class _DateField extends StatelessWidget {
   final String label;
   final DateTime? date;
   final ValueChanged<DateTime> onPick;
+  final VoidCallback? onClear;
 
-  const _DateField({required this.label, required this.date, required this.onPick});
+  const _DateField({
+    required this.label,
+    required this.date,
+    required this.onPick,
+    this.onClear,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -171,6 +302,12 @@ class _DateField extends StatelessWidget {
       leading: const Icon(Icons.calendar_today_outlined),
       title: Text(label),
       subtitle: Text(text),
+      trailing: date != null && onClear != null
+          ? IconButton(
+              icon: const Icon(Icons.clear),
+              onPressed: onClear,
+            )
+          : null,
       onTap: () async {
         final picked = await showDatePicker(
           context: context,

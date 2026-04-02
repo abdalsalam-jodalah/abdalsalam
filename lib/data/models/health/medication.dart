@@ -7,10 +7,12 @@ class Medication extends BaseModel {
   final String frequency;
   final DateTime startDate;
   final DateTime? endDate;
-  final List<String> reminderTimes;
+  final List<String> reminderTimes; // Format: "HH:mm"
   final String? prescribedBy;
   final String? notes;
   final DateTime? refillDate;
+  final int displayOrder; // For custom ordering in the list
+  final bool isActive; // Quick toggle for pausing medication
 
   const Medication({
     required super.id,
@@ -22,11 +24,13 @@ class Medication extends BaseModel {
     required this.dosage,
     required this.frequency,
     required this.startDate,
-    required this.endDate,
+    this.endDate,
     required this.reminderTimes,
-    required this.prescribedBy,
-    required this.notes,
-    required this.refillDate,
+    this.prescribedBy,
+    this.notes,
+    this.refillDate,
+    this.displayOrder = 0,
+    this.isActive = true,
   });
 
   factory Medication.fromJson(Map<String, dynamic> json) => Medication(
@@ -44,6 +48,45 @@ class Medication extends BaseModel {
         prescribedBy: json['prescribedBy'] as String?,
         notes: json['notes'] as String?,
         refillDate: json['refillDate'] == null ? null : DateTime.parse(json['refillDate'] as String),
+        displayOrder: json['displayOrder'] as int? ?? 0,
+        isActive: json['isActive'] as bool? ?? true,
+      );
+
+  Medication copyWith({
+    String? id,
+    DateTime? createdAt,
+    DateTime? updatedAt,
+    DateTime? deletedAt,
+    String? userId,
+    String? name,
+    String? dosage,
+    String? frequency,
+    DateTime? startDate,
+    DateTime? endDate,
+    List<String>? reminderTimes,
+    String? prescribedBy,
+    String? notes,
+    DateTime? refillDate,
+    int? displayOrder,
+    bool? isActive,
+  }) =>
+      Medication(
+        id: id ?? this.id,
+        createdAt: createdAt ?? this.createdAt,
+        updatedAt: updatedAt ?? this.updatedAt,
+        deletedAt: deletedAt ?? this.deletedAt,
+        userId: userId ?? this.userId,
+        name: name ?? this.name,
+        dosage: dosage ?? this.dosage,
+        frequency: frequency ?? this.frequency,
+        startDate: startDate ?? this.startDate,
+        endDate: endDate ?? this.endDate,
+        reminderTimes: reminderTimes ?? this.reminderTimes,
+        prescribedBy: prescribedBy ?? this.prescribedBy,
+        notes: notes ?? this.notes,
+        refillDate: refillDate ?? this.refillDate,
+        displayOrder: displayOrder ?? this.displayOrder,
+        isActive: isActive ?? this.isActive,
       );
 
   @override
@@ -62,5 +105,24 @@ class Medication extends BaseModel {
         'prescribedBy': prescribedBy,
         'notes': notes,
         'refillDate': refillDate?.toIso8601String(),
+        'displayOrder': displayOrder,
+        'isActive': isActive,
       };
+
+  @override
+  List<Object?> get props => [
+        id,
+        userId,
+        name,
+        dosage,
+        frequency,
+        startDate,
+        endDate,
+        reminderTimes,
+        prescribedBy,
+        notes,
+        refillDate,
+        displayOrder,
+        isActive,
+      ];
 }
