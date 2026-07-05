@@ -260,7 +260,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
                 );
               },
               loading: () => const CircularProgressIndicator(),
-              error: (_, __) => const Text('Error loading categories'),
+              error: (_, _) => const Text('Error loading categories'),
             ),
             const SizedBox(height: 16),
             DropdownButtonFormField<TransactionType>(

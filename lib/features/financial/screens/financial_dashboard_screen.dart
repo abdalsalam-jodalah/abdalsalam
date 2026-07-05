@@ -528,7 +528,7 @@ class _FinancialDashboardScreenState extends ConsumerState<FinancialDashboardScr
                           category.icon,
                           category.color,
                         ),
-                        error: (_, __) => _buildBudgetCard(
+                        error: (_, _) => _buildBudgetCard(
                           category.name,
                           budget.amount,
                           0,
@@ -541,7 +541,7 @@ class _FinancialDashboardScreenState extends ConsumerState<FinancialDashboardScr
                       width: 160,
                       child: Card(child: Center(child: CircularProgressIndicator())),
                     ),
-                    error: (_, __) => const SizedBox(width: 160),
+                    error: (_, _) => const SizedBox(width: 160),
                   );
                 },
               ),
@@ -711,7 +711,7 @@ class _FinancialDashboardScreenState extends ConsumerState<FinancialDashboardScr
                 );
               },
               loading: () => const Center(child: CircularProgressIndicator()),
-              error: (_, __) => const Text('Error loading categories'),
+              error: (_, _) => const Text('Error loading categories'),
             );
           },
           loading: () => const Center(child: CircularProgressIndicator()),
@@ -838,7 +838,7 @@ class _FinancialDashboardScreenState extends ConsumerState<FinancialDashboardScr
                 );
               },
               loading: () => const Center(child: CircularProgressIndicator()),
-              error: (_, __) => const Text('Error loading totals'),
+              error: (_, _) => const Text('Error loading totals'),
             );
           },
           loading: () => const Center(child: CircularProgressIndicator()),

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:uuid/uuid.dart';
 import '../../../data/models/financial/category_model.dart';
+import '../../../data/models/financial/transaction_model.dart';
 import '../providers/financial_providers.dart';
 
 class CategoriesPage extends ConsumerStatefulWidget {
@@ -13,7 +15,42 @@ class CategoriesPage extends ConsumerStatefulWidget {
 }
 
 class _CategoriesPageState extends ConsumerState<CategoriesPage> {
+  static const _defaultUserId = 'user1';
+  static const _iconOptions = <IconData>[
+    Icons.shopping_cart,
+    Icons.restaurant,
+    Icons.directions_car,
+    Icons.home,
+    Icons.movie,
+    Icons.fitness_center,
+    Icons.medical_services,
+    Icons.school,
+    Icons.card_giftcard,
+    Icons.work,
+    Icons.savings,
+    Icons.category,
+  ];
+  static const _colorOptions = <Color>[
+    Colors.orange,
+    Colors.blue,
+    Colors.purple,
+    Colors.green,
+    Colors.red,
+    Colors.teal,
+    Colors.pink,
+    Colors.indigo,
+  ];
+
   CategoryType _selectedType = CategoryType.expense;
+  final _uuid = const Uuid();
+
+  DateRange get _currentMonthRange {
+    final now = DateTime.now();
+    return DateRange(
+      DateTime(now.year, now.month, 1),
+      DateTime(now.year, now.month + 1, 1),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -23,9 +60,7 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage> {
         actions: [
           IconButton(
             icon: const Icon(Icons.add),
-            onPressed: () {
-              _showAddCategoryDialog();
-            },
+            onPressed: () => _showCategoryDialog(),
           ),
         ],
       ),
@@ -67,33 +102,66 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage> {
   }
 
   Widget _buildCategoriesList() {
-    final categories = _getSampleCategories()
-        .where((cat) => cat.type == _selectedType)
-        .toList();
+    final categoriesAsync = ref.watch(allCategoriesProvider);
+    final totalsAsync = ref.watch(categoryTotalsProvider(_currentMonthRange));
 
-    return GridView.builder(
-      padding: const EdgeInsets.all(16),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        crossAxisSpacing: 16,
-        mainAxisSpacing: 16,
-        childAspectRatio: 1.2,
-      ),
-      itemCount: categories.length,
-      itemBuilder: (context, index) {
-        final category = categories[index];
-        return _buildCategoryCard(category);
+    return categoriesAsync.when(
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (error, stack) => const Center(child: Text('Failed to load categories')),
+      data: (allCategories) {
+        final categories = allCategories
+            .where((category) => category.type == _selectedType)
+            .toList();
+
+        if (categories.isEmpty) {
+          return Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  Icons.category_outlined,
+                  size: 64,
+                  color: Theme.of(context).colorScheme.outline,
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'No ${_selectedType.name} categories yet',
+                  style: Theme.of(context).textTheme.bodyLarge,
+                ),
+                const SizedBox(height: 8),
+                const Text('Tap + to create your first category'),
+              ],
+            ),
+          );
+        }
+
+        final totals = totalsAsync.maybeWhen(
+          data: (value) => value,
+          orElse: () => const <String, double>{},
+        );
+
+        return GridView.builder(
+          padding: const EdgeInsets.all(16),
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 2,
+            crossAxisSpacing: 16,
+            mainAxisSpacing: 16,
+            childAspectRatio: 1.2,
+          ),
+          itemCount: categories.length,
+          itemBuilder: (context, index) {
+            final category = categories[index];
+            return _buildCategoryCard(category, totals[category.id] ?? 0.0);
+          },
+        );
       },
     );
   }
 
-  Widget _buildCategoryCard(CategoryModel category) {
-    // Sample spending amount - replace with real data
-    final amount = 450.0;
-
+  Widget _buildCategoryCard(CategoryModel category, double monthTotal) {
     return Card(
       child: InkWell(
-        onTap: () => _showCategoryDetails(category),
+        onTap: () => _showCategoryDetails(category, monthTotal),
         borderRadius: BorderRadius.circular(12),
         child: Padding(
           padding: const EdgeInsets.all(16),
@@ -140,7 +208,7 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage> {
                     ],
                     onSelected: (value) {
                       if (value == 'edit') {
-                        _editCategory(category);
+                        _showCategoryDialog(category: category);
                       } else if (value == 'delete') {
                         _deleteCategory(category);
                       }
@@ -160,7 +228,7 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage> {
               ),
               const SizedBox(height: 4),
               Text(
-                '\$${amount.toStringAsFixed(2)}',
+                '\$${monthTotal.toStringAsFixed(2)}',
                 style: const TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.bold,
@@ -181,16 +249,25 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage> {
     );
   }
 
-  void _showCategoryDetails(CategoryModel category) {
+  void _showCategoryDetails(CategoryModel category, double monthTotal) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      builder: (context) => DraggableScrollableSheet(
+      builder: (sheetContext) => DraggableScrollableSheet(
         initialChildSize: 0.7,
         minChildSize: 0.5,
         maxChildSize: 0.95,
         expand: false,
-        builder: (context, scrollController) {
+        builder: (sheetContext, scrollController) {
+          final transactionsAsync = ref.read(allTransactionsProvider);
+          final categoryTransactions = transactionsAsync.maybeWhen(
+            data: (transactions) => transactions
+                .where((transaction) => transaction.categoryId == category.id)
+                .toList()
+              ..sort((a, b) => b.date.compareTo(a.date)),
+            orElse: () => const <TransactionModel>[],
+          );
+
           return Container(
             padding: const EdgeInsets.all(24),
             child: Column(
@@ -234,7 +311,7 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage> {
                     ),
                     IconButton(
                       icon: const Icon(Icons.close),
-                      onPressed: () => Navigator.pop(context),
+                      onPressed: () => Navigator.pop(sheetContext),
                     ),
                   ],
                 ),
@@ -247,9 +324,7 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage> {
                   ),
                 ),
                 const SizedBox(height: 16),
-                _buildStatCard('This Month', '\$450.00', Colors.blue),
-                _buildStatCard('Last Month', '\$380.00', Colors.green),
-                _buildStatCard('Average', '\$415.00', Colors.orange),
+                _buildStatCard('This Month', '\$${monthTotal.toStringAsFixed(2)}', category.color),
                 const SizedBox(height: 24),
                 const Text(
                   'Recent Transactions',
@@ -260,14 +335,20 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage> {
                 ),
                 const SizedBox(height: 16),
                 Expanded(
-                  child: ListView(
-                    controller: scrollController,
-                    children: [
-                      _buildTransactionItem('Grocery Store', 85.50, DateTime.now()),
-                      _buildTransactionItem('Supermarket', 120.00, DateTime.now().subtract(const Duration(days: 2))),
-                      _buildTransactionItem('Local Market', 45.00, DateTime.now().subtract(const Duration(days: 5))),
-                    ],
-                  ),
+                  child: categoryTransactions.isEmpty
+                      ? const Center(child: Text('No transactions in this category yet'))
+                      : ListView.builder(
+                          controller: scrollController,
+                          itemCount: categoryTransactions.length,
+                          itemBuilder: (context, index) {
+                            final transaction = categoryTransactions[index];
+                            return _buildTransactionItem(
+                              transaction.description,
+                              transaction.amount,
+                              transaction.date,
+                            );
+                          },
+                        ),
                 ),
               ],
             ),
@@ -337,132 +418,206 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage> {
     );
   }
 
-  void _showAddCategoryDialog() {
-    showDialog(
+  Future<void> _showCategoryDialog({CategoryModel? category}) async {
+    final formKey = GlobalKey<FormState>();
+    final nameController = TextEditingController(text: category?.name ?? '');
+    CategoryType selectedType = category?.type ?? _selectedType;
+    IconData selectedIcon = category?.icon ?? _iconOptions.first;
+    Color selectedColor = category?.color ?? _colorOptions.first;
+
+    final saved = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Create Category'),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextFormField(
-                decoration: const InputDecoration(
-                  labelText: 'Category Name',
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              const SizedBox(height: 16),
-              DropdownButtonFormField<CategoryType>(
-                decoration: const InputDecoration(
-                  labelText: 'Type',
-                  border: OutlineInputBorder(),
-                ),
-                initialValue: CategoryType.expense,
-                items: const [
-                  DropdownMenuItem(
-                    value: CategoryType.expense,
-                    child: Text('Expense'),
-                  ),
-                  DropdownMenuItem(
-                    value: CategoryType.income,
-                    child: Text('Income'),
-                  ),
-                ],
-                onChanged: (value) {},
-              ),
-              const SizedBox(height: 16),
-              const Text('Select Icon'),
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 8,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (dialogContext, setDialogState) => AlertDialog(
+          title: Text(category == null ? 'Create Category' : 'Edit Category'),
+          content: SingleChildScrollView(
+            child: Form(
+              key: formKey,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _buildIconOption(Icons.shopping_cart),
-                  _buildIconOption(Icons.restaurant),
-                  _buildIconOption(Icons.directions_car),
-                  _buildIconOption(Icons.home),
-                  _buildIconOption(Icons.movie),
-                  _buildIconOption(Icons.fitness_center),
+                  TextFormField(
+                    controller: nameController,
+                    decoration: const InputDecoration(
+                      labelText: 'Category Name',
+                      border: OutlineInputBorder(),
+                    ),
+                    validator: (value) =>
+                        (value == null || value.trim().isEmpty) ? 'Required' : null,
+                  ),
+                  const SizedBox(height: 16),
+                  DropdownButtonFormField<CategoryType>(
+                    decoration: const InputDecoration(
+                      labelText: 'Type',
+                      border: OutlineInputBorder(),
+                    ),
+                    initialValue: selectedType,
+                    items: const [
+                      DropdownMenuItem(
+                        value: CategoryType.expense,
+                        child: Text('Expense'),
+                      ),
+                      DropdownMenuItem(
+                        value: CategoryType.income,
+                        child: Text('Income'),
+                      ),
+                    ],
+                    onChanged: (value) =>
+                        setDialogState(() => selectedType = value ?? selectedType),
+                  ),
+                  const SizedBox(height: 16),
+                  const Text('Select Icon'),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: _iconOptions
+                        .map((icon) => InkWell(
+                              onTap: () => setDialogState(() => selectedIcon = icon),
+                              borderRadius: BorderRadius.circular(8),
+                              child: Container(
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: icon == selectedIcon
+                                      ? selectedColor.withValues(alpha: 0.2)
+                                      : null,
+                                  border: Border.all(
+                                    color: icon == selectedIcon
+                                        ? selectedColor
+                                        : Colors.grey.withValues(alpha: 0.3),
+                                  ),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Icon(icon),
+                              ),
+                            ))
+                        .toList(),
+                  ),
+                  const SizedBox(height: 16),
+                  const Text('Select Color'),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: _colorOptions
+                        .map((color) => InkWell(
+                              onTap: () => setDialogState(() => selectedColor = color),
+                              borderRadius: BorderRadius.circular(20),
+                              child: Container(
+                                width: 36,
+                                height: 36,
+                                decoration: BoxDecoration(
+                                  color: color,
+                                  shape: BoxShape.circle,
+                                  border: Border.all(
+                                    color: color == selectedColor
+                                        ? Colors.black
+                                        : Colors.transparent,
+                                    width: 2,
+                                  ),
+                                ),
+                              ),
+                            ))
+                        .toList(),
+                  ),
                 ],
               ),
-            ],
+            ),
           ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () {
+                if (formKey.currentState?.validate() ?? false) {
+                  Navigator.pop(dialogContext, true);
+                }
+              },
+              child: Text(category == null ? 'Create' : 'Save'),
+            ),
+          ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () {
-              // TODO: Actually save category to database
-              Navigator.pop(context);
-              
-              // Refresh categories list
-              ref.invalidate(allCategoriesProvider);
-              ref.invalidate(categoryTotalsProvider);
-              
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Category created successfully'),
-                  backgroundColor: Colors.green,
-                ),
-              );
-            },
-            child: const Text('Create'),
-          ),
-        ],
       ),
     );
-  }
 
-  Widget _buildIconOption(IconData icon) {
-    return InkWell(
-      onTap: () {},
-      borderRadius: BorderRadius.circular(8),
-      child: Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          border: Border.all(color: Colors.grey.withValues(alpha: 0.3)),
-          borderRadius: BorderRadius.circular(8),
+    if (saved != true) {
+      nameController.dispose();
+      return;
+    }
+
+    final name = nameController.text.trim();
+    nameController.dispose();
+    final repo = ref.read(categoryRepositoryProvider);
+    final now = DateTime.now();
+
+    if (category == null) {
+      final result = await repo.create(
+        CategoryModel(
+          id: _uuid.v4(),
+          userId: _defaultUserId,
+          name: name,
+          type: selectedType,
+          icon: selectedIcon,
+          color: selectedColor,
+          createdAt: now,
+          updatedAt: now,
         ),
-        child: Icon(icon),
-      ),
-    );
-  }
+      );
+      if (!mounted) return;
+      _showResultSnackBar(
+        isSuccess: result.isSuccess,
+        successMessage: 'Category created successfully',
+        successColor: Colors.green,
+      );
+    } else {
+      final result = await repo.update(
+        category.copyWith(
+          name: name,
+          type: selectedType,
+          icon: selectedIcon,
+          color: selectedColor,
+          updatedAt: now,
+        ),
+      );
+      if (!mounted) return;
+      _showResultSnackBar(
+        isSuccess: result.isSuccess,
+        successMessage: 'Category updated',
+        successColor: Colors.green,
+      );
+    }
 
-  void _editCategory(CategoryModel category) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Edit category coming soon')),
-    );
+    ref.invalidate(allCategoriesProvider);
+    ref.invalidate(categoryTotalsProvider);
   }
 
   void _deleteCategory(CategoryModel category) {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         title: const Text('Delete Category'),
         content: Text('Are you sure you want to delete "${category.name}"?'),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(dialogContext),
             child: const Text('Cancel'),
           ),
           FilledButton(
-            onPressed: () {
-              // TODO: Actually delete category from database
-              Navigator.pop(context);
-              
-              // Refresh categories list
+            onPressed: () async {
+              Navigator.pop(dialogContext);
+              final result =
+                  await ref.read(categoryRepositoryProvider).delete(category.id);
+              if (!mounted) return;
+              _showResultSnackBar(
+                isSuccess: result.isSuccess,
+                successMessage: 'Category deleted',
+                successColor: Colors.red,
+              );
               ref.invalidate(allCategoriesProvider);
               ref.invalidate(categoryTotalsProvider);
-              
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Category deleted'),
-                  backgroundColor: Colors.red,
-                ),
-              );
             },
             style: FilledButton.styleFrom(
               backgroundColor: Colors.red,
@@ -474,69 +629,16 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage> {
     );
   }
 
-  List<CategoryModel> _getSampleCategories() {
-    final now = DateTime.now();
-    return [
-      CategoryModel(
-        id: 'cat1',
-        userId: 'user1',
-        name: 'Food & Dining',
-        type: CategoryType.expense,
-        icon: Icons.restaurant,
-        color: Colors.orange,
-        createdAt: now,
-        updatedAt: now,
+  void _showResultSnackBar({
+    required bool isSuccess,
+    required String successMessage,
+    required Color successColor,
+  }) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(isSuccess ? successMessage : 'Something went wrong'),
+        backgroundColor: isSuccess ? successColor : Colors.red,
       ),
-      CategoryModel(
-        id: 'cat2',
-        userId: 'user1',
-        name: 'Transport',
-        type: CategoryType.expense,
-        icon: Icons.directions_car,
-        color: Colors.blue,
-        createdAt: now,
-        updatedAt: now,
-      ),
-      CategoryModel(
-        id: 'cat3',
-        userId: 'user1',
-        name: 'Shopping',
-        type: CategoryType.expense,
-        icon: Icons.shopping_bag,
-        color: Colors.purple,
-        createdAt: now,
-        updatedAt: now,
-      ),
-      CategoryModel(
-        id: 'cat4',
-        userId: 'user1',
-        name: 'Bills',
-        type: CategoryType.expense,
-        icon: Icons.receipt,
-        color: Colors.red,
-        createdAt: now,
-        updatedAt: now,
-      ),
-      CategoryModel(
-        id: 'cat5',
-        userId: 'user1',
-        name: 'Salary',
-        type: CategoryType.income,
-        icon: Icons.attach_money,
-        color: Colors.green,
-        createdAt: now,
-        updatedAt: now,
-      ),
-      CategoryModel(
-        id: 'cat6',
-        userId: 'user1',
-        name: 'Freelance',
-        type: CategoryType.income,
-        icon: Icons.work,
-        color: Colors.teal,
-        createdAt: now,
-        updatedAt: now,
-      ),
-    ];
+    );
   }
 }

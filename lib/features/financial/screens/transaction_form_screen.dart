@@ -334,7 +334,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
                 color: Colors.grey.withValues(alpha: 0.05),
               ),
               child: DropdownButtonFormField<Currency>(
-                value: _selectedCurrency,
+                initialValue: _selectedCurrency,
                 decoration: const InputDecoration(
                   border: InputBorder.none,
                   contentPadding: EdgeInsets.symmetric(

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:uuid/uuid.dart';
 import '../../../data/models/financial/budget_model.dart';
+import '../../../data/models/financial/category_model.dart';
 import '../providers/financial_providers.dart';
 
 class BudgetsPage extends ConsumerStatefulWidget {
@@ -13,7 +15,11 @@ class BudgetsPage extends ConsumerStatefulWidget {
 }
 
 class _BudgetsPageState extends ConsumerState<BudgetsPage> {
+  static const _defaultUserId = 'user1';
+  static const _defaultAlertThreshold = 80.0;
+
   BudgetPeriod _selectedPeriod = BudgetPeriod.monthly;
+  final _uuid = const Uuid();
 
   @override
   Widget build(BuildContext context) {
@@ -23,7 +29,7 @@ class _BudgetsPageState extends ConsumerState<BudgetsPage> {
         actions: [
           IconButton(
             icon: const Icon(Icons.add),
-            onPressed: _showAddBudgetDialog,
+            onPressed: _showBudgetDialog,
           ),
         ],
       ),
@@ -67,25 +73,81 @@ class _BudgetsPageState extends ConsumerState<BudgetsPage> {
   }
 
   Widget _buildBudgetsList() {
-    final budgets = _getSampleBudgets();
+    final budgetsAsync = ref.watch(activeBudgetsProvider);
+    final categoriesAsync = ref.watch(allCategoriesProvider);
 
-    return ListView.builder(
-      padding: const EdgeInsets.all(16),
-      itemCount: budgets.length,
-      itemBuilder: (context, index) {
-        final budget = budgets[index];
-        return _buildBudgetCard(budget);
+    return budgetsAsync.when(
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (error, stack) => Center(child: Text('Failed to load budgets')),
+      data: (budgets) {
+        final filtered = budgets
+            .where((budget) => budget.period == _selectedPeriod)
+            .toList();
+
+        if (filtered.isEmpty) {
+          return Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  Icons.savings_outlined,
+                  size: 64,
+                  color: Theme.of(context).colorScheme.outline,
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'No ${_selectedPeriod.name} budgets yet',
+                  style: Theme.of(context).textTheme.bodyLarge,
+                ),
+                const SizedBox(height: 8),
+                const Text('Tap + to create your first budget'),
+              ],
+            ),
+          );
+        }
+
+        final categories = categoriesAsync.maybeWhen(
+          data: (list) => list,
+          orElse: () => const <CategoryModel>[],
+        );
+
+        return RefreshIndicator(
+          onRefresh: () async => ref.invalidate(activeBudgetsProvider),
+          child: ListView.builder(
+            padding: const EdgeInsets.all(16),
+            itemCount: filtered.length,
+            itemBuilder: (context, index) {
+              final budget = filtered[index];
+              return _buildBudgetCard(budget, _categoryFor(categories, budget.categoryId));
+            },
+          ),
+        );
       },
     );
   }
 
-  Widget _buildBudgetCard(BudgetModel budget) {
-    // Sample spent amount - replace with real data
-    final spent = budget.amount * 0.65;
-    final percentage = (spent / budget.amount) * 100;
+  CategoryModel? _categoryFor(List<CategoryModel> categories, String categoryId) {
+    for (final category in categories) {
+      if (category.id == categoryId) {
+        return category;
+      }
+    }
+    return null;
+  }
+
+  Widget _buildBudgetCard(BudgetModel budget, CategoryModel? category) {
+    final progressAsync = ref.watch(budgetProgressProvider(budget));
+    final spent = progressAsync.maybeWhen(
+      data: (progress) => (progress['spent'] as num?)?.toDouble() ?? 0.0,
+      orElse: () => 0.0,
+    );
+    final percentage = budget.amount == 0 ? 0.0 : (spent / budget.amount) * 100;
     final remaining = budget.amount - spent;
     final isOverBudget = spent > budget.amount;
     final isNearLimit = percentage >= budget.alertThreshold;
+    final categoryColor = category?.color ?? Colors.grey;
+    final categoryIcon = category?.icon ?? Icons.category;
+    final categoryName = category?.name ?? 'Unknown category';
 
     return Card(
       margin: const EdgeInsets.only(bottom: 16),
@@ -99,12 +161,12 @@ class _BudgetsPageState extends ConsumerState<BudgetsPage> {
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: _getCategoryColor(budget.categoryId).withValues(alpha: 0.2),
+                    color: categoryColor.withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Icon(
-                    _getCategoryIcon(budget.categoryId),
-                    color: _getCategoryColor(budget.categoryId),
+                    categoryIcon,
+                    color: categoryColor,
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -113,7 +175,7 @@ class _BudgetsPageState extends ConsumerState<BudgetsPage> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        _getCategoryName(budget.categoryId),
+                        categoryName,
                         style: const TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
@@ -242,7 +304,7 @@ class _BudgetsPageState extends ConsumerState<BudgetsPage> {
               children: [
                 Expanded(
                   child: OutlinedButton.icon(
-                    onPressed: () => _editBudget(budget),
+                    onPressed: () => _showBudgetDialog(budget: budget),
                     icon: const Icon(Icons.edit, size: 18),
                     label: const Text('Edit'),
                   ),
@@ -266,120 +328,218 @@ class _BudgetsPageState extends ConsumerState<BudgetsPage> {
     );
   }
 
-  void _showAddBudgetDialog() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Create Budget'),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              DropdownButtonFormField<String>(
-                decoration: const InputDecoration(
-                  labelText: 'Category',
-                  border: OutlineInputBorder(),
-                ),
-                items: const [
-                  DropdownMenuItem(value: 'cat1', child: Text('Groceries')),
-                  DropdownMenuItem(value: 'cat2', child: Text('Transport')),
-                  DropdownMenuItem(value: 'cat3', child: Text('Entertainment')),
-                ],
-                onChanged: (value) {},
-              ),
-              const SizedBox(height: 16),
-              TextFormField(
-                decoration: const InputDecoration(
-                  labelText: 'Amount',
-                  border: OutlineInputBorder(),
-                  prefixText: '\$',
-                ),
-                keyboardType: TextInputType.number,
-              ),
-              const SizedBox(height: 16),
-              DropdownButtonFormField<BudgetPeriod>(
-                decoration: const InputDecoration(
-                  labelText: 'Period',
-                  border: OutlineInputBorder(),
-                ),
-                initialValue: BudgetPeriod.monthly,
-                items: const [
-                  DropdownMenuItem(
-                    value: BudgetPeriod.daily,
-                    child: Text('Daily'),
-                  ),
-                  DropdownMenuItem(
-                    value: BudgetPeriod.weekly,
-                    child: Text('Weekly'),
-                  ),
-                  DropdownMenuItem(
-                    value: BudgetPeriod.monthly,
-                    child: Text('Monthly'),
-                  ),
-                ],
-                onChanged: (value) {},
-              ),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () {
-              // TODO: Actually save budget to database
-              Navigator.pop(context);
-              
-              // Refresh budgets list
-              ref.invalidate(activeBudgetsProvider);
-              
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Budget created successfully'),
-                  backgroundColor: Colors.green,
-                ),
-              );
-            },
-            child: const Text('Create'),
-          ),
-        ],
-      ),
-    );
+  ({DateTime start, DateTime end}) _rangeForPeriod(BudgetPeriod period) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    switch (period) {
+      case BudgetPeriod.daily:
+        return (start: today, end: today.add(const Duration(days: 1)));
+      case BudgetPeriod.weekly:
+        final start = today.subtract(Duration(days: today.weekday - 1));
+        return (start: start, end: start.add(const Duration(days: 7)));
+      case BudgetPeriod.monthly:
+        return (
+          start: DateTime(now.year, now.month, 1),
+          end: DateTime(now.year, now.month + 1, 1),
+        );
+      case BudgetPeriod.yearly:
+        return (
+          start: DateTime(now.year, 1, 1),
+          end: DateTime(now.year + 1, 1, 1),
+        );
+      case BudgetPeriod.custom:
+        return (
+          start: DateTime(now.year, now.month, 1),
+          end: DateTime(now.year, now.month + 1, 1),
+        );
+    }
   }
 
-  void _editBudget(BudgetModel budget) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Edit budget coming soon')),
+  Future<void> _showBudgetDialog({BudgetModel? budget}) async {
+    final categoriesAsync = ref.read(allCategoriesProvider);
+    final categories = categoriesAsync.maybeWhen(
+      data: (list) => list,
+      orElse: () => const <CategoryModel>[],
     );
+
+    if (categories.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Create a category first')),
+      );
+      return;
+    }
+
+    final formKey = GlobalKey<FormState>();
+    final amountController = TextEditingController(
+      text: budget?.amount.toStringAsFixed(2) ?? '',
+    );
+    String? selectedCategoryId = budget?.categoryId ?? categories.first.id;
+    BudgetPeriod selectedPeriod = budget?.period ?? _selectedPeriod;
+
+    final saved = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (dialogContext, setDialogState) => AlertDialog(
+          title: Text(budget == null ? 'Create Budget' : 'Edit Budget'),
+          content: SingleChildScrollView(
+            child: Form(
+              key: formKey,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  DropdownButtonFormField<String>(
+                    decoration: const InputDecoration(
+                      labelText: 'Category',
+                      border: OutlineInputBorder(),
+                    ),
+                    initialValue: selectedCategoryId,
+                    items: categories
+                        .map((category) => DropdownMenuItem(
+                              value: category.id,
+                              child: Text(category.name),
+                            ))
+                        .toList(),
+                    onChanged: (value) =>
+                        setDialogState(() => selectedCategoryId = value),
+                  ),
+                  const SizedBox(height: 16),
+                  TextFormField(
+                    controller: amountController,
+                    decoration: const InputDecoration(
+                      labelText: 'Amount',
+                      border: OutlineInputBorder(),
+                      prefixText: '\$',
+                    ),
+                    keyboardType: TextInputType.number,
+                    validator: (value) {
+                      final parsed = double.tryParse(value ?? '');
+                      if (parsed == null || parsed <= 0) {
+                        return 'Enter a valid amount';
+                      }
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  DropdownButtonFormField<BudgetPeriod>(
+                    decoration: const InputDecoration(
+                      labelText: 'Period',
+                      border: OutlineInputBorder(),
+                    ),
+                    initialValue: selectedPeriod,
+                    items: const [
+                      DropdownMenuItem(
+                        value: BudgetPeriod.daily,
+                        child: Text('Daily'),
+                      ),
+                      DropdownMenuItem(
+                        value: BudgetPeriod.weekly,
+                        child: Text('Weekly'),
+                      ),
+                      DropdownMenuItem(
+                        value: BudgetPeriod.monthly,
+                        child: Text('Monthly'),
+                      ),
+                    ],
+                    onChanged: (value) => setDialogState(
+                        () => selectedPeriod = value ?? selectedPeriod),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () {
+                if (formKey.currentState?.validate() ?? false) {
+                  Navigator.pop(dialogContext, true);
+                }
+              },
+              child: Text(budget == null ? 'Create' : 'Save'),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (saved != true || selectedCategoryId == null) {
+      amountController.dispose();
+      return;
+    }
+
+    final amount = double.parse(amountController.text);
+    amountController.dispose();
+    final repo = ref.read(budgetRepositoryProvider);
+    final now = DateTime.now();
+
+    if (budget == null) {
+      final range = _rangeForPeriod(selectedPeriod);
+      final result = await repo.create(
+        BudgetModel(
+          id: _uuid.v4(),
+          userId: _defaultUserId,
+          categoryId: selectedCategoryId!,
+          amount: amount,
+          period: selectedPeriod,
+          startDate: range.start,
+          endDate: range.end,
+          alertThreshold: _defaultAlertThreshold,
+          createdAt: now,
+          updatedAt: now,
+        ),
+      );
+      if (!mounted) return;
+      _showResultSnackBar(
+        isSuccess: result.isSuccess,
+        successMessage: 'Budget created successfully',
+        successColor: Colors.green,
+      );
+    } else {
+      final result = await repo.update(
+        budget.copyWith(
+          categoryId: selectedCategoryId,
+          amount: amount,
+          period: selectedPeriod,
+          updatedAt: now,
+        ),
+      );
+      if (!mounted) return;
+      _showResultSnackBar(
+        isSuccess: result.isSuccess,
+        successMessage: 'Budget updated',
+        successColor: Colors.green,
+      );
+    }
+
+    ref.invalidate(activeBudgetsProvider);
   }
 
   void _deleteBudget(BudgetModel budget) {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         title: const Text('Delete Budget'),
         content: const Text('Are you sure you want to delete this budget?'),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(dialogContext),
             child: const Text('Cancel'),
           ),
           FilledButton(
-            onPressed: () {
-              // TODO: Actually delete budget from database
-              Navigator.pop(context);
-              
-              // Refresh budgets list
-              ref.invalidate(activeBudgetsProvider);
-              
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Budget deleted'),
-                  backgroundColor: Colors.red,
-                ),
+            onPressed: () async {
+              Navigator.pop(dialogContext);
+              final result =
+                  await ref.read(budgetRepositoryProvider).delete(budget.id);
+              if (!mounted) return;
+              _showResultSnackBar(
+                isSuccess: result.isSuccess,
+                successMessage: 'Budget deleted',
+                successColor: Colors.red,
               );
+              ref.invalidate(activeBudgetsProvider);
             },
             style: FilledButton.styleFrom(
               backgroundColor: Colors.red,
@@ -391,81 +551,16 @@ class _BudgetsPageState extends ConsumerState<BudgetsPage> {
     );
   }
 
-  List<BudgetModel> _getSampleBudgets() {
-    final now = DateTime.now();
-    return [
-      BudgetModel(
-        id: '1',
-        userId: 'user1',
-        categoryId: 'cat1',
-        amount: 500,
-        period: BudgetPeriod.monthly,
-        startDate: DateTime(now.year, now.month, 1),
-        endDate: DateTime(now.year, now.month + 1, 0),
-        createdAt: now,
-        updatedAt: now,
+  void _showResultSnackBar({
+    required bool isSuccess,
+    required String successMessage,
+    required Color successColor,
+  }) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(isSuccess ? successMessage : 'Something went wrong'),
+        backgroundColor: isSuccess ? successColor : Colors.red,
       ),
-      BudgetModel(
-        id: '2',
-        userId: 'user1',
-        categoryId: 'cat2',
-        amount: 200,
-        period: BudgetPeriod.monthly,
-        startDate: DateTime(now.year, now.month, 1),
-        endDate: DateTime(now.year, now.month + 1, 0),
-        createdAt: now,
-        updatedAt: now,
-      ),
-      BudgetModel(
-        id: '3',
-        userId: 'user1',
-        categoryId: 'cat3',
-        amount: 300,
-        period: BudgetPeriod.monthly,
-        startDate: DateTime(now.year, now.month, 1),
-        endDate: DateTime(now.year, now.month + 1, 0),
-        createdAt: now,
-        updatedAt: now,
-      ),
-    ];
-  }
-
-  String _getCategoryName(String categoryId) {
-    switch (categoryId) {
-      case 'cat1':
-        return 'Groceries';
-      case 'cat2':
-        return 'Transport';
-      case 'cat3':
-        return 'Entertainment';
-      default:
-        return 'Unknown';
-    }
-  }
-
-  IconData _getCategoryIcon(String categoryId) {
-    switch (categoryId) {
-      case 'cat1':
-        return Icons.shopping_cart;
-      case 'cat2':
-        return Icons.directions_car;
-      case 'cat3':
-        return Icons.movie;
-      default:
-        return Icons.category;
-    }
-  }
-
-  Color _getCategoryColor(String categoryId) {
-    switch (categoryId) {
-      case 'cat1':
-        return Colors.orange;
-      case 'cat2':
-        return Colors.blue;
-      case 'cat3':
-        return Colors.purple;
-      default:
-        return Colors.grey;
-    }
+    );
   }
 }

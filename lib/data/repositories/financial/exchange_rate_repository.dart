@@ -1,5 +1,4 @@
 import '../../../core/result/result.dart';
-import '../../../core/errors/financial_errors.dart';
 import '../../models/financial/exchange_rate_model.dart';
 
 abstract class ExchangeRateRepository {
