@@ -2,6 +2,8 @@ import '../../models/base_model.dart';
 
 enum HabitFrequency { daily, weekly, custom }
 
+enum BadHabitCategory { sex, badMeal, badReaction, custom }
+
 class Habit extends BaseModel {
   final String userId;
   final String name;
@@ -12,6 +14,8 @@ class Habit extends BaseModel {
   final String icon;
   final String color;
   final String category;
+  final BadHabitCategory? badHabitCategory;
+  final String? customBadHabitCategoryName;
 
   const Habit({
     required super.id,
@@ -27,6 +31,8 @@ class Habit extends BaseModel {
     required this.icon,
     required this.color,
     required this.category,
+    this.badHabitCategory,
+    this.customBadHabitCategoryName,
   });
 
   factory Habit.fromJson(Map<String, dynamic> json) {
@@ -44,6 +50,10 @@ class Habit extends BaseModel {
       icon: json['icon'] as String,
       color: json['color'] as String,
       category: json['category'] as String,
+      badHabitCategory: json['badHabitCategory'] == null
+          ? null
+          : BadHabitCategory.values.byName(json['badHabitCategory'] as String),
+      customBadHabitCategoryName: json['customBadHabitCategoryName'] as String?,
     );
   }
 
@@ -62,5 +72,7 @@ class Habit extends BaseModel {
         'icon': icon,
         'color': color,
         'category': category,
+        'badHabitCategory': badHabitCategory?.name,
+        'customBadHabitCategoryName': customBadHabitCategoryName,
       };
 }

@@ -8,6 +8,14 @@ class HabitLog extends BaseModel {
   final String? notes;
   final String? mood;
   final String? skipReason;
+  final String? situation;
+  final String? cause;
+  final String? trigger;
+  final String? location;
+  final String? thoughtsBefore;
+  final String? thoughtsAfter;
+  final int? intensity;
+  final String? recoveryAction;
 
   const HabitLog({
     required super.id,
@@ -21,6 +29,14 @@ class HabitLog extends BaseModel {
     this.notes,
     this.mood,
     this.skipReason,
+    this.situation,
+    this.cause,
+    this.trigger,
+    this.location,
+    this.thoughtsBefore,
+    this.thoughtsAfter,
+    this.intensity,
+    this.recoveryAction,
   });
 
   factory HabitLog.fromJson(Map<String, dynamic> json) {
@@ -36,6 +52,14 @@ class HabitLog extends BaseModel {
       notes: json['notes'] as String?,
       mood: json['mood'] as String?,
       skipReason: json['skipReason'] as String?,
+      situation: json['situation'] as String?,
+      cause: json['cause'] as String?,
+      trigger: json['trigger'] as String?,
+      location: json['location'] as String?,
+      thoughtsBefore: json['thoughtsBefore'] as String?,
+      thoughtsAfter: json['thoughtsAfter'] as String?,
+      intensity: json['intensity'] as int?,
+      recoveryAction: json['recoveryAction'] as String?,
     );
   }
 
@@ -52,5 +76,13 @@ class HabitLog extends BaseModel {
         'notes': notes,
         'mood': mood,
         'skipReason': skipReason,
+        'situation': situation,
+        'cause': cause,
+        'trigger': trigger,
+        'location': location,
+        'thoughtsBefore': thoughtsBefore,
+        'thoughtsAfter': thoughtsAfter,
+        'intensity': intensity,
+        'recoveryAction': recoveryAction,
       };
 }
