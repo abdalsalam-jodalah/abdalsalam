@@ -52,6 +52,36 @@ class Todo extends BaseModel {
         order: json['order'] as int? ?? 0,
       );
 
+  Todo copyWith({
+    DateTime? updatedAt,
+    String? title,
+    String? description,
+    DateTime? dueDate,
+    TodoPriority? priority,
+    TodoStatus? status,
+    String? categoryId,
+    List<String>? tags,
+    DateTime? reminderAt,
+    int? order,
+  }) =>
+      Todo(
+        id: id,
+        createdAt: createdAt,
+        updatedAt: updatedAt ?? this.updatedAt,
+        deletedAt: deletedAt,
+        userId: userId,
+        title: title ?? this.title,
+        description: description ?? this.description,
+        dueDate: dueDate ?? this.dueDate,
+        priority: priority ?? this.priority,
+        status: status ?? this.status,
+        categoryId: categoryId ?? this.categoryId,
+        tags: tags ?? this.tags,
+        reminderAt: reminderAt ?? this.reminderAt,
+        parentTodoId: parentTodoId,
+        order: order ?? this.order,
+      );
+
   @override
   Map<String, dynamic> toJson() => <String, dynamic>{
         'id': id,
