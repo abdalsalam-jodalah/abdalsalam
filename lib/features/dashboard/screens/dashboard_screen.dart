@@ -92,12 +92,9 @@ class DashboardScreen extends ConsumerWidget {
             // Weather Widget
             weatherAsync.when(
               data: (weather) {
-                print('[DASHBOARD] Weather data received: ${weather != null ? weather.toString() : 'null'}');
                 if (weather == null) {
-                  print('[DASHBOARD] Weather is null, widget will not display.');
                   return const SizedBox.shrink();
                 }
-                print('[DASHBOARD] WeatherWidget will be displayed.');
                 return Column(
                   children: [
                     WeatherWidget(
@@ -111,7 +108,6 @@ class DashboardScreen extends ConsumerWidget {
                 );
               },
               loading: () {
-                print('[DASHBOARD] Weather loading...');
                 return const Card(
                   child: Padding(
                     padding: EdgeInsets.all(20),
@@ -120,7 +116,6 @@ class DashboardScreen extends ConsumerWidget {
                 );
               },
               error: (error, stack) {
-                print('[DASHBOARD] Weather error: $error');
                 return Card(
                   child: Padding(
                     padding: const EdgeInsets.all(16),
@@ -229,7 +224,6 @@ class DashboardScreen extends ConsumerWidget {
                     Text('• Prayer: Maghrib in 40 min'),
                     Text('• Medication: Vitamin D at 20:00'),
                     Text('• Workout: Push session at 19:00'),
-                    Text('• Todo: Review monthly budget'),
                   ],
                 ),
               ),

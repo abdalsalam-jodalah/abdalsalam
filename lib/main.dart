@@ -10,6 +10,7 @@ import 'shared/infrastructure/logger_service.dart';
 import 'shared/infrastructure/storage_gateway.dart';
 import 'shared/services/app_lifecycle_logger.dart';
 import 'shared/services/notification_service.dart';
+import 'shared/services/reminder_service.dart';
 
 // ignore: unused_element
 AppLifecycleLogger? _appLifecycleLogger;
@@ -21,8 +22,14 @@ void main() {
 
 class _BootstrapResult {
   final logic.AppStateManager appStateManager;
+  final NotificationService notificationService;
+  final ReminderService reminderService;
 
-  const _BootstrapResult({required this.appStateManager});
+  const _BootstrapResult({
+    required this.appStateManager,
+    required this.notificationService,
+    required this.reminderService,
+  });
 }
 
 class _BootstrapApp extends StatefulWidget {
@@ -58,17 +65,30 @@ class _BootstrapAppState extends State<_BootstrapApp> {
     await StorageGateway.instance.initialize();
     await DatabaseSchemaInitializer.initialize(StorageGateway.instance);
 
-    await NotificationService(
+    final notificationService = NotificationService(
       plugin: FlutterLocalNotificationsPlugin(),
       logger: LoggerService.forModule('NotificationService', moduleType: logic.ModuleType.service),
-    ).initialize();
+    );
+    final reminderService = ReminderService(
+      storage: StorageGateway.instance,
+      logger: LoggerService.forModule('ReminderService', moduleType: logic.ModuleType.service),
+      notifications: notificationService,
+    );
+    await notificationService.initialize(
+      onNotificationTap: reminderService.handleNotificationResponse,
+    );
+    await reminderService.rescheduleAll();
 
     _appLifecycleLogger = AppLifecycleLogger(
       appStateManager: appStateManager,
       logger: LoggerService.forModule('AppLifecycle', moduleType: logic.ModuleType.service),
     )..start();
 
-    return _BootstrapResult(appStateManager: appStateManager);
+    return _BootstrapResult(
+      appStateManager: appStateManager,
+      notificationService: notificationService,
+      reminderService: reminderService,
+    );
   }
 
   @override
@@ -104,10 +124,12 @@ class _BootstrapAppState extends State<_BootstrapApp> {
           );
         }
 
-        final appStateManager = snapshot.data!.appStateManager;
+        final result = snapshot.data!;
         return ProviderScope(
           overrides: [
-            appStateManagerProvider.overrideWithValue(appStateManager),
+            appStateManagerProvider.overrideWithValue(result.appStateManager),
+            notificationServiceProvider.overrideWithValue(result.notificationService),
+            reminderServiceProvider.overrideWithValue(result.reminderService),
           ],
           child: const AbdalsalamApp(),
         );

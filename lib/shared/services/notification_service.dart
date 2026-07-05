@@ -1,4 +1,7 @@
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:flutter_timezone/flutter_timezone.dart';
+import 'package:timezone/data/latest_all.dart' as tz_data;
+import 'package:timezone/timezone.dart' as tz;
 
 import '../infrastructure/logger_service.dart';
 
@@ -71,14 +74,29 @@ class NotificationService {
     ),
   };
 
-  Future<void> initialize() async {
+  Future<void> initialize({
+    void Function(String? payload)? onNotificationTap,
+  }) async {
+    tz_data.initializeTimeZones();
+    try {
+      final localTimezone = await FlutterTimezone.getLocalTimezone();
+      tz.setLocalLocation(tz.getLocation(localTimezone));
+    } catch (error) {
+      logger.warning('[NotificationService] timezone detection failed, using UTC: $error');
+    }
+
     const androidInit = AndroidInitializationSettings('@mipmap/ic_launcher');
     const iosInit = DarwinInitializationSettings();
     const settings = InitializationSettings(
       android: androidInit,
       iOS: iosInit,
     );
-    await plugin.initialize(settings);
+    await plugin.initialize(
+      settings,
+      onDidReceiveNotificationResponse: (response) {
+        onNotificationTap?.call(response.payload);
+      },
+    );
 
     final androidPlugin =
         plugin.resolvePlatformSpecificImplementation<
@@ -98,6 +116,7 @@ class NotificationService {
         plugin.resolvePlatformSpecificImplementation<
             AndroidFlutterLocalNotificationsPlugin>();
     await androidPlugin?.requestNotificationsPermission();
+    await androidPlugin?.requestExactAlarmsPermission();
 
     final iosPlugin =
         plugin.resolvePlatformSpecificImplementation<
@@ -109,26 +128,67 @@ class NotificationService {
     );
   }
 
+  NotificationDetails _detailsFor(NotificationChannelType channel) {
+    final selectedChannel = channels[channel]!;
+    return NotificationDetails(
+      android: AndroidNotificationDetails(
+        selectedChannel.id,
+        selectedChannel.name,
+        channelDescription: selectedChannel.description,
+        importance: selectedChannel.importance,
+        priority: Priority.high,
+      ),
+      iOS: const DarwinNotificationDetails(),
+    );
+  }
+
   Future<void> showNow({
     required int id,
     required String title,
     required String body,
     required NotificationChannelType channel,
+    String? payload,
   }) async {
-    final selectedChannel = channels[channel]!;
     await plugin.show(
       id,
       title,
       body,
-      NotificationDetails(
-        android: AndroidNotificationDetails(
-          selectedChannel.id,
-          selectedChannel.name,
-          channelDescription: selectedChannel.description,
-          importance: selectedChannel.importance,
-          priority: Priority.high,
-        ),
-      ),
+      _detailsFor(channel),
+      payload: payload,
     );
+  }
+
+  Future<void> zonedSchedule({
+    required int id,
+    required String title,
+    required String body,
+    required NotificationChannelType channel,
+    required DateTime scheduledAt,
+    String? payload,
+  }) async {
+    await plugin.zonedSchedule(
+      id,
+      title,
+      body,
+      tz.TZDateTime.from(scheduledAt, tz.local),
+      _detailsFor(channel),
+      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+      uiLocalNotificationDateInterpretation:
+          UILocalNotificationDateInterpretation.absoluteTime,
+      payload: payload,
+    );
+    logger.info('[NotificationService] scheduled id=$id at ${scheduledAt.toIso8601String()}');
+  }
+
+  Future<void> cancel(int id) async {
+    await plugin.cancel(id);
+  }
+
+  Future<void> cancelAll() async {
+    await plugin.cancelAll();
+  }
+
+  Future<List<PendingNotificationRequest>> pendingNotifications() async {
+    return plugin.pendingNotificationRequests();
   }
 }

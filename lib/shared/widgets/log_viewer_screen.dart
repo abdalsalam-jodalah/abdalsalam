@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:abdalsalam_logic_flutter/abdalsalam_logic_flutter.dart' as logic;
 import '../infrastructure/logger_service.dart';
 
 /// Log Viewer Screen for viewing app logs

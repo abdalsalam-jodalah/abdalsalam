@@ -1,7 +1,9 @@
 import 'dart:async';
+import 'dart:convert';
 
 import '../infrastructure/logger_service.dart';
 import '../infrastructure/storage_gateway.dart';
+import 'notification_service.dart';
 
 enum ReminderModule {
   religious,
@@ -29,6 +31,11 @@ class ReminderPayload {
     required this.scheduledAt,
   });
 
+  int get notificationId =>
+      '${module.name}:$targetId:${scheduledAt.millisecondsSinceEpoch}'
+          .hashCode &
+      0x7fffffff;
+
   Map<String, dynamic> toJson() => <String, dynamic>{
         'module': module.name,
         'targetId': targetId,
@@ -53,10 +60,15 @@ class ReminderService {
 
   final StorageGateway storage;
   final LoggerService logger;
+  final NotificationService notifications;
   final StreamController<ReminderPayload> _tapController =
       StreamController<ReminderPayload>.broadcast();
 
-  ReminderService({required this.storage, required this.logger});
+  ReminderService({
+    required this.storage,
+    required this.logger,
+    required this.notifications,
+  });
 
   Stream<ReminderPayload> get tapStream => _tapController.stream;
 
@@ -73,7 +85,86 @@ class ReminderService {
       payload.toJson(),
     ];
     await storage.save(key: _storageKey, value: updated);
+    await _deliver(payload);
     logger.info('[ReminderService] scheduled ${payload.module.name}:${payload.targetId} at ${payload.scheduledAt.toIso8601String()}');
+  }
+
+  Future<void> _deliver(ReminderPayload payload) async {
+    final channel = NotificationChannelType.values.byName(payload.module.name);
+    final encodedPayload = jsonEncode(payload.toJson());
+    if (payload.scheduledAt.isAfter(DateTime.now())) {
+      await notifications.zonedSchedule(
+        id: payload.notificationId,
+        title: payload.title,
+        body: payload.body,
+        channel: channel,
+        scheduledAt: payload.scheduledAt,
+        payload: encodedPayload,
+      );
+    } else {
+      await notifications.showNow(
+        id: payload.notificationId,
+        title: payload.title,
+        body: payload.body,
+        channel: channel,
+        payload: encodedPayload,
+      );
+    }
+  }
+
+  Future<void> cancel(ReminderModule module, String targetId) async {
+    final existing = await getAllScheduled();
+    final matching = existing
+        .where((item) => item.module == module && item.targetId == targetId)
+        .toList(growable: false);
+    if (matching.isEmpty) {
+      return;
+    }
+
+    for (final payload in matching) {
+      await notifications.cancel(payload.notificationId);
+    }
+
+    final remaining = existing
+        .where((item) => !(item.module == module && item.targetId == targetId))
+        .map((item) => item.toJson())
+        .toList(growable: false);
+    await storage.save(key: _storageKey, value: remaining);
+    logger.info('[ReminderService] cancelled ${module.name}:$targetId (${matching.length} entries)');
+  }
+
+  Future<void> rescheduleAll() async {
+    final existing = await getAllScheduled();
+    final now = DateTime.now();
+    final upcoming = existing
+        .where((item) => item.scheduledAt.isAfter(now))
+        .toList(growable: false);
+
+    await storage.save(
+      key: _storageKey,
+      value: upcoming.map((item) => item.toJson()).toList(growable: false),
+    );
+
+    final settings = await getModuleSettings();
+    for (final payload in upcoming) {
+      if ((settings[payload.module.name] ?? true) == false) {
+        continue;
+      }
+      await _deliver(payload);
+    }
+    logger.info('[ReminderService] rescheduled ${upcoming.length} of ${existing.length} reminders');
+  }
+
+  void handleNotificationResponse(String? rawPayload) {
+    if (rawPayload == null || rawPayload.isEmpty) {
+      return;
+    }
+    try {
+      final decoded = jsonDecode(rawPayload) as Map<String, dynamic>;
+      handleNotificationTap(ReminderPayload.fromJson(decoded));
+    } catch (error) {
+      logger.warning('[ReminderService] failed to parse notification payload: $error');
+    }
   }
 
   Future<List<ReminderPayload>> getAllScheduled() async {
