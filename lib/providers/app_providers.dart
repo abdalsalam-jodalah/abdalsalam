@@ -173,6 +173,10 @@ final backupTablesProvider = Provider<List<String>>((ref) {
     'reminders',
     'credentials',
     'credential_categories',
+    'life_plans',
+    'life_goals',
+    'life_achievements',
+    'life_reviews',
   ];
 });
 

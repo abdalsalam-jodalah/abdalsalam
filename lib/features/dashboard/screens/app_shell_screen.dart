@@ -11,6 +11,8 @@ import '../../habits/screens/habits_screen.dart';
 import '../../health/screens/health_screen.dart';
 import '../../health/screens/medication_list_screen.dart';
 import '../../notes/screens/notes_screen.dart';
+import '../../planning/screens/goals_screen.dart';
+import '../../planning/screens/planning_home_screen.dart';
 import '../../religious/screens/religious_home_screen.dart';
 import '../../security/screens/security_screen.dart';
 import '../../settings/screens/settings_screen.dart';
@@ -45,6 +47,7 @@ class _AppShellScreenState extends State<AppShellScreen> {
     _ShellDestination('Religious', Icons.mosque_outlined, ReligiousHomeScreen()),
     _ShellDestination('Financial', Icons.account_balance_wallet_outlined, FinancialScreen()),
     _ShellDestination('Habits', Icons.repeat_rounded, HabitsScreen()),
+    _ShellDestination('Planning', Icons.flag_outlined, PlanningHomeScreen()),
     _ShellDestination('Sports', Icons.fitness_center, SportsScreen()),
     _ShellDestination('Health', Icons.health_and_safety_outlined, HealthScreen()),
     _ShellDestination('Medications', Icons.medication_outlined, MedicationListScreen()),
@@ -60,6 +63,7 @@ class _AppShellScreenState extends State<AppShellScreen> {
     _LogAction(label: 'Quran', icon: Icons.menu_book_outlined, routeName: '/religious/quran-reading'),
     _LogAction(label: 'Finance', icon: Icons.receipt_long_outlined, routeName: '/financial/transaction-form'),
     _LogAction(label: 'Habit', icon: Icons.repeat_rounded, routeName: '/habits/form'),
+    _LogAction(label: 'Goal', icon: Icons.flag_outlined, routeName: GoalsScreen.routeName),
     _LogAction(label: 'Medication', icon: Icons.medication_outlined, routeName: '/health/medication-form'),
     _LogAction(label: 'Event', icon: Icons.event_note_outlined, routeName: '/calendar/new-event'),
   ];

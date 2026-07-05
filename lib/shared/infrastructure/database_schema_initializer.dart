@@ -29,6 +29,10 @@ class DatabaseSchemaInitializer {
     'reminders',
     'credentials',
     'credential_categories',
+    'life_plans',
+    'life_goals',
+    'life_achievements',
+    'life_reviews',
     'sync_queue',
   ];
 

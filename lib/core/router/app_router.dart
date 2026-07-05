@@ -24,6 +24,11 @@ import '../../features/health/screens/health_metrics_screen.dart';
 import '../../features/health/screens/medication_form_screen.dart';
 import '../../features/health/screens/medication_list_screen.dart';
 import '../../features/notes/screens/notes_screen.dart';
+import '../../features/planning/screens/achievements_screen.dart';
+import '../../features/planning/screens/goals_screen.dart';
+import '../../features/planning/screens/life_plan_screen.dart';
+import '../../features/planning/screens/planning_home_screen.dart';
+import '../../features/planning/screens/reviews_screen.dart';
 import '../../features/notes/screens/note_categories_screen.dart';
 import '../../features/notes/screens/note_editor_screen.dart';
 import '../../features/notes/screens/notes_home_screen.dart';
@@ -290,6 +295,31 @@ class AppRouter {
       case SecurityCategoriesScreen.routeName:
         return MaterialPageRoute<void>(
           builder: (_) => const SecurityCategoriesScreen(),
+          settings: settings,
+        );
+      case PlanningHomeScreen.routeName:
+        return MaterialPageRoute<void>(
+          builder: (_) => const PlanningHomeScreen(),
+          settings: settings,
+        );
+      case LifePlanScreen.routeName:
+        return MaterialPageRoute<void>(
+          builder: (_) => const LifePlanScreen(),
+          settings: settings,
+        );
+      case GoalsScreen.routeName:
+        return MaterialPageRoute<void>(
+          builder: (_) => const GoalsScreen(),
+          settings: settings,
+        );
+      case AchievementsScreen.routeName:
+        return MaterialPageRoute<void>(
+          builder: (_) => const AchievementsScreen(),
+          settings: settings,
+        );
+      case ReviewsScreen.routeName:
+        return MaterialPageRoute<void>(
+          builder: (_) => const ReviewsScreen(),
           settings: settings,
         );
       case AnalyticsScreen.routeName:

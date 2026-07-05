@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../planning/providers/planning_providers.dart';
 import '../../religious/providers/prayer_providers.dart';
 import '../../religious/providers/quran_providers.dart';
 import '../../weather/widgets/weather_widget.dart';
@@ -16,6 +17,7 @@ class DashboardScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final prayerCount = ref.watch(prayerCountProvider);
     final quranPages = ref.watch(quranPagesTodayProvider);
+    final todaysGoalsAsync = ref.watch(todaysGoalsProvider);
     final isOffline = ref.watch(isOfflineProvider);
     final batteryInfo = ref.watch(batteryInfoProvider);
     final storageInfo = ref.watch(storageInfoProvider);
@@ -224,6 +226,32 @@ class DashboardScreen extends ConsumerWidget {
                     Text('• Prayer: Maghrib in 40 min'),
                     Text('• Medication: Vitamin D at 20:00'),
                     Text('• Workout: Push session at 19:00'),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Today\'s Goals', style: TextStyle(fontWeight: FontWeight.w700)),
+                    const SizedBox(height: 8),
+                    todaysGoalsAsync.when(
+                      loading: () => const Center(child: CircularProgressIndicator()),
+                      error: (error, stack) => const Text('Failed to load goals'),
+                      data: (goals) {
+                        if (goals.isEmpty) {
+                          return const Text('No goals set for today.');
+                        }
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: goals.map((goal) => Text('• ${goal.title}')).toList(growable: false),
+                        );
+                      },
+                    ),
                   ],
                 ),
               ),
