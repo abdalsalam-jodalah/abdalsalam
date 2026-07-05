@@ -1,25 +1,21 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../data/models/health/medication.dart';
-import '../../../data/models/health/medication_log.dart';
-import '../../../data/repositories/health/health_repository.dart';
-import '../../../data/repositories/health/medication_log_repository.dart';
-import '../../../shared/infrastructure/logger_service.dart';
-import '../../../shared/infrastructure/storage_gateway.dart';
+import '../providers/health_providers.dart';
 import '../services/medication_service.dart';
 import 'medication_form_screen.dart';
-import 'package:abdalsalam_logic_flutter/abdalsalam_logic_flutter.dart';
 
-class MedicationListScreen extends StatefulWidget {
+class MedicationListScreen extends ConsumerStatefulWidget {
   static const routeName = '/health/medications';
 
   const MedicationListScreen({super.key});
 
   @override
-  State<MedicationListScreen> createState() => _MedicationListScreenState();
+  ConsumerState<MedicationListScreen> createState() => _MedicationListScreenState();
 }
 
-class _MedicationListScreenState extends State<MedicationListScreen> with SingleTickerProviderStateMixin {
+class _MedicationListScreenState extends ConsumerState<MedicationListScreen> with SingleTickerProviderStateMixin {
   late final TabController _tabController;
   late final MedicationService _service;
   DateTime _selectedDate = DateTime.now();
@@ -33,19 +29,7 @@ class _MedicationListScreenState extends State<MedicationListScreen> with Single
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
-    
-    // Initialize service
-    final logger = LoggerService.forModule('MedicationService', moduleType: ModuleType.service);
-    final storage = StorageGateway.instance;
-    final repo = HealthRepositoryImpl(storage, logger);
-    final logRepo = MedicationLogRepositoryImpl(storage, logger);
-    
-    _service = MedicationService(
-      repository: repo,
-      logger: logger,
-      logRepository: logRepo,
-    );
-    
+    _service = ref.read(medicationServiceProvider);
     _loadData();
   }
 
@@ -95,6 +79,8 @@ class _MedicationListScreenState extends State<MedicationListScreen> with Single
   }
 
   Future<void> _toggleCheck(DailyMedicationCheck check) async {
+    final index = _dailyChecklist.indexOf(check);
+    
     if (check.isChecked) {
       // Uncheck by resetting
       final updated = check.log.copyWith(
@@ -102,15 +88,66 @@ class _MedicationListScreenState extends State<MedicationListScreen> with Single
         updatedAt: DateTime.now(),
       );
       await _service.logRepository.update(updated);
+      
+      // Update UI smoothly
+      setState(() {
+        _dailyChecklist[index] = DailyMedicationCheck(
+          log: updated,
+          medication: check.medication,
+        );
+        // Re-sort to move unchecked items to top
+        _dailyChecklist.sort((a, b) {
+          if (a.isChecked != b.isChecked) {
+            return a.isChecked ? 1 : -1;
+          }
+          final orderCompare = a.medication.displayOrder.compareTo(b.medication.displayOrder);
+          if (orderCompare != 0) return orderCompare;
+          return a.log.scheduledTime.compareTo(b.log.scheduledTime);
+        });
+      });
+      
+      // Update stats in background
+      final statsResult = await _service.getStatistics();
+      if (statsResult.isSuccess) {
+        setState(() {
+          _stats = statsResult.data!;
+        });
+      }
     } else {
       // Mark as taken
-      await _service.markAsTaken(
+      final result = await _service.markAsTaken(
         check.medication.id,
         _selectedDate,
         check.log.scheduledTime,
       );
+      
+      if (result.isSuccess) {
+        // Update UI smoothly
+        setState(() {
+          _dailyChecklist[index] = DailyMedicationCheck(
+            log: result.data!,
+            medication: check.medication,
+          );
+          // Re-sort to move checked items to bottom
+          _dailyChecklist.sort((a, b) {
+            if (a.isChecked != b.isChecked) {
+              return a.isChecked ? 1 : -1;
+            }
+            final orderCompare = a.medication.displayOrder.compareTo(b.medication.displayOrder);
+            if (orderCompare != 0) return orderCompare;
+            return a.log.scheduledTime.compareTo(b.log.scheduledTime);
+          });
+        });
+        
+        // Update stats in background
+        final statsResult = await _service.getStatistics();
+        if (statsResult.isSuccess) {
+          setState(() {
+            _stats = statsResult.data!;
+          });
+        }
+      }
     }
-    _loadData();
   }
 
   Future<void> _resetAll() async {
@@ -189,211 +226,213 @@ class _MedicationListScreenState extends State<MedicationListScreen> with Single
   }
 
   Widget _buildDailyChecklistTab() {
-    return Column(
-      children: [
-        // Date selector
-        Container(
-          padding: const EdgeInsets.all(16),
-          color: Theme.of(context).colorScheme.surfaceContainerHighest,
-          child: Row(
-            children: [
-              IconButton(
-                icon: const Icon(Icons.chevron_left),
-                onPressed: () {
-                  setState(() {
-                    _selectedDate = _selectedDate.subtract(const Duration(days: 1));
-                  });
-                  _loadData();
-                },
-              ),
-              Expanded(
-                child: Text(
-                  _formatDate(_selectedDate),
-                  textAlign: TextAlign.center,
-                  style: Theme.of(context).textTheme.titleMedium,
-                ),
-              ),
-              IconButton(
-                icon: const Icon(Icons.chevron_right),
-                onPressed: () {
-                  setState(() {
-                    _selectedDate = _selectedDate.add(const Duration(days: 1));
-                  });
-                  _loadData();
-                },
-              ),
-              IconButton(
-                icon: const Icon(Icons.today),
-                onPressed: () {
-                  setState(() {
-                    _selectedDate = DateTime.now();
-                  });
-                  _loadData();
-                },
-              ),
-            ],
-          ),
-        ),
-        
-        // Stats
-        if (_stats.isNotEmpty)
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Row(
+    return _dailyChecklist.isEmpty
+        ? Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Expanded(
-                  child: _StatCard(
-                    label: 'Taken',
-                    value: '${_stats['todayTaken']}/${_stats['todayTotal']}',
-                    icon: Icons.check_circle,
-                    color: Colors.green,
-                  ),
+                Icon(
+                  Icons.medication_outlined,
+                  size: 64,
+                  color: Theme.of(context).colorScheme.outline,
                 ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: _StatCard(
-                    label: 'Pending',
-                    value: '${_stats['todayPending']}',
-                    icon: Icons.pending,
-                    color: Colors.orange,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: _StatCard(
-                    label: 'Adherence',
-                    value: '${_stats['adherenceRate']}%',
-                    icon: Icons.trending_up,
-                    color: Colors.blue,
-                  ),
+                const SizedBox(height: 16),
+                Text(
+                  'No medications scheduled for this day',
+                  style: Theme.of(context).textTheme.bodyLarge,
                 ),
               ],
             ),
-          ),
-        
-        // Reset button
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: OutlinedButton.icon(
-            onPressed: _dailyChecklist.isEmpty ? null : _resetAll,
-            icon: const Icon(Icons.refresh),
-            label: const Text('Reset All Checks'),
-          ),
-        ),
-        
-        const SizedBox(height: 8),
-        
-        // Checklist
-        Expanded(
-          child: _dailyChecklist.isEmpty
-              ? Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        Icons.medication_outlined,
-                        size: 64,
-                        color: Theme.of(context).colorScheme.outline,
-                      ),
-                      const SizedBox(height: 16),
-                      Text(
-                        'No medications scheduled for this day',
-                        style: Theme.of(context).textTheme.bodyLarge,
-                      ),
-                    ],
-                  ),
-                )
-              : ListView.builder(
-                  padding: const EdgeInsets.all(16),
-                  itemCount: _dailyChecklist.length,
-                  itemBuilder: (context, index) {
-                    final check = _dailyChecklist[index];
-                    return _ChecklistItem(
-                      check: check,
-                      onToggle: () => _toggleCheck(check),
-                    );
-                  },
-                ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildManageTab() {
-    return Column(
-      children: [
-        if (_stats.isNotEmpty)
-          Padding(
+          )
+        : ListView(
             padding: const EdgeInsets.all(16),
-            child: Card(
-              child: Padding(
+            children: [
+              // Date selector
+              Container(
                 padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                  borderRadius: BorderRadius.circular(12),
+                ),
                 child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceAround,
                   children: [
-                    Column(
-                      children: [
-                        Text(
-                          '${_stats['activeMedications']}',
-                          style: Theme.of(context).textTheme.headlineMedium,
-                        ),
-                        const Text('Active'),
-                      ],
+                    IconButton(
+                      icon: const Icon(Icons.chevron_left),
+                      onPressed: () {
+                        setState(() {
+                          _selectedDate = _selectedDate.subtract(const Duration(days: 1));
+                        });
+                        _loadData();
+                      },
                     ),
-                    Column(
-                      children: [
-                        Text(
-                          '${_medications.where((m) => !m.isActive).length}',
-                          style: Theme.of(context).textTheme.headlineMedium,
-                        ),
-                        const Text('Paused'),
-                      ],
+                    Expanded(
+                      child: Text(
+                        _formatDate(_selectedDate),
+                        textAlign: TextAlign.center,
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.chevron_right),
+                      onPressed: () {
+                        setState(() {
+                          _selectedDate = _selectedDate.add(const Duration(days: 1));
+                        });
+                        _loadData();
+                      },
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.today),
+                      onPressed: () {
+                        setState(() {
+                          _selectedDate = DateTime.now();
+                        });
+                        _loadData();
+                      },
                     ),
                   ],
                 ),
               ),
+              
+              const SizedBox(height: 16),
+              
+              // Stats
+              if (_stats.isNotEmpty)
+                Row(
+                  children: [
+                    Expanded(
+                      child: _StatCard(
+                        label: 'Taken',
+                        value: '${_stats['todayTaken']}/${_stats['todayTotal']}',
+                        icon: Icons.check_circle,
+                        color: Colors.green,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: _StatCard(
+                        label: 'Pending',
+                        value: '${_stats['todayPending']}',
+                        icon: Icons.pending,
+                        color: Colors.orange,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: _StatCard(
+                        label: 'Adherence',
+                        value: '${_stats['adherenceRate']}%',
+                        icon: Icons.trending_up,
+                        color: Colors.blue,
+                      ),
+                    ),
+                  ],
+                ),
+              
+              if (_stats.isNotEmpty) const SizedBox(height: 16),
+              
+              // Reset button
+              OutlinedButton.icon(
+                onPressed: _dailyChecklist.isEmpty ? null : _resetAll,
+                icon: const Icon(Icons.refresh),
+                label: const Text('Reset All Checks'),
+              ),
+              
+              const SizedBox(height: 16),
+              
+              // Checklist items
+              ..._dailyChecklist.map((check) => Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: _ChecklistItem(
+                      check: check,
+                      onToggle: () => _toggleCheck(check),
+                    ),
+                  )),
+            ],
+          );
+  }
+
+  Widget _buildManageTab() {
+    return _medications.isEmpty
+        ? Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  Icons.medication_outlined,
+                  size: 64,
+                  color: Theme.of(context).colorScheme.outline,
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'No medications added yet',
+                  style: Theme.of(context).textTheme.bodyLarge,
+                ),
+                const SizedBox(height: 8),
+                const Text('Tap + to add your first medication'),
+              ],
             ),
-          ),
-        
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: Text(
-            'Long press and drag to reorder',
-            style: Theme.of(context).textTheme.bodySmall,
-          ),
-        ),
-        
-        const SizedBox(height: 8),
-        
-        Expanded(
-          child: _medications.isEmpty
-              ? Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        Icons.medication_outlined,
-                        size: 64,
-                        color: Theme.of(context).colorScheme.outline,
+          )
+        : CustomScrollView(
+            slivers: [
+              SliverToBoxAdapter(
+                child: Column(
+                  children: [
+                    if (_stats.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Card(
+                          child: Padding(
+                            padding: const EdgeInsets.all(16),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceAround,
+                              children: [
+                                Column(
+                                  children: [
+                                    Text(
+                                      '${_stats['activeMedications']}',
+                                      style: Theme.of(context).textTheme.headlineMedium,
+                                    ),
+                                    const Text('Active'),
+                                  ],
+                                ),
+                                Column(
+                                  children: [
+                                    Text(
+                                      '${_medications.where((m) => !m.isActive).length}',
+                                      style: Theme.of(context).textTheme.headlineMedium,
+                                    ),
+                                    const Text('Paused'),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
                       ),
-                      const SizedBox(height: 16),
-                      Text(
-                        'No medications added yet',
-                        style: Theme.of(context).textTheme.bodyLarge,
+                    
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: Text(
+                        'Long press and drag to reorder',
+                        style: Theme.of(context).textTheme.bodySmall,
                       ),
-                      const SizedBox(height: 8),
-                      const Text('Tap + to add your first medication'),
-                    ],
-                  ),
-                )
-              : ReorderableListView.builder(
-                  padding: const EdgeInsets.all(16),
-                  onReorder: _reorderMedications,
-                  itemCount: _medications.length,
-                  itemBuilder: (context, index) {
-                    final med = _medications[index];
-                    return _MedicationCard(
-                      key: ValueKey(med.id),
+                    ),
+                    
+                    const SizedBox(height: 8),
+                  ],
+                ),
+              ),
+              
+              SliverReorderableList(
+                itemCount: _medications.length,
+                onReorder: _reorderMedications,
+                itemBuilder: (context, index) {
+                  final med = _medications[index];
+                  return Padding(
+                    key: ValueKey(med.id),
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                    child: _MedicationCard(
                       medication: med,
                       onToggleActive: () async {
                         await _service.toggleActive(med.id);
@@ -412,12 +451,12 @@ class _MedicationListScreenState extends State<MedicationListScreen> with Single
                         await _service.softDelete(med.id);
                         _loadData();
                       },
-                    );
-                  },
-                ),
-        ),
-      ],
-    );
+                    ),
+                  );
+                },
+              ),
+            ],
+          );
   }
 
   String _formatDate(DateTime date) {
@@ -512,7 +551,6 @@ class _MedicationCard extends StatelessWidget {
   final VoidCallback onDelete;
 
   const _MedicationCard({
-    super.key,
     required this.medication,
     required this.onToggleActive,
     required this.onEdit,

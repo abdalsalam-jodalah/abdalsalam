@@ -30,6 +30,7 @@ class Medication extends BaseModel {
   final String? notes;
   final DateTime? refillDate;
   final int displayOrder; // For custom ordering in the list
+  @override
   final bool isActive; // Quick toggle for pausing medication
   final MedicationTiming timing; // When to take it (before/with/after meal, etc.)
   final List<WeekDay> weekDays; // For weekly medications - which days

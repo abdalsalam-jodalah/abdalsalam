@@ -1,25 +1,22 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
-import 'package:abdalsalam_logic_flutter/abdalsalam_logic_flutter.dart';
 
 import '../../../data/models/health/medication.dart';
-import '../../../data/repositories/health/health_repository.dart';
-import '../../../data/repositories/health/medication_log_repository.dart';
-import '../../../shared/infrastructure/logger_service.dart';
-import '../../../shared/infrastructure/storage_gateway.dart';
+import '../providers/health_providers.dart';
 import '../services/medication_service.dart';
 
-class MedicationFormScreen extends StatefulWidget {
+class MedicationFormScreen extends ConsumerStatefulWidget {
   static const routeName = '/health/medication-form';
   final Medication? medication;
 
   const MedicationFormScreen({super.key, this.medication});
 
   @override
-  State<MedicationFormScreen> createState() => _MedicationFormScreenState();
+  ConsumerState<MedicationFormScreen> createState() => _MedicationFormScreenState();
 }
 
-class _MedicationFormScreenState extends State<MedicationFormScreen> {
+class _MedicationFormScreenState extends ConsumerState<MedicationFormScreen> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _dosageController = TextEditingController();
@@ -39,18 +36,8 @@ class _MedicationFormScreenState extends State<MedicationFormScreen> {
   @override
   void initState() {
     super.initState();
-    
-    final logger = LoggerService.forModule('MedicationService', moduleType: ModuleType.service);
-    final storage = StorageGateway.instance;
-    final repo = HealthRepositoryImpl(storage, logger);
-    final logRepo = MedicationLogRepositoryImpl(storage, logger);
-    
-    _service = MedicationService(
-      repository: repo,
-      logger: logger,
-      logRepository: logRepo,
-    );
-    
+    _service = ref.read(medicationServiceProvider);
+
     if (widget.medication != null) {
       _nameController.text = widget.medication!.name;
       _dosageController.text = widget.medication!.dosage;
@@ -178,11 +165,19 @@ class _MedicationFormScreenState extends State<MedicationFormScreen> {
               ),
               const SizedBox(height: 12),
               DropdownButtonFormField<String>(
-                value: _frequency,
-                items: const ['Daily', 'Twice Daily', 'Three Times Daily', 'Weekly', 'As Needed']
+                initialValue: _frequency,
+                items: const ['Daily', 'Twice Daily', 'Three Times Daily', 'Four Times Daily', 'Weekly', 'As Needed']
                     .map((item) => DropdownMenuItem(value: item, child: Text(item)))
                     .toList(),
-                onChanged: (value) => setState(() => _frequency = value ?? _frequency),
+                onChanged: (value) {
+                  if (value != null) {
+                    setState(() {
+                      _frequency = value;
+                      // Auto-populate times based on frequency
+                      _times = _getDefaultTimes(value);
+                    });
+                  }
+                },
                 decoration: const InputDecoration(
                   labelText: 'Frequency',
                   border: OutlineInputBorder(),
@@ -191,7 +186,7 @@ class _MedicationFormScreenState extends State<MedicationFormScreen> {
               ),
               const SizedBox(height: 12),
               DropdownButtonFormField<MedicationTiming>(
-                value: _timing,
+                initialValue: _timing,
                 items: MedicationTiming.values
                     .map((timing) => DropdownMenuItem(
                           value: timing,
@@ -353,6 +348,35 @@ class _MedicationFormScreenState extends State<MedicationFormScreen> {
         return 'Saturday';
       case WeekDay.sunday:
         return 'Sunday';
+    }
+  }
+
+  List<TimeOfDay> _getDefaultTimes(String frequency) {
+    switch (frequency) {
+      case 'Daily':
+        return [const TimeOfDay(hour: 8, minute: 0)];
+      case 'Twice Daily':
+        return [
+          const TimeOfDay(hour: 8, minute: 0),
+          const TimeOfDay(hour: 20, minute: 0),
+        ];
+      case 'Three Times Daily':
+        return [
+          const TimeOfDay(hour: 8, minute: 0),
+          const TimeOfDay(hour: 14, minute: 0),
+          const TimeOfDay(hour: 20, minute: 0),
+        ];
+      case 'Four Times Daily':
+        return [
+          const TimeOfDay(hour: 8, minute: 0),
+          const TimeOfDay(hour: 12, minute: 0),
+          const TimeOfDay(hour: 16, minute: 0),
+          const TimeOfDay(hour: 20, minute: 0),
+        ];
+      case 'Weekly':
+      case 'As Needed':
+      default:
+        return [const TimeOfDay(hour: 8, minute: 0)];
     }
   }
 }
