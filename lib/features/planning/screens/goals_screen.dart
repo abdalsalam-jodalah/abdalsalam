@@ -17,6 +17,7 @@ class GoalsScreen extends ConsumerStatefulWidget {
 class _GoalsScreenState extends ConsumerState<GoalsScreen> {
   final _uuid = const Uuid();
   GoalScope? _selectedScope;
+  LifeArea? _selectedArea;
 
   String _scopeLabel(GoalScope scope) {
     switch (scope) {
@@ -32,6 +33,19 @@ class _GoalsScreenState extends ConsumerState<GoalsScreen> {
         return 'Weekly';
       case GoalScope.daily:
         return 'Daily';
+    }
+  }
+
+  String _areaLabel(LifeArea area) {
+    switch (area) {
+      case LifeArea.mind:
+        return 'Mind';
+      case LifeArea.body:
+        return 'Body';
+      case LifeArea.money:
+        return 'Money';
+      case LifeArea.soul:
+        return 'Soul';
     }
   }
 
@@ -62,14 +76,16 @@ class _GoalsScreenState extends ConsumerState<GoalsScreen> {
       body: Column(
         children: [
           _buildScopeFilter(),
+          _buildAreaFilter(),
           Expanded(
             child: goalsAsync.when(
               loading: () => const Center(child: CircularProgressIndicator()),
               error: (error, stack) => const Center(child: Text('Failed to load goals')),
               data: (goals) {
-                final filtered = _selectedScope == null
-                    ? goals
-                    : goals.where((goal) => goal.scope == _selectedScope).toList(growable: false);
+                final filtered = goals
+                    .where((goal) => _selectedScope == null || goal.scope == _selectedScope)
+                    .where((goal) => _selectedArea == null || goal.area == _selectedArea)
+                    .toList(growable: false);
 
                 if (filtered.isEmpty) {
                   return const Center(child: Text('No goals yet. Tap + to add one.'));
@@ -118,6 +134,33 @@ class _GoalsScreenState extends ConsumerState<GoalsScreen> {
     );
   }
 
+  Widget _buildAreaFilter() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: [
+            ChoiceChip(
+              label: const Text('All areas'),
+              selected: _selectedArea == null,
+              onSelected: (_) => setState(() => _selectedArea = null),
+            ),
+            const SizedBox(width: 8),
+            for (final area in LifeArea.values) ...[
+              ChoiceChip(
+                label: Text(_areaLabel(area)),
+                selected: _selectedArea == area,
+                onSelected: (_) => setState(() => _selectedArea = area),
+              ),
+              const SizedBox(width: 8),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildGoalCard(Goal goal, List<Goal> allGoals) {
     Goal? parent;
     if (goal.parentGoalId != null) {
@@ -141,6 +184,10 @@ class _GoalsScreenState extends ConsumerState<GoalsScreen> {
                 Expanded(
                   child: Text(goal.title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                 ),
+                if (goal.area != null) ...[
+                  Chip(label: Text(_areaLabel(goal.area!)), visualDensity: VisualDensity.compact),
+                  const SizedBox(width: 4),
+                ],
                 Chip(label: Text(_scopeLabel(goal.scope)), visualDensity: VisualDensity.compact),
               ],
             ),
@@ -184,11 +231,11 @@ class _GoalsScreenState extends ConsumerState<GoalsScreen> {
     final formKey = GlobalKey<FormState>();
     final titleController = TextEditingController(text: goal?.title ?? '');
     final descriptionController = TextEditingController(text: goal?.description ?? '');
-    final areaController = TextEditingController(text: goal?.area ?? '');
     GoalScope selectedScope = goal?.scope ?? _selectedScope ?? GoalScope.daily;
     GoalStatus selectedStatus = goal?.status ?? GoalStatus.notStarted;
     DateTime? selectedDate = goal?.targetDate ?? DateTime.now();
     String? selectedParentId = goal?.parentGoalId;
+    LifeArea? selectedArea = goal?.area ?? _selectedArea;
 
     final saved = await showDialog<bool>(
       context: context,
@@ -242,9 +289,14 @@ class _GoalsScreenState extends ConsumerState<GoalsScreen> {
                     decoration: const InputDecoration(labelText: 'Linked goal (optional)', border: OutlineInputBorder()),
                   ),
                   const SizedBox(height: 12),
-                  TextFormField(
-                    controller: areaController,
-                    decoration: const InputDecoration(labelText: 'Area (optional)', hintText: 'e.g. Health, Career', border: OutlineInputBorder()),
+                  DropdownButtonFormField<LifeArea>(
+                    initialValue: selectedArea,
+                    items: LifeArea.values
+                        .map((area) => DropdownMenuItem(value: area, child: Text(_areaLabel(area))))
+                        .toList(),
+                    onChanged: (value) => setDialogState(() => selectedArea = value),
+                    validator: (value) => value == null ? 'Pick a life area' : null,
+                    decoration: const InputDecoration(labelText: 'Life area', border: OutlineInputBorder()),
                   ),
                   const SizedBox(height: 12),
                   ListTile(
@@ -288,16 +340,13 @@ class _GoalsScreenState extends ConsumerState<GoalsScreen> {
     if (saved != true) {
       titleController.dispose();
       descriptionController.dispose();
-      areaController.dispose();
       return;
     }
 
     final title = titleController.text.trim();
     final description = descriptionController.text.trim();
-    final area = areaController.text.trim();
     titleController.dispose();
     descriptionController.dispose();
-    areaController.dispose();
 
     final repo = ref.read(goalRepositoryProvider);
     final now = DateTime.now();
@@ -315,7 +364,7 @@ class _GoalsScreenState extends ConsumerState<GoalsScreen> {
               status: selectedStatus,
               targetDate: selectedDate,
               parentGoalId: selectedParentId,
-              area: area.isEmpty ? null : area,
+              area: selectedArea,
             ),
           )
         : await repo.update(
@@ -326,7 +375,7 @@ class _GoalsScreenState extends ConsumerState<GoalsScreen> {
               status: selectedStatus,
               targetDate: selectedDate,
               parentGoalId: selectedParentId,
-              area: area.isEmpty ? null : area,
+              area: selectedArea,
               updatedAt: now,
             ),
           );

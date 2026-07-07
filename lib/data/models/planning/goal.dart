@@ -4,6 +4,8 @@ enum GoalScope { life, yearly, quarterly, monthly, weekly, daily }
 
 enum GoalStatus { notStarted, inProgress, achieved, abandoned }
 
+enum LifeArea { mind, body, money, soul }
+
 class Goal extends BaseModel {
   final String userId;
   final String title;
@@ -13,7 +15,7 @@ class Goal extends BaseModel {
   final DateTime? targetDate;
   final String? parentGoalId;
   final double progress;
-  final String? area;
+  final LifeArea? area;
 
   const Goal({
     required super.id,
@@ -45,7 +47,7 @@ class Goal extends BaseModel {
       targetDate: json['targetDate'] == null ? null : DateTime.parse(json['targetDate'] as String),
       parentGoalId: json['parentGoalId'] as String?,
       progress: (json['progress'] as num?)?.toDouble() ?? 0.0,
-      area: json['area'] as String?,
+      area: json['area'] == null ? null : LifeArea.values.byName(json['area'] as String),
     );
   }
 
@@ -58,7 +60,7 @@ class Goal extends BaseModel {
     DateTime? targetDate,
     String? parentGoalId,
     double? progress,
-    String? area,
+    LifeArea? area,
   }) =>
       Goal(
         id: id,
@@ -90,6 +92,6 @@ class Goal extends BaseModel {
         'targetDate': targetDate?.toIso8601String(),
         'parentGoalId': parentGoalId,
         'progress': progress,
-        'area': area,
+        'area': area?.name,
       };
 }
