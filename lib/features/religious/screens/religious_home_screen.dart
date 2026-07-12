@@ -4,7 +4,15 @@ import 'package:intl/intl.dart';
 
 import '../../../data/models/religious/prayer_times_snapshot.dart';
 import '../../../data/models/religious/religious_entry.dart';
+import '../../../shared/widgets/empty_state.dart';
+import '../providers/athkar_providers.dart';
+import '../providers/prayer_providers.dart';
+import '../providers/quran_reading_providers.dart';
 import '../providers/religious_tracking_providers.dart';
+import 'athkar_screen.dart';
+import 'bad_practice_screen.dart';
+import 'prayer_logs_screen.dart';
+import 'quran_reading_screen.dart';
 import 'religious_history_screen.dart';
 
 class ReligiousHomeScreen extends ConsumerWidget {
@@ -47,67 +55,20 @@ class ReligiousHomeScreen extends ConsumerWidget {
         padding: const EdgeInsets.all(16),
         children: [
           _PrayerTimesSection(prayerTimes: prayerTimes),
-          const SizedBox(height: 14),
-          Text('Quick Log', style: Theme.of(context).textTheme.titleMedium),
-          const SizedBox(height: 10),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              FilledButton.icon(
-                onPressed: () => _showEntryDialog(
-                  context,
-                  ref,
-                  type: ReligiousEntryType.prayer,
-                  defaultTitle: 'Prayer log',
-                ),
-                icon: const Icon(Icons.mosque_outlined),
-                label: const Text('Prayer'),
-              ),
-              FilledButton.icon(
-                onPressed: () => _showEntryDialog(
-                  context,
-                  ref,
-                  type: ReligiousEntryType.quranReading,
-                  defaultTitle: 'Quran reading',
-                ),
-                icon: const Icon(Icons.menu_book_outlined),
-                label: const Text('Quran'),
-              ),
-              FilledButton.icon(
-                onPressed: () => _showEntryDialog(
-                  context,
-                  ref,
-                  type: ReligiousEntryType.athkar,
-                  defaultTitle: 'Athkar',
-                ),
-                icon: const Icon(Icons.favorite_outline),
-                label: const Text('Athkar'),
-              ),
-              FilledButton.icon(
-                onPressed: () => _showEntryDialog(
-                  context,
-                  ref,
-                  type: ReligiousEntryType.nightPrayer,
-                  defaultTitle: 'Night prayer',
-                ),
-                icon: const Icon(Icons.nights_stay_outlined),
-                label: const Text('Night Prayer'),
-              ),
-              OutlinedButton.icon(
-                onPressed: () => _showEntryDialog(
-                  context,
-                  ref,
-                  type: ReligiousEntryType.badEvent,
-                  defaultTitle: 'Bad event',
-                ),
-                icon: const Icon(Icons.warning_amber_outlined),
-                label: const Text('Bad Event'),
-              ),
-            ],
-          ),
           const SizedBox(height: 16),
-          Text('Today Logs', style: Theme.of(context).textTheme.titleMedium),
+          const _StatsRow(),
+          const SizedBox(height: 20),
+          _SectionHeader(
+            title: 'Quick Log',
+            trailing: TextButton(
+              onPressed: () => Navigator.of(context).pushNamed(QuranReadingScreen.routeName),
+              child: const Text('Quran Log'),
+            ),
+          ),
+          const SizedBox(height: 10),
+          _QuickLogGrid(),
+          const SizedBox(height: 20),
+          _SectionHeader(title: "Today's Logs"),
           const SizedBox(height: 8),
           if (logsState.isLoading)
             const Padding(
@@ -115,17 +76,24 @@ class ReligiousHomeScreen extends ConsumerWidget {
               child: Center(child: CircularProgressIndicator()),
             )
           else if (todayLogs.isEmpty)
-            const Card(
-              child: Padding(
-                padding: EdgeInsets.all(16),
-                child: Text('No logs for today yet.'),
-              ),
+            EmptyState(
+              title: 'No logs for today yet',
+              subtitle: 'Use quick log above to record a prayer, Quran reading, athkar, or event.',
+              actionLabel: 'Log Prayer',
+              onAction: () => Navigator.of(context).pushNamed(PrayerLogsScreen.routeName),
             )
           else
             ...todayLogs.map(
               (item) => Card(
                 child: ListTile(
-                  leading: Icon(_iconForType(item.type)),
+                  leading: CircleAvatar(
+                    backgroundColor:
+                        Theme.of(context).colorScheme.primaryContainer,
+                    child: Icon(
+                      _iconForType(item.type),
+                      color: Theme.of(context).colorScheme.onPrimaryContainer,
+                    ),
+                  ),
                   title: Text(item.title),
                   subtitle: Text(
                     '${DateFormat('hh:mm a').format(item.loggedAt)} • ${_typeLabel(item.type)}${item.details == null || item.details!.isEmpty ? '' : '\n${item.details}'}',
@@ -140,7 +108,7 @@ class ReligiousHomeScreen extends ConsumerWidget {
     );
   }
 
-  Future<void> _showEntryDialog(
+  static Future<void> _showEntryDialog(
     BuildContext context,
     WidgetRef ref, {
     required ReligiousEntryType type,
@@ -315,6 +283,220 @@ class ReligiousHomeScreen extends ConsumerWidget {
   }
 }
 
+class _SectionHeader extends StatelessWidget {
+  const _SectionHeader({required this.title, this.trailing});
+
+  final String title;
+  final Widget? trailing;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(
+          title,
+          style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+        ),
+        ?trailing,
+      ],
+    );
+  }
+}
+
+class _StatsRow extends ConsumerWidget {
+  const _StatsRow();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final streak = ref.watch(religiousStreakProvider);
+    final prayersToday = ref.watch(prayerCountProvider);
+    final athkarToday = ref.watch(athkarTodayCountProvider);
+    final quranPagesWeek = ref.watch(quranPagesThisWeekProvider);
+    final scheme = Theme.of(context).colorScheme;
+
+    return Row(
+      children: [
+        Expanded(
+          child: _StatTile(
+            label: 'Streak',
+            value: streak.maybeWhen(data: (v) => '$v d', orElse: () => '…'),
+            icon: Icons.local_fire_department,
+            color: Colors.orange,
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: _StatTile(
+            label: 'Prayers Today',
+            value: '$prayersToday',
+            icon: Icons.mosque_outlined,
+            color: scheme.primary,
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: _StatTile(
+            label: 'Athkar Today',
+            value: '$athkarToday',
+            icon: Icons.favorite_outline,
+            color: scheme.tertiary,
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: _StatTile(
+            label: 'Quran (wk)',
+            value: quranPagesWeek.maybeWhen(data: (v) => '$v p', orElse: () => '…'),
+            icon: Icons.menu_book_outlined,
+            color: scheme.secondary,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _StatTile extends StatelessWidget {
+  const _StatTile({
+    required this.label,
+    required this.value,
+    required this.icon,
+    required this.color,
+  });
+
+  final String label;
+  final String value;
+  final IconData icon;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      margin: EdgeInsets.zero,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+        child: Column(
+          children: [
+            Icon(icon, color: color, size: 20),
+            const SizedBox(height: 6),
+            Text(value, style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+            const SizedBox(height: 2),
+            Text(
+              label,
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.labelSmall,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _QuickLogGrid extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final scheme = Theme.of(context).colorScheme;
+
+    return GridView.count(
+      crossAxisCount: 3,
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      crossAxisSpacing: 10,
+      mainAxisSpacing: 10,
+      childAspectRatio: 1.1,
+      children: [
+        _QuickLogTile(
+          label: 'Prayer',
+          icon: Icons.mosque_outlined,
+          color: scheme.primary,
+          onTap: () => Navigator.of(context).pushNamed(PrayerLogsScreen.routeName),
+        ),
+        _QuickLogTile(
+          label: 'Quran',
+          icon: Icons.menu_book_outlined,
+          color: scheme.secondary,
+          onTap: () => Navigator.of(context).pushNamed(QuranReadingScreen.routeName),
+        ),
+        _QuickLogTile(
+          label: 'Athkar',
+          icon: Icons.favorite_outline,
+          color: scheme.tertiary,
+          onTap: () => Navigator.of(context).pushNamed(AthkarScreen.routeName),
+        ),
+        _QuickLogTile(
+          label: 'Night Prayer',
+          icon: Icons.nights_stay_outlined,
+          color: scheme.primary,
+          onTap: () => ReligiousHomeScreen._showEntryDialog(
+            context,
+            ref,
+            type: ReligiousEntryType.nightPrayer,
+            defaultTitle: 'Night prayer',
+          ),
+        ),
+        _QuickLogTile(
+          label: 'Bad Event',
+          icon: Icons.warning_amber_outlined,
+          color: scheme.error,
+          onTap: () => Navigator.of(context).pushNamed(BadPracticeScreen.routeName),
+        ),
+      ],
+    );
+  }
+}
+
+class _QuickLogTile extends StatelessWidget {
+  const _QuickLogTile({
+    required this.label,
+    required this.icon,
+    required this.color,
+    required this.onTap,
+  });
+
+  final String label;
+  final IconData icon;
+  final Color color;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(icon, color: color, size: 22),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                label,
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.labelMedium,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _PrayerTimesSection extends StatelessWidget {
   final AsyncValue<PrayerTimesSnapshot> prayerTimes;
 
@@ -351,7 +533,7 @@ class _PrayerTimesSection extends StatelessWidget {
             children: [
               Text('Prayer Times', style: Theme.of(context).textTheme.titleMedium),
               const SizedBox(height: 4),
-              Text('Source: quran-radio.com • Updated ${DateFormat('hh:mm a').format(times.fetchedAt)}'),
+              Text('Source: ${times.sourceUrl} • Updated ${DateFormat('hh:mm a').format(times.fetchedAt)}'),
               const SizedBox(height: 10),
               Wrap(
                 spacing: 8,

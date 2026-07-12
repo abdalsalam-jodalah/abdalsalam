@@ -29,6 +29,8 @@ class PrayerService extends BaseServiceImpl<PrayerLog> {
     required PrayerName prayerName,
     required bool onTime,
     String? notes,
+    DateTime? prayedAt,
+    DateTime? scheduledAt,
   }) async {
     final now = DateTime.now();
     final entity = PrayerLog(
@@ -37,11 +39,18 @@ class PrayerService extends BaseServiceImpl<PrayerLog> {
       updatedAt: now,
       userId: userId,
       prayerName: prayerName,
-      prayedAt: now,
+      prayedAt: prayedAt ?? now,
       onTime: onTime,
       notes: notes,
+      scheduledAt: scheduledAt,
     );
     return create(entity);
+  }
+
+  /// Difference between when a prayer was actually performed and its
+  /// scheduled time. Positive = late, negative = early.
+  Duration computeDelta({required DateTime prayedAt, required DateTime scheduledAt}) {
+    return prayedAt.difference(scheduledAt);
   }
 
   Future<Result<List<PrayerLog>, AppError>> getTodayLogs(String userId) async {

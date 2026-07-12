@@ -1,5 +1,9 @@
 import '../../models/base_model.dart';
 
+/// Deprecated: superseded by [QuranReading] (surah/ayah range, pagesRead, place).
+/// Kept only so previously-persisted rows remain readable; use the
+/// "Import legacy Quran progress" action on QuranReadingScreen to migrate.
+@Deprecated('Use QuranReading instead')
 class QuranProgress extends BaseModel {
   final String userId;
   final int pagesRead;

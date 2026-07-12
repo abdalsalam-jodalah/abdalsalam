@@ -8,6 +8,7 @@ class PrayerLog extends BaseModel {
   final DateTime prayedAt;
   final bool onTime;
   final String? notes;
+  final DateTime? scheduledAt;
 
   const PrayerLog({
     required super.id,
@@ -19,6 +20,7 @@ class PrayerLog extends BaseModel {
     required this.prayedAt,
     required this.onTime,
     this.notes,
+    this.scheduledAt,
   });
 
   factory PrayerLog.fromJson(Map<String, dynamic> json) {
@@ -34,6 +36,9 @@ class PrayerLog extends BaseModel {
       prayedAt: DateTime.parse(json['prayedAt'] as String),
       onTime: json['onTime'] as bool,
       notes: json['notes'] as String?,
+      scheduledAt: json['scheduledAt'] == null
+          ? null
+          : DateTime.parse(json['scheduledAt'] as String),
     );
   }
 
@@ -47,6 +52,7 @@ class PrayerLog extends BaseModel {
     DateTime? prayedAt,
     bool? onTime,
     String? notes,
+    DateTime? scheduledAt,
   }) {
     return PrayerLog(
       id: id ?? this.id,
@@ -58,6 +64,7 @@ class PrayerLog extends BaseModel {
       prayedAt: prayedAt ?? this.prayedAt,
       onTime: onTime ?? this.onTime,
       notes: notes ?? this.notes,
+      scheduledAt: scheduledAt ?? this.scheduledAt,
     );
   }
 
@@ -73,6 +80,7 @@ class PrayerLog extends BaseModel {
       'prayedAt': prayedAt.toIso8601String(),
       'onTime': onTime,
       'notes': notes,
+      'scheduledAt': scheduledAt?.toIso8601String(),
     };
   }
 }

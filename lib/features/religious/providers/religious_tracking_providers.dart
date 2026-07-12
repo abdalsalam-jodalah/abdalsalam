@@ -5,9 +5,23 @@ import '../../../data/models/religious/religious_entry.dart';
 import '../../../data/repositories/religious/prayer_times_snapshot_repository.dart';
 import '../../../data/repositories/religious/religious_entry_repository.dart';
 import '../../../providers/app_providers.dart';
+import '../services/prayer_time_service.dart';
+import '../services/prayer_times_cache_service.dart';
 import '../services/religious_tracker_service.dart';
 
 const religiousDemoUserId = 'local-user';
+
+final prayerTimesCacheServiceProvider = Provider<PrayerTimesCacheService>((ref) {
+  final storage = ref.watch(storageGatewayProvider);
+  final logger = ref.watch(loggerProvider);
+  return PrayerTimesCacheService(storage: storage, logger: logger);
+});
+
+final prayerTimeServiceProvider = Provider<PrayerTimeService>((ref) {
+  final logger = ref.watch(loggerProvider);
+  final cache = ref.watch(prayerTimesCacheServiceProvider);
+  return PrayerTimeService(logger: logger, cache: cache);
+});
 
 final religiousEntryRepositoryProvider = Provider<ReligiousEntryRepository>((ref) {
   final storage = ref.watch(storageGatewayProvider);
@@ -27,6 +41,7 @@ final religiousTrackerServiceProvider = Provider<ReligiousTrackerService>((ref) 
   final logger = ref.watch(loggerProvider);
   final reminders = ref.watch(reminderServiceProvider);
   final settings = ref.watch(settingsServiceProvider);
+  final prayerTimeService = ref.watch(prayerTimeServiceProvider);
 
   return ReligiousTrackerService(
     entryRepo,
@@ -34,6 +49,7 @@ final religiousTrackerServiceProvider = Provider<ReligiousTrackerService>((ref) 
     logger,
     reminders: reminders,
     settings: settings,
+    prayerTimeService: prayerTimeService,
   );
 });
 
@@ -44,6 +60,16 @@ final religiousSyncSchedulerProvider = Provider<ReligiousPrayerSyncScheduler>((r
   );
   ref.onDispose(scheduler.dispose);
   return scheduler;
+});
+
+final prayerTimeSourcePreviewProvider =
+    FutureProvider.family<Map<String, DateTime>, String>((ref, source) async {
+  final service = ref.watch(religiousTrackerServiceProvider);
+  final result = await service.previewSource(source: source);
+  if (result.isFailure) {
+    throw result.error!;
+  }
+  return result.data!;
 });
 
 final todayPrayerTimesProvider = FutureProvider<PrayerTimesSnapshot>((ref) async {

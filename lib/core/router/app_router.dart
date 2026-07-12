@@ -34,6 +34,9 @@ import '../../features/notes/screens/note_editor_screen.dart';
 import '../../features/notes/screens/notes_home_screen.dart';
 import '../../features/notes/screens/search_results_screen.dart';
 import '../../features/notes/screens/todo_list_screen.dart';
+import '../../features/religious/screens/athkar_history_screen.dart';
+import '../../features/religious/screens/athkar_screen.dart';
+import '../../features/religious/screens/bad_practice_screen.dart';
 import '../../features/religious/screens/prayer_logs_screen.dart';
 import '../../features/religious/screens/prayer_log_screen.dart';
 import '../../features/religious/screens/quran_reading_screen.dart';
@@ -95,6 +98,21 @@ class AppRouter {
       case SpiritualProgressScreen.routeName:
         return MaterialPageRoute<void>(
           builder: (_) => const SpiritualProgressScreen(),
+          settings: settings,
+        );
+      case AthkarScreen.routeName:
+        return MaterialPageRoute<void>(
+          builder: (_) => const AthkarScreen(),
+          settings: settings,
+        );
+      case AthkarHistoryScreen.routeName:
+        return MaterialPageRoute<void>(
+          builder: (_) => const AthkarHistoryScreen(),
+          settings: settings,
+        );
+      case BadPracticeScreen.routeName:
+        return MaterialPageRoute<void>(
+          builder: (_) => const BadPracticeScreen(),
           settings: settings,
         );
       case FinancialScreen.routeName:

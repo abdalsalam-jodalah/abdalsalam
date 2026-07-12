@@ -13,15 +13,18 @@ import '../../../shared/infrastructure/logger_service.dart';
 import '../../../shared/services/base_service_impl.dart';
 import '../../../shared/services/reminder_service.dart';
 import '../../../shared/services/settings_service.dart';
+import 'prayer_time_service.dart';
 
 class ReligiousTrackerService extends BaseServiceImpl<ReligiousEntry> {
   static const _uuid = Uuid();
   static const _sourceUrl = 'https://quran-radio.com/';
+  static const _adhanSourceLabel = 'adhan:muslim_world_league';
 
   final ReligiousEntryRepository _entriesRepo;
   final PrayerTimesSnapshotRepository _timesRepo;
   final ReminderService _reminders;
   final SettingsService _settings;
+  final PrayerTimeService _prayerTimeService;
   final http.Client _httpClient;
   final LoggerService _serviceLogger;
 
@@ -31,9 +34,11 @@ class ReligiousTrackerService extends BaseServiceImpl<ReligiousEntry> {
     LoggerService logger, {
     required ReminderService reminders,
     required SettingsService settings,
+    required PrayerTimeService prayerTimeService,
     http.Client? httpClient,
   })  : _reminders = reminders,
         _settings = settings,
+        _prayerTimeService = prayerTimeService,
         _httpClient = httpClient ?? http.Client(),
         _serviceLogger = logger,
         super(_entriesRepo, logger);
@@ -120,19 +125,17 @@ class ReligiousTrackerService extends BaseServiceImpl<ReligiousEntry> {
     }
 
     try {
-      final response = await _httpClient.get(
-        Uri.parse(_sourceUrl),
-        headers: const <String, String>{
-          'user-agent': 'Mozilla/5.0 (Flutter App)',
-        },
-      );
-      if (response.statusCode != 200) {
-        return Failure(NetworkError('Failed to fetch prayer times (status ${response.statusCode})'));
-      }
+      final settings = await _settings.getSettings();
+      final source = (settings['prayerTimeSource'] as String?) ?? 'scraped';
 
-      final parsed = _parsePrayerTimes(response.body, now);
-      if (parsed == null) {
-        return Failure(ValidationError('Unable to parse prayer times from source page'));
+      final Map<String, DateTime> parsed;
+      final String sourceLabel;
+      if (source == 'adhan') {
+        parsed = await _calculateAdhanTimes(now, settings);
+        sourceLabel = _adhanSourceLabel;
+      } else {
+        parsed = await _scrapeTimes(now);
+        sourceLabel = _sourceUrl;
       }
 
       final snapshot = PrayerTimesSnapshot(
@@ -142,7 +145,7 @@ class ReligiousTrackerService extends BaseServiceImpl<ReligiousEntry> {
         dateKey: dateKey,
         forDate: DateTime(now.year, now.month, now.day),
         fetchedAt: now,
-        sourceUrl: _sourceUrl,
+        sourceUrl: sourceLabel,
         fajr: parsed['fajr']!,
         dhuhr: parsed['dhuhr']!,
         asr: parsed['asr']!,
@@ -162,12 +165,73 @@ class ReligiousTrackerService extends BaseServiceImpl<ReligiousEntry> {
         }
       }
 
-      _serviceLogger.info('[ReligiousTracker] prayer times synced for $dateKey from $_sourceUrl');
+      _serviceLogger.info('[ReligiousTracker] prayer times synced for $dateKey from $sourceLabel');
       await _enforcePrayerTimesRetention();
       await _schedulePrayerTimeReminders(snapshot);
       return Success(snapshot);
     } catch (e, st) {
       _serviceLogger.error('[ReligiousTracker] prayer time sync failed', error: e, stackTrace: st);
+      return Failure(NetworkError(e.toString()));
+    }
+  }
+
+  Future<Map<String, DateTime>> _scrapeTimes(DateTime date) async {
+    final response = await _httpClient.get(
+      Uri.parse(_sourceUrl),
+      headers: const <String, String>{
+        'user-agent': 'Mozilla/5.0 (Flutter App)',
+      },
+    );
+    if (response.statusCode != 200) {
+      throw NetworkError('Failed to fetch prayer times (status ${response.statusCode})');
+    }
+
+    final parsed = _parsePrayerTimes(response.body, date);
+    if (parsed == null) {
+      throw ValidationError('Unable to parse prayer times from source page');
+    }
+    return parsed;
+  }
+
+  Future<Map<String, DateTime>> _calculateAdhanTimes(
+    DateTime date,
+    Map<String, dynamic> settings,
+  ) async {
+    final lat = (settings['prayerLocationLatitude'] as num?)?.toDouble() ?? 32.2211;
+    final long = (settings['prayerLocationLongitude'] as num?)?.toDouble() ?? 35.2544;
+    final times = await _prayerTimeService.calculatePrayerTimes(
+      date: date,
+      latitude: lat,
+      longitude: long,
+    );
+    return times.map((key, value) => MapEntry(key, DateTime.parse(value)));
+  }
+
+  /// Pure computation of a source's prayer times without persisting a
+  /// snapshot — used for the settings preview UI.
+  Future<Result<Map<String, DateTime>, AppError>> previewSource({
+    required String source,
+    double? latitude,
+    double? longitude,
+    DateTime? date,
+  }) async {
+    final targetDate = date ?? DateTime.now();
+    try {
+      if (source == 'adhan') {
+        final settings = await _settings.getSettings();
+        final lat = latitude ?? (settings['prayerLocationLatitude'] as num?)?.toDouble() ?? 32.2211;
+        final long = longitude ?? (settings['prayerLocationLongitude'] as num?)?.toDouble() ?? 35.2544;
+        final times = await _prayerTimeService.calculatePrayerTimes(
+          date: targetDate,
+          latitude: lat,
+          longitude: long,
+        );
+        return Success(times.map((key, value) => MapEntry(key, DateTime.parse(value))));
+      }
+      final parsed = await _scrapeTimes(targetDate);
+      return Success(parsed);
+    } catch (e, st) {
+      _serviceLogger.error('[ReligiousTracker] previewSource failed', error: e, stackTrace: st);
       return Failure(NetworkError(e.toString()));
     }
   }

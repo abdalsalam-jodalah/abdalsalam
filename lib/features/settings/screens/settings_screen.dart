@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 
+import '../../../features/religious/providers/religious_tracking_providers.dart';
 import '../../../providers/app_providers.dart';
 import '../../../shared/services/reminder_service.dart' as reminders;
 import 'backup_screen.dart';
@@ -18,11 +20,21 @@ class SettingsScreen extends ConsumerStatefulWidget {
 class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   Map<String, dynamic> _settings = const {};
   Map<String, bool> _moduleNotifications = const {};
+  String _pendingPrayerSource = 'scraped';
+  final _latController = TextEditingController();
+  final _longController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
     _load();
+  }
+
+  @override
+  void dispose() {
+    _latController.dispose();
+    _longController.dispose();
+    super.dispose();
   }
 
   Future<void> _load() async {
@@ -32,7 +44,25 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       setState(() {
         _settings = values;
         _moduleNotifications = moduleSettings;
+        _pendingPrayerSource = (values['prayerTimeSource'] as String?) ?? 'scraped';
+        _latController.text = ((values['prayerLocationLatitude'] as num?) ?? 32.2211).toString();
+        _longController.text = ((values['prayerLocationLongitude'] as num?) ?? 35.2544).toString();
       });
+    }
+  }
+
+  Future<void> _confirmPrayerSource() async {
+    await _update('prayerTimeSource', _pendingPrayerSource);
+    if (_pendingPrayerSource == 'adhan') {
+      await _update('prayerLocationLatitude', double.tryParse(_latController.text) ?? 32.2211);
+      await _update('prayerLocationLongitude', double.tryParse(_longController.text) ?? 35.2544);
+    }
+    await ref.read(religiousTrackerServiceProvider).syncPrayerTimesForToday(force: true);
+    ref.invalidate(todayPrayerTimesProvider);
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Prayer time source updated')),
+      );
     }
   }
 
@@ -158,6 +188,84 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               prayerMethod == 'muslim_world_league' ? 'umm_al_qura' : 'muslim_world_league',
             ),
           ),
+          const Divider(),
+          const ListTile(title: Text('Prayer Times Source')),
+          RadioListTile<String>(
+            value: 'scraped',
+            groupValue: _pendingPrayerSource,
+            title: const Text('Local source (quran-radio.com)'),
+            subtitle: const Text('Default — localized to your country'),
+            onChanged: (value) {
+              if (value != null) {
+                setState(() => _pendingPrayerSource = value);
+              }
+            },
+          ),
+          RadioListTile<String>(
+            value: 'adhan',
+            groupValue: _pendingPrayerSource,
+            title: const Text('Calculated (Adhan, Muslim World League)'),
+            subtitle: const Text('Computed locally from latitude/longitude'),
+            onChanged: (value) {
+              if (value != null) {
+                setState(() => _pendingPrayerSource = value);
+              }
+            },
+          ),
+          if (_pendingPrayerSource == 'adhan')
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: _latController,
+                      keyboardType: const TextInputType.numberWithOptions(decimal: true, signed: true),
+                      decoration: const InputDecoration(labelText: 'Latitude'),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: TextField(
+                      controller: _longController,
+                      keyboardType: const TextInputType.numberWithOptions(decimal: true, signed: true),
+                      decoration: const InputDecoration(labelText: 'Longitude'),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Consumer(
+              builder: (context, ref, _) {
+                final preview = ref.watch(prayerTimeSourcePreviewProvider(_pendingPrayerSource));
+                return preview.when(
+                  data: (times) => Wrap(
+                    spacing: 8,
+                    runSpacing: 4,
+                    children: [
+                      for (final entry in times.entries)
+                        Chip(label: Text('${entry.key}: ${DateFormat('hh:mm a').format(entry.value)}')),
+                    ],
+                  ),
+                  loading: () => const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 8),
+                    child: LinearProgressIndicator(),
+                  ),
+                  error: (err, _) => Text('Preview unavailable: $err'),
+                );
+              },
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: FilledButton(
+              onPressed: _confirmPrayerSource,
+              child: const Text('Use this source'),
+            ),
+          ),
+          const Divider(),
           const ListTile(title: Text('Religious Reminders')),
           SwitchListTile(
             value: religiousRemindersEnabled,

@@ -8,6 +8,8 @@ class QuranReading extends BaseModel {
   final DateTime readAt;
   final int durationMinutes;
   final bool memorized;
+  final int pagesRead;
+  final String? place;
 
   const QuranReading({
     required super.id,
@@ -21,6 +23,8 @@ class QuranReading extends BaseModel {
     required this.readAt,
     required this.durationMinutes,
     required this.memorized,
+    required this.pagesRead,
+    this.place,
   });
 
   factory QuranReading.fromJson(Map<String, dynamic> json) {
@@ -38,6 +42,40 @@ class QuranReading extends BaseModel {
       readAt: DateTime.parse(json['readAt'] as String),
       durationMinutes: json['durationMinutes'] as int,
       memorized: json['memorized'] as bool,
+      pagesRead: json['pagesRead'] as int? ?? 0,
+      place: json['place'] as String?,
+    );
+  }
+
+  QuranReading copyWith({
+    String? id,
+    DateTime? createdAt,
+    DateTime? updatedAt,
+    DateTime? deletedAt,
+    String? userId,
+    int? surahNumber,
+    int? ayahFrom,
+    int? ayahTo,
+    DateTime? readAt,
+    int? durationMinutes,
+    bool? memorized,
+    int? pagesRead,
+    String? place,
+  }) {
+    return QuranReading(
+      id: id ?? this.id,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      deletedAt: deletedAt ?? this.deletedAt,
+      userId: userId ?? this.userId,
+      surahNumber: surahNumber ?? this.surahNumber,
+      ayahFrom: ayahFrom ?? this.ayahFrom,
+      ayahTo: ayahTo ?? this.ayahTo,
+      readAt: readAt ?? this.readAt,
+      durationMinutes: durationMinutes ?? this.durationMinutes,
+      memorized: memorized ?? this.memorized,
+      pagesRead: pagesRead ?? this.pagesRead,
+      place: place ?? this.place,
     );
   }
 
@@ -55,6 +93,8 @@ class QuranReading extends BaseModel {
       'readAt': readAt.toIso8601String(),
       'durationMinutes': durationMinutes,
       'memorized': memorized,
+      'pagesRead': pagesRead,
+      'place': place,
     };
   }
 }
