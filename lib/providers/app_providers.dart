@@ -144,6 +144,11 @@ final appSettingsProvider = FutureProvider<Map<String, dynamic>>((ref) async {
   return ref.watch(settingsServiceProvider).getSettings();
 });
 
+/// The persisted sidebar order, loaded synchronously during app bootstrap
+/// (before the first frame) and overridden in main.dart — so the sidebar
+/// never flashes the default order while the async settings load resolves.
+final initialSidebarOrderProvider = Provider<List<String>?>((ref) => null);
+
 final backupTablesProvider = Provider<List<String>>((ref) {
   return const <String>[
     'prayer_logs',

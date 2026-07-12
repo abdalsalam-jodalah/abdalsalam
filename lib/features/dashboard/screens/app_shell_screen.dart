@@ -31,7 +31,7 @@ enum _SidebarMode { closed, icons, expanded }
 
 class _AppShellScreenState extends ConsumerState<AppShellScreen> {
   int _index = 0;
-  List<_ShellDestination> _destinations = List.of(_defaultDestinations);
+  late List<_ShellDestination> _destinations;
   _SidebarMode _sidebarMode = _SidebarMode.icons;
   double _dragDelta = 0;
   double _openHandleTop = 140;
@@ -74,14 +74,15 @@ class _AppShellScreenState extends ConsumerState<AppShellScreen> {
   @override
   void initState() {
     super.initState();
-    _loadSidebarOrder();
+    // Resolved synchronously from the value preloaded during app bootstrap
+    // (see main.dart / initialSidebarOrderProvider) — no async gap here, so
+    // there's no frame where the default order flashes before the saved one.
+    _destinations = _resolveOrder(ref.read(initialSidebarOrderProvider));
   }
 
-  Future<void> _loadSidebarOrder() async {
-    final settings = await ref.read(settingsServiceProvider).getSettings();
-    final savedOrder = (settings['sidebarOrder'] as List?)?.cast<String>();
+  List<_ShellDestination> _resolveOrder(List<String>? savedOrder) {
     if (savedOrder == null || savedOrder.isEmpty) {
-      return;
+      return List.of(_defaultDestinations);
     }
 
     final destinationsByKey = {for (final d in _defaultDestinations) d.key: d};
@@ -94,11 +95,7 @@ class _AppShellScreenState extends ConsumerState<AppShellScreen> {
         ordered.add(destination);
       }
     }
-
-    if (!mounted) {
-      return;
-    }
-    setState(() => _destinations = ordered);
+    return ordered;
   }
 
   void _reorderDestinations(int oldIndex, int newIndex) {
@@ -108,10 +105,20 @@ class _AppShellScreenState extends ConsumerState<AppShellScreen> {
       _destinations.insert(newIndex, destination);
       _index = _destinations.indexWhere((d) => d.key == selectedKey);
     });
-    ref.read(settingsServiceProvider).updateSetting(
-          'sidebarOrder',
-          _destinations.map((d) => d.key).toList(),
-        );
+
+    final newOrder = _destinations.map((d) => d.key).toList();
+    ref.read(settingsServiceProvider).updateSetting('sidebarOrder', newOrder).then(
+      (_) {
+        ref.read(loggerProvider).info('Sidebar order saved: $newOrder');
+      },
+      onError: (Object error, StackTrace stackTrace) {
+        ref.read(loggerProvider).error(
+              'Failed to save sidebar order',
+              error: error,
+              stackTrace: stackTrace,
+            );
+      },
+    );
   }
 
   double get _sidebarWidth {

@@ -11,6 +11,7 @@ import 'shared/infrastructure/storage_gateway.dart';
 import 'shared/services/app_lifecycle_logger.dart';
 import 'shared/services/notification_service.dart';
 import 'shared/services/reminder_service.dart';
+import 'shared/services/settings_service.dart';
 
 // ignore: unused_element
 AppLifecycleLogger? _appLifecycleLogger;
@@ -24,11 +25,13 @@ class _BootstrapResult {
   final logic.AppStateManager appStateManager;
   final NotificationService notificationService;
   final ReminderService reminderService;
+  final List<String>? initialSidebarOrder;
 
   const _BootstrapResult({
     required this.appStateManager,
     required this.notificationService,
     required this.reminderService,
+    required this.initialSidebarOrder,
   });
 }
 
@@ -65,6 +68,9 @@ class _BootstrapAppState extends State<_BootstrapApp> {
     await StorageGateway.instance.initialize();
     await DatabaseSchemaInitializer.initialize(StorageGateway.instance);
 
+    final settings = await SettingsService(StorageGateway.instance).getSettings();
+    final initialSidebarOrder = (settings['sidebarOrder'] as List?)?.cast<String>();
+
     final notificationService = NotificationService(
       plugin: FlutterLocalNotificationsPlugin(),
       logger: LoggerService.forModule('NotificationService', moduleType: logic.ModuleType.service),
@@ -88,6 +94,7 @@ class _BootstrapAppState extends State<_BootstrapApp> {
       appStateManager: appStateManager,
       notificationService: notificationService,
       reminderService: reminderService,
+      initialSidebarOrder: initialSidebarOrder,
     );
   }
 
@@ -130,6 +137,7 @@ class _BootstrapAppState extends State<_BootstrapApp> {
             appStateManagerProvider.overrideWithValue(result.appStateManager),
             notificationServiceProvider.overrideWithValue(result.notificationService),
             reminderServiceProvider.overrideWithValue(result.reminderService),
+            initialSidebarOrderProvider.overrideWithValue(result.initialSidebarOrder),
           ],
           child: const AbdalsalamApp(),
         );
