@@ -337,18 +337,19 @@ class _AppShellScreenState extends ConsumerState<AppShellScreen> {
                               child: const SizedBox.expand(),
                             ),
                           ),
-                        Positioned(
-                          right: 16,
-                          bottom: 16,
-                          child: _QuarterLogFab(
-                            isOpen: _logWheelOpen,
-                            actions: _logActions,
-                            startIndex: _logWheelIndex,
-                            onTurnDelta: _turnLogWheel,
-                            onToggle: _toggleLogWheel,
-                            onActionTap: _openLogRoute,
+                        if (selected.key == 'dashboard')
+                          Positioned(
+                            right: 16,
+                            bottom: 16,
+                            child: _QuarterLogFab(
+                              isOpen: _logWheelOpen,
+                              actions: _logActions,
+                              startIndex: _logWheelIndex,
+                              onTurnDelta: _turnLogWheel,
+                              onToggle: _toggleLogWheel,
+                              onActionTap: _openLogRoute,
+                            ),
                           ),
-                        ),
                       ],
                     );
                   },
