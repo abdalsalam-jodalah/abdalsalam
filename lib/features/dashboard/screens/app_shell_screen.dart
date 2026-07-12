@@ -15,7 +15,7 @@ import '../../health/screens/medication_list_screen.dart';
 import '../../notes/screens/notes_screen.dart';
 import '../../planning/screens/goals_screen.dart';
 import '../../planning/screens/planning_home_screen.dart';
-import '../../religious/screens/religious_home_screen.dart';
+import '../../religious/screens/religious_screen.dart';
 import '../../security/screens/security_screen.dart';
 import '../../settings/screens/settings_screen.dart';
 import '../../sports/screens/sports_screen.dart';
@@ -47,7 +47,7 @@ class _AppShellScreenState extends ConsumerState<AppShellScreen> {
 
   static const _defaultDestinations = <_ShellDestination>[
     _ShellDestination('dashboard', 'Dashboard', Icons.dashboard_outlined, DashboardScreen()),
-    _ShellDestination('religious', 'Religious', Icons.mosque_outlined, ReligiousHomeScreen()),
+    _ShellDestination('religious', 'Religious', Icons.mosque_outlined, ReligiousScreen()),
     _ShellDestination('financial', 'Financial', Icons.account_balance_wallet_outlined, FinancialScreen()),
     _ShellDestination('habits', 'Habits', Icons.repeat_rounded, HabitsScreen()),
     _ShellDestination('planning', 'Planning', Icons.flag_outlined, PlanningHomeScreen()),

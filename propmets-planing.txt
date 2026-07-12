@@ -1,6 +1,6 @@
 priorties: 
-- religios 
-- financial
+- religios ✅
+- financial ✅
 - planing 
 - single point:
     - sport 

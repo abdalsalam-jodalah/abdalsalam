@@ -28,15 +28,50 @@ const List<({String arabic, String translation})> _dailyReminders = [
 ];
 
 class ReligiousHomeScreen extends ConsumerWidget {
-  static const routeName = '/religious';
+  /// When true, renders without its own [Scaffold]/[AppBar] for embedding
+  /// inside the tabbed [ReligiousScreen] shell.
+  final bool embedded;
 
-  const ReligiousHomeScreen({super.key});
+  const ReligiousHomeScreen({super.key, this.embedded = false});
+
+  Future<void> _syncPrayerTimes(BuildContext context, WidgetRef ref) async {
+    final message = await ref.read(religiousLogsControllerProvider.notifier).syncPrayerTimes();
+    if (!context.mounted) {
+      return;
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message ?? 'Prayer times synced successfully')),
+    );
+  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final prayerTimes = ref.watch(todayPrayerTimesProvider);
-    final todayLogs = ref.watch(todayReligiousLogsProvider);
-    final logsState = ref.watch(religiousLogsControllerProvider);
+    if (embedded) {
+      return Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 8, 0),
+            child: Row(
+              children: [
+                Text(
+                  'Dashboard',
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                ),
+                const Spacer(),
+                IconButton(
+                  tooltip: 'Sync prayer times',
+                  onPressed: () => _syncPrayerTimes(context, ref),
+                  icon: const Icon(Icons.sync),
+                ),
+              ],
+            ),
+          ),
+          Expanded(child: _buildBody(context, ref)),
+        ],
+      );
+    }
 
     return Scaffold(
       appBar: AppBar(
@@ -44,15 +79,7 @@ class ReligiousHomeScreen extends ConsumerWidget {
         actions: [
           IconButton(
             tooltip: 'Sync prayer times',
-            onPressed: () async {
-              final message = await ref.read(religiousLogsControllerProvider.notifier).syncPrayerTimes();
-              if (!context.mounted) {
-                return;
-              }
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text(message ?? 'Prayer times synced successfully')),
-              );
-            },
+            onPressed: () => _syncPrayerTimes(context, ref),
             icon: const Icon(Icons.sync),
           ),
           IconButton(
@@ -62,7 +89,16 @@ class ReligiousHomeScreen extends ConsumerWidget {
           ),
         ],
       ),
-      body: ListView(
+      body: _buildBody(context, ref),
+    );
+  }
+
+  Widget _buildBody(BuildContext context, WidgetRef ref) {
+    final prayerTimes = ref.watch(todayPrayerTimesProvider);
+    final todayLogs = ref.watch(todayReligiousLogsProvider);
+    final logsState = ref.watch(religiousLogsControllerProvider);
+
+    return ListView(
         key: const ValueKey('religious-home'),
         padding: const EdgeInsets.all(16),
         children: [
@@ -119,8 +155,7 @@ class ReligiousHomeScreen extends ConsumerWidget {
               ),
             ),
         ],
-      ),
-    );
+      );
   }
 
   static Future<void> _showEntryDialog(

@@ -9,16 +9,42 @@ import '../../../shared/widgets/section_header.dart';
 import '../providers/quran_reading_providers.dart';
 
 class QuranReadingScreen extends ConsumerWidget {
-  const QuranReadingScreen({super.key});
+  /// When true, renders without its own [Scaffold]/[AppBar]/FAB for
+  /// embedding inside the tabbed [ReligiousScreen] shell.
+  final bool embedded;
+
+  const QuranReadingScreen({super.key, this.embedded = false});
 
   static const String routeName = '/religious/quran-reading';
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final state = ref.watch(quranReadingControllerProvider);
-    final pagesThisWeek = ref.watch(quranPagesThisWeekProvider);
-    final last7Days = ref.watch(quranPagesLast7DaysProvider);
-    final allReadings = ref.watch(quranAllReadingsProvider);
+    if (embedded) {
+      return Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 8, 0),
+            child: Row(
+              children: [
+                Text(
+                  'Quran',
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                ),
+                const Spacer(),
+                IconButton(
+                  icon: const Icon(Icons.add),
+                  tooltip: 'Add Reading',
+                  onPressed: () => _showAddDialog(context, ref),
+                ),
+              ],
+            ),
+          ),
+          Expanded(child: _buildBody(context, ref)),
+        ],
+      );
+    }
 
     return Scaffold(
       appBar: AppBar(
@@ -46,7 +72,22 @@ class QuranReadingScreen extends ConsumerWidget {
           ),
         ],
       ),
-      body: state.when(
+      body: _buildBody(context, ref),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () => _showAddDialog(context, ref),
+        label: const Text('Add Reading'),
+        icon: const Icon(Icons.add),
+      ),
+    );
+  }
+
+  Widget _buildBody(BuildContext context, WidgetRef ref) {
+    final state = ref.watch(quranReadingControllerProvider);
+    final pagesThisWeek = ref.watch(quranPagesThisWeekProvider);
+    final last7Days = ref.watch(quranPagesLast7DaysProvider);
+    final allReadings = ref.watch(quranAllReadingsProvider);
+
+    return state.when(
         data: (logs) {
           final totalPages = logs.fold<int>(0, (sum, item) => sum + item.pagesRead);
           final totalMinutes = logs.fold<int>(0, (sum, item) => sum + item.durationMinutes);
@@ -154,13 +195,7 @@ class QuranReadingScreen extends ConsumerWidget {
         },
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (err, _) => Center(child: Text('Error: $err')),
-      ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _showAddDialog(context, ref),
-        label: const Text('Add Reading'),
-        icon: const Icon(Icons.add),
-      ),
-    );
+      );
   }
 
   Future<void> _showAddDialog(BuildContext context, WidgetRef ref) async {

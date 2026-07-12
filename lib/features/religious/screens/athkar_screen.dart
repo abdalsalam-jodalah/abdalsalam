@@ -8,7 +8,11 @@ import '../providers/prayer_providers.dart';
 import 'athkar_history_screen.dart';
 
 class AthkarScreen extends ConsumerStatefulWidget {
-  const AthkarScreen({super.key});
+  /// When true, renders without its own [Scaffold]/[AppBar]/FAB for
+  /// embedding inside the tabbed [ReligiousScreen] shell.
+  final bool embedded;
+
+  const AthkarScreen({super.key, this.embedded = false});
 
   static const String routeName = '/religious/athkar';
 
@@ -40,25 +44,56 @@ class _AthkarScreenState extends ConsumerState<AthkarScreen>
 
   @override
   Widget build(BuildContext context) {
+    final tabBar = TabBar(
+      controller: _tabController,
+      isScrollable: true,
+      tabs: [
+        ..._categories.map((c) => Tab(text: athkarCategoryLabel(c))),
+        const Tab(text: 'History', icon: Icon(Icons.history, size: 18)),
+      ],
+    );
+    final tabBarView = TabBarView(
+      controller: _tabController,
+      children: [
+        ..._categories.map((c) => _CategoryTab(category: c)),
+        const AthkarHistoryView(),
+      ],
+    );
+
+    if (widget.embedded) {
+      return Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 8, 0),
+            child: Row(
+              children: [
+                Text(
+                  'Athkar',
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                ),
+                const Spacer(),
+                IconButton(
+                  icon: const Icon(Icons.add),
+                  tooltip: 'Add Custom Athkar',
+                  onPressed: () => _showAddCustomDialog(context, ref),
+                ),
+              ],
+            ),
+          ),
+          tabBar,
+          Expanded(child: tabBarView),
+        ],
+      );
+    }
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Athkar'),
-        bottom: TabBar(
-          controller: _tabController,
-          isScrollable: true,
-          tabs: [
-            ..._categories.map((c) => Tab(text: athkarCategoryLabel(c))),
-            const Tab(text: 'History', icon: Icon(Icons.history, size: 18)),
-          ],
-        ),
+        bottom: tabBar,
       ),
-      body: TabBarView(
-        controller: _tabController,
-        children: [
-          ..._categories.map((c) => _CategoryTab(category: c)),
-          const AthkarHistoryView(),
-        ],
-      ),
+      body: tabBarView,
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _showAddCustomDialog(context, ref),
         icon: const Icon(Icons.add),

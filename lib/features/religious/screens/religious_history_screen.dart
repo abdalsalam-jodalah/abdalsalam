@@ -9,7 +9,11 @@ import '../providers/religious_tracking_providers.dart';
 class ReligiousHistoryScreen extends ConsumerStatefulWidget {
   static const routeName = '/religious/history';
 
-  const ReligiousHistoryScreen({super.key});
+  /// When true, renders without its own [Scaffold]/[AppBar] for embedding
+  /// inside the tabbed [ReligiousScreen] shell.
+  final bool embedded;
+
+  const ReligiousHistoryScreen({super.key, this.embedded = false});
 
   @override
   ConsumerState<ReligiousHistoryScreen> createState() => _ReligiousHistoryScreenState();
@@ -20,13 +24,38 @@ class _ReligiousHistoryScreenState extends ConsumerState<ReligiousHistoryScreen>
 
   @override
   Widget build(BuildContext context) {
-    final state = ref.watch(religiousLogsControllerProvider);
+    if (widget.embedded) {
+      return Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                'History',
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+              ),
+            ),
+          ),
+          Expanded(child: _buildBody(context)),
+        ],
+      );
+    }
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Religious History'),
       ),
-      body: Column(
+      body: _buildBody(context),
+    );
+  }
+
+  Widget _buildBody(BuildContext context) {
+    final state = ref.watch(religiousLogsControllerProvider);
+
+    return Column(
         children: [
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
@@ -99,8 +128,7 @@ class _ReligiousHistoryScreenState extends ConsumerState<ReligiousHistoryScreen>
             ),
           ),
         ],
-      ),
-    );
+      );
   }
 
   String _typeLabel(ReligiousEntryType type) {

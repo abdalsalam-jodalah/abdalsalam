@@ -44,7 +44,7 @@ import '../../features/religious/screens/prayer_logs_screen.dart';
 import '../../features/religious/screens/prayer_log_screen.dart';
 import '../../features/religious/screens/quran_reading_screen.dart';
 import '../../features/religious/screens/quran_progress_screen.dart';
-import '../../features/religious/screens/religious_home_screen.dart';
+import '../../features/religious/screens/religious_screen.dart';
 import '../../features/religious/screens/religious_history_screen.dart';
 import '../../features/religious/screens/spiritual_progress_screen.dart';
 import '../../features/security/screens/security_screen.dart';
@@ -88,9 +88,9 @@ class AppRouter {
           builder: (_) => const QuranReadingScreen(),
           settings: settings,
         );
-      case ReligiousHomeScreen.routeName:
+      case ReligiousScreen.routeName:
         return MaterialPageRoute<void>(
-          builder: (_) => const ReligiousHomeScreen(),
+          builder: (_) => const ReligiousScreen(),
           settings: settings,
         );
       case ReligiousHistoryScreen.routeName:

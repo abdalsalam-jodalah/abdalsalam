@@ -12,15 +12,48 @@ import '../widgets/prayer_streak_widget.dart';
 import 'quran_progress_screen.dart';
 
 class PrayerLogsScreen extends ConsumerWidget {
-  const PrayerLogsScreen({super.key});
+  /// When true, renders without its own [Scaffold]/[AppBar]/FAB for
+  /// embedding inside the tabbed [ReligiousScreen] shell.
+  final bool embedded;
+
+  const PrayerLogsScreen({super.key, this.embedded = false});
 
   static const String routeName = '/religious/prayers';
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final logsState = ref.watch(prayerLogsControllerProvider);
-    final allLogsState = ref.watch(prayerAllLogsProvider);
-    final streak = ref.watch(religiousStreakProvider);
+    if (embedded) {
+      return Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 8, 0),
+            child: Row(
+              children: [
+                Text(
+                  'Prayers',
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                ),
+                const Spacer(),
+                IconButton(
+                  icon: const Icon(Icons.menu_book_outlined),
+                  tooltip: 'Quran progress',
+                  onPressed: () =>
+                      Navigator.of(context).pushNamed(QuranProgressScreen.routeName),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.add),
+                  tooltip: 'Add Log',
+                  onPressed: () => _showAddDialog(context, ref),
+                ),
+              ],
+            ),
+          ),
+          Expanded(child: _buildBody(context, ref)),
+        ],
+      );
+    }
 
     return Scaffold(
       appBar: AppBar(
@@ -35,7 +68,21 @@ class PrayerLogsScreen extends ConsumerWidget {
           ),
         ],
       ),
-      body: ListView(
+      body: _buildBody(context, ref),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () => _showAddDialog(context, ref),
+        label: const Text('Add Log'),
+        icon: const Icon(Icons.add),
+      ),
+    );
+  }
+
+  Widget _buildBody(BuildContext context, WidgetRef ref) {
+    final logsState = ref.watch(prayerLogsControllerProvider);
+    final allLogsState = ref.watch(prayerAllLogsProvider);
+    final streak = ref.watch(religiousStreakProvider);
+
+    return ListView(
         padding: const EdgeInsets.all(16),
         children: [
           streak.maybeWhen(
@@ -94,13 +141,7 @@ class PrayerLogsScreen extends ConsumerWidget {
             error: (err, _) => Text('Error: $err'),
           ),
         ],
-      ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _showAddDialog(context, ref),
-        label: const Text('Add Log'),
-        icon: const Icon(Icons.add),
-      ),
-    );
+      );
   }
 
   static Map<DateTime, int> _dailyCompletions(List<PrayerLog> logs) {
