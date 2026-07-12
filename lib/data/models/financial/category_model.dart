@@ -24,6 +24,20 @@ class CategoryModel extends BaseModel {
     super.deletedAt,
   });
 
+  factory CategoryModel.unknown() {
+    final now = DateTime.now();
+    return CategoryModel(
+      id: '',
+      userId: '',
+      name: 'Unknown',
+      type: CategoryType.expense,
+      icon: Icons.help,
+      color: Colors.grey,
+      createdAt: now,
+      updatedAt: now,
+    );
+  }
+
   @override
   Map<String, dynamic> toJson() => {
         'id': id,

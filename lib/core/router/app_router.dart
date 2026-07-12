@@ -11,6 +11,7 @@ import '../../features/financial/screens/budgets_page.dart';
 import '../../features/financial/screens/categories_page.dart';
 import '../../features/financial/screens/transactions_page.dart';
 import '../../features/financial/screens/transaction_form_screen.dart';
+import '../../data/models/financial/transaction_model.dart';
 import '../../features/habits/screens/habits_screen.dart';
 import '../../features/habits/screens/daily_events_screen.dart';
 import '../../features/habits/screens/habit_detail_screen.dart';
@@ -137,7 +138,9 @@ class AppRouter {
         );
       case TransactionFormScreen.routeName:
         return MaterialPageRoute<void>(
-          builder: (_) => const TransactionFormScreen(),
+          builder: (_) => TransactionFormScreen(
+            transaction: settings.arguments as TransactionModel?,
+          ),
           settings: settings,
         );
       case HabitsScreen.routeName:

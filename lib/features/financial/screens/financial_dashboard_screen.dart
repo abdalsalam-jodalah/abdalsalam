@@ -486,16 +486,7 @@ class _FinancialDashboardScreenState extends ConsumerState<FinancialDashboardScr
                     data: (categories) {
                       final category = categories.firstWhere(
                         (c) => c.id == budget.categoryId,
-                        orElse: () => CategoryModel(
-                          id: '',
-                          userId: '',
-                          name: 'Unknown',
-                          type: CategoryType.expense,
-                          icon: Icons.help,
-                          color: Colors.grey,
-                          createdAt: DateTime.now(),
-                          updatedAt: DateTime.now(),
-                        ),
+                        orElse: CategoryModel.unknown,
                       );
 
                       // Calculate spent amount
@@ -684,16 +675,7 @@ class _FinancialDashboardScreenState extends ConsumerState<FinancialDashboardScr
                   children: transactions.take(5).map((transaction) {
                     final category = categories.firstWhere(
                       (c) => c.id == transaction.categoryId,
-                      orElse: () => CategoryModel(
-                        id: '',
-                        userId: '',
-                        name: 'Unknown',
-                        type: CategoryType.expense,
-                        icon: Icons.help,
-                        color: Colors.grey,
-                        createdAt: DateTime.now(),
-                        updatedAt: DateTime.now(),
-                      ),
+                      orElse: CategoryModel.unknown,
                     );
 
                     return _buildTransactionItem(
