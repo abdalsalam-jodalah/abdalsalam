@@ -6,7 +6,6 @@ import 'package:intl/intl.dart';
 import '../providers/financial_providers.dart';
 import '../../../data/models/financial/transaction_model.dart';
 import '../../../data/models/financial/category_model.dart';
-import '../../../data/models/financial/budget_model.dart';
 import 'transactions_page.dart';
 import 'budgets_page.dart';
 import 'categories_page.dart';
