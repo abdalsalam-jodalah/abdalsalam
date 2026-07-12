@@ -59,5 +59,20 @@ class SettingsService {
           'analytics',
         ],
         'dashboardHiddenCards': <String>[],
+        'sidebarOrder': <String>[
+          'dashboard',
+          'religious',
+          'financial',
+          'habits',
+          'planning',
+          'sports',
+          'health',
+          'medications',
+          'notes',
+          'calendar',
+          'security',
+          'analytics',
+          'settings',
+        ],
       };
 }

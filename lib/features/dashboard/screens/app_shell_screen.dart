@@ -2,7 +2,9 @@ import 'dart:math' as math;
 
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../providers/app_providers.dart';
 import '../../analytics/screens/analytics_screen.dart';
 import '../../calendar/screens/calendar_screen.dart';
 import '../../dashboard/screens/dashboard_screen.dart';
@@ -18,17 +20,18 @@ import '../../security/screens/security_screen.dart';
 import '../../settings/screens/settings_screen.dart';
 import '../../sports/screens/sports_screen.dart';
 
-class AppShellScreen extends StatefulWidget {
+class AppShellScreen extends ConsumerStatefulWidget {
   const AppShellScreen({super.key});
 
   @override
-  State<AppShellScreen> createState() => _AppShellScreenState();
+  ConsumerState<AppShellScreen> createState() => _AppShellScreenState();
 }
 
 enum _SidebarMode { closed, icons, expanded }
 
-class _AppShellScreenState extends State<AppShellScreen> {
+class _AppShellScreenState extends ConsumerState<AppShellScreen> {
   int _index = 0;
+  List<_ShellDestination> _destinations = List.of(_defaultDestinations);
   _SidebarMode _sidebarMode = _SidebarMode.icons;
   double _dragDelta = 0;
   double _openHandleTop = 140;
@@ -42,20 +45,20 @@ class _AppShellScreenState extends State<AppShellScreen> {
   static const double _dragThreshold = 56;
   static const double _edgeSwipeZone = 28;
 
-  static const _destinations = <_ShellDestination>[
-    _ShellDestination('Dashboard', Icons.dashboard_outlined, DashboardScreen()),
-    _ShellDestination('Religious', Icons.mosque_outlined, ReligiousHomeScreen()),
-    _ShellDestination('Financial', Icons.account_balance_wallet_outlined, FinancialScreen()),
-    _ShellDestination('Habits', Icons.repeat_rounded, HabitsScreen()),
-    _ShellDestination('Planning', Icons.flag_outlined, PlanningHomeScreen()),
-    _ShellDestination('Sports', Icons.fitness_center, SportsScreen()),
-    _ShellDestination('Health', Icons.health_and_safety_outlined, HealthScreen()),
-    _ShellDestination('Medications', Icons.medication_outlined, MedicationListScreen()),
-    _ShellDestination('Notes', Icons.sticky_note_2_outlined, NotesScreen()),
-    _ShellDestination('Calendar', Icons.calendar_month_outlined, CalendarScreen()),
-    _ShellDestination('Security', Icons.lock_outline, SecurityScreen()),
-    _ShellDestination('Analytics', Icons.insights_outlined, AnalyticsScreen()),
-    _ShellDestination('Settings', Icons.settings_outlined, SettingsScreen()),
+  static const _defaultDestinations = <_ShellDestination>[
+    _ShellDestination('dashboard', 'Dashboard', Icons.dashboard_outlined, DashboardScreen()),
+    _ShellDestination('religious', 'Religious', Icons.mosque_outlined, ReligiousHomeScreen()),
+    _ShellDestination('financial', 'Financial', Icons.account_balance_wallet_outlined, FinancialScreen()),
+    _ShellDestination('habits', 'Habits', Icons.repeat_rounded, HabitsScreen()),
+    _ShellDestination('planning', 'Planning', Icons.flag_outlined, PlanningHomeScreen()),
+    _ShellDestination('sports', 'Sports', Icons.fitness_center, SportsScreen()),
+    _ShellDestination('health', 'Health', Icons.health_and_safety_outlined, HealthScreen()),
+    _ShellDestination('medications', 'Medications', Icons.medication_outlined, MedicationListScreen()),
+    _ShellDestination('notes', 'Notes', Icons.sticky_note_2_outlined, NotesScreen()),
+    _ShellDestination('calendar', 'Calendar', Icons.calendar_month_outlined, CalendarScreen()),
+    _ShellDestination('security', 'Security', Icons.lock_outline, SecurityScreen()),
+    _ShellDestination('analytics', 'Analytics', Icons.insights_outlined, AnalyticsScreen()),
+    _ShellDestination('settings', 'Settings', Icons.settings_outlined, SettingsScreen()),
   ];
 
   static const _logActions = <_LogAction>[
@@ -67,6 +70,49 @@ class _AppShellScreenState extends State<AppShellScreen> {
     _LogAction(label: 'Medication', icon: Icons.medication_outlined, routeName: '/health/medication-form'),
     _LogAction(label: 'Event', icon: Icons.event_note_outlined, routeName: '/calendar/new-event'),
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSidebarOrder();
+  }
+
+  Future<void> _loadSidebarOrder() async {
+    final settings = await ref.read(settingsServiceProvider).getSettings();
+    final savedOrder = (settings['sidebarOrder'] as List?)?.cast<String>();
+    if (savedOrder == null || savedOrder.isEmpty) {
+      return;
+    }
+
+    final destinationsByKey = {for (final d in _defaultDestinations) d.key: d};
+    final ordered = <_ShellDestination>[
+      for (final key in savedOrder)
+        if (destinationsByKey.containsKey(key)) destinationsByKey[key]!,
+    ];
+    for (final destination in _defaultDestinations) {
+      if (!savedOrder.contains(destination.key)) {
+        ordered.add(destination);
+      }
+    }
+
+    if (!mounted) {
+      return;
+    }
+    setState(() => _destinations = ordered);
+  }
+
+  void _reorderDestinations(int oldIndex, int newIndex) {
+    final selectedKey = _destinations[_index].key;
+    setState(() {
+      final destination = _destinations.removeAt(oldIndex);
+      _destinations.insert(newIndex, destination);
+      _index = _destinations.indexWhere((d) => d.key == selectedKey);
+    });
+    ref.read(settingsServiceProvider).updateSetting(
+          'sidebarOrder',
+          _destinations.map((d) => d.key).toList(),
+        );
+  }
 
   double get _sidebarWidth {
     switch (_sidebarMode) {
@@ -215,6 +261,7 @@ class _AppShellScreenState extends State<AppShellScreen> {
                         onCloseStep: _stepClose,
                         onCloseAll: () => _setMode(_SidebarMode.closed),
                         onSelect: (value) => setState(() => _index = value),
+                        onReorder: _reorderDestinations,
                       ),
               ),
               Expanded(
@@ -323,6 +370,7 @@ class _Sidebar extends StatelessWidget {
   final VoidCallback onCloseStep;
   final VoidCallback onCloseAll;
   final ValueChanged<int> onSelect;
+  final ReorderCallback onReorder;
 
   const _Sidebar({
     required this.mode,
@@ -332,6 +380,7 @@ class _Sidebar extends StatelessWidget {
     required this.onCloseStep,
     required this.onCloseAll,
     required this.onSelect,
+    required this.onReorder,
   });
 
   @override
@@ -382,16 +431,22 @@ class _Sidebar extends StatelessWidget {
             ),
           ),
         Expanded(
-          child: ListView.builder(
+          child: ReorderableListView.builder(
+            buildDefaultDragHandles: false,
             itemCount: destinations.length,
+            onReorderItem: onReorder,
             itemBuilder: (context, index) {
               final destination = destinations[index];
               final selected = index == selectedIndex;
-              return _SidebarItem(
-                expanded: expanded,
-                selected: selected,
-                destination: destination,
-                onTap: () => onSelect(index),
+              return ReorderableDelayedDragStartListener(
+                key: ValueKey(destination.key),
+                index: index,
+                child: _SidebarItem(
+                  expanded: expanded,
+                  selected: selected,
+                  destination: destination,
+                  onTap: () => onSelect(index),
+                ),
               );
             },
           ),
@@ -427,6 +482,7 @@ class _SidebarItem extends StatelessWidget {
         child: Tooltip(
           message: destination.label,
           waitDuration: const Duration(milliseconds: 400),
+          triggerMode: TooltipTriggerMode.manual,
           child: InkWell(
             onTap: onTap,
             borderRadius: BorderRadius.circular(14),
@@ -472,11 +528,12 @@ class _SidebarItem extends StatelessWidget {
 }
 
 class _ShellDestination {
+  final String key;
   final String label;
   final IconData icon;
   final Widget page;
 
-  const _ShellDestination(this.label, this.icon, this.page);
+  const _ShellDestination(this.key, this.label, this.icon, this.page);
 }
 
 class _LogAction {
