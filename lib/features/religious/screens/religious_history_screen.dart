@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../../../data/models/religious/religious_entry.dart';
+import '../../../shared/widgets/empty_state.dart';
 import '../providers/religious_tracking_providers.dart';
 
 class ReligiousHistoryScreen extends ConsumerStatefulWidget {
@@ -59,7 +60,10 @@ class _ReligiousHistoryScreenState extends ConsumerState<ReligiousHistoryScreen>
                     : logs.where((entry) => entry.type == _filter).toList(growable: false);
 
                 if (filtered.isEmpty) {
-                  return const Center(child: Text('No history yet.'));
+                  return const EmptyState(
+                    title: 'No history yet',
+                    subtitle: 'Entries you log across the religious module will show up here.',
+                  );
                 }
 
                 return ListView.separated(
@@ -68,8 +72,17 @@ class _ReligiousHistoryScreenState extends ConsumerState<ReligiousHistoryScreen>
                   separatorBuilder: (context, index) => const SizedBox(height: 8),
                   itemBuilder: (context, index) {
                     final item = filtered[index];
+                    final color = _colorForType(context, item.type);
                     return Card(
                       child: ListTile(
+                        leading: Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: color.withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Icon(_iconForType(item.type), color: color, size: 20),
+                        ),
                         title: Text(item.title),
                         subtitle: Text(
                           '${DateFormat('yyyy-MM-dd hh:mm a').format(item.loggedAt)}\n${item.details ?? ''}',
@@ -102,6 +115,36 @@ class _ReligiousHistoryScreenState extends ConsumerState<ReligiousHistoryScreen>
         return 'Athkar';
       case ReligiousEntryType.nightPrayer:
         return 'Night Prayer';
+    }
+  }
+
+  static IconData _iconForType(ReligiousEntryType type) {
+    switch (type) {
+      case ReligiousEntryType.prayer:
+        return Icons.mosque_outlined;
+      case ReligiousEntryType.quranReading:
+        return Icons.menu_book_outlined;
+      case ReligiousEntryType.badEvent:
+        return Icons.warning_amber_outlined;
+      case ReligiousEntryType.athkar:
+        return Icons.favorite_outline;
+      case ReligiousEntryType.nightPrayer:
+        return Icons.nights_stay_outlined;
+    }
+  }
+
+  static Color _colorForType(BuildContext context, ReligiousEntryType type) {
+    final scheme = Theme.of(context).colorScheme;
+    switch (type) {
+      case ReligiousEntryType.prayer:
+      case ReligiousEntryType.nightPrayer:
+        return scheme.primary;
+      case ReligiousEntryType.quranReading:
+        return scheme.secondary;
+      case ReligiousEntryType.athkar:
+        return scheme.tertiary;
+      case ReligiousEntryType.badEvent:
+        return scheme.error;
     }
   }
 }

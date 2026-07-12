@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 
 import '../../../shared/widgets/chart_widgets.dart';
 import '../../../shared/widgets/empty_state.dart';
+import '../../../shared/widgets/section_header.dart';
 import '../providers/bad_practice_providers.dart';
 
 class BadPracticeScreen extends ConsumerWidget {
@@ -25,6 +26,7 @@ class BadPracticeScreen extends ConsumerWidget {
               .subtract(Duration(days: now.weekday - 1));
           final thisWeekCount =
               logs.where((item) => !item.occurredAt.isBefore(startOfWeek)).length;
+          final scheme = Theme.of(context).colorScheme;
 
           return ListView(
             padding: const EdgeInsets.all(16),
@@ -39,6 +41,8 @@ class BadPracticeScreen extends ConsumerWidget {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
+                            Icon(Icons.warning_amber_outlined, color: scheme.error, size: 20),
+                            const SizedBox(height: 8),
                             Text('Total entries', style: Theme.of(context).textTheme.labelMedium),
                             const SizedBox(height: 4),
                             Text('${logs.length}', style: Theme.of(context).textTheme.headlineSmall),
@@ -56,6 +60,8 @@ class BadPracticeScreen extends ConsumerWidget {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
+                            Icon(Icons.calendar_today_outlined, color: scheme.error, size: 20),
+                            const SizedBox(height: 8),
                             Text('This week', style: Theme.of(context).textTheme.labelMedium),
                             const SizedBox(height: 4),
                             Text('$thisWeekCount', style: Theme.of(context).textTheme.headlineSmall),
@@ -67,7 +73,7 @@ class BadPracticeScreen extends ConsumerWidget {
                 ],
               ),
               const SizedBox(height: 16),
-              Text('Weekly Trend (Last 8 Weeks)', style: Theme.of(context).textTheme.titleMedium),
+              const SectionHeader(title: 'Weekly Trend (Last 8 Weeks)'),
               const SizedBox(height: 8),
               Card(
                 child: Padding(
@@ -76,7 +82,7 @@ class BadPracticeScreen extends ConsumerWidget {
                 ),
               ),
               const SizedBox(height: 20),
-              Text('History', style: Theme.of(context).textTheme.titleMedium),
+              const SectionHeader(title: 'History'),
               const SizedBox(height: 8),
               if (logs.isEmpty)
                 EmptyState(
@@ -87,6 +93,7 @@ class BadPracticeScreen extends ConsumerWidget {
                 ),
               ...logs.map(
                 (log) => Card(
+                  margin: const EdgeInsets.only(bottom: 8),
                   child: Padding(
                     padding: const EdgeInsets.all(16),
                     child: Column(
@@ -95,8 +102,24 @@ class BadPracticeScreen extends ConsumerWidget {
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Text(log.title, style: Theme.of(context).textTheme.titleMedium),
-                            Text(DateFormat('MMM d, hh:mm a').format(log.occurredAt)),
+                            Expanded(
+                              child: Row(
+                                children: [
+                                  Icon(Icons.warning_amber_outlined, color: scheme.error, size: 18),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      log.title,
+                                      style: Theme.of(context).textTheme.titleMedium,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Text(
+                              DateFormat('MMM d, hh:mm a').format(log.occurredAt),
+                              style: Theme.of(context).textTheme.labelSmall?.copyWith(color: scheme.onSurfaceVariant),
+                            ),
                           ],
                         ),
                         if (log.feelingBefore != null || log.feelingAfter != null) ...[

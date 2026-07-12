@@ -218,6 +218,8 @@ class _AthkarCardState extends ConsumerState<_AthkarCard> {
   Widget build(BuildContext context) {
     final content = widget.content;
     final completed = _done >= content.targetCount;
+    final scheme = Theme.of(context).colorScheme;
+    final progress = content.targetCount == 0 ? 0.0 : (_done / content.targetCount).clamp(0, 1).toDouble();
 
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
@@ -246,6 +248,16 @@ class _AthkarCardState extends ConsumerState<_AthkarCard> {
               Text(content.translation!, style: Theme.of(context).textTheme.bodySmall),
             ],
             const SizedBox(height: 12),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(4),
+              child: LinearProgressIndicator(
+                value: progress,
+                minHeight: 6,
+                backgroundColor: scheme.surfaceContainerHighest,
+                color: completed ? scheme.primary : scheme.tertiary,
+              ),
+            ),
+            const SizedBox(height: 10),
             Row(
               children: [
                 Expanded(
@@ -255,13 +267,15 @@ class _AthkarCardState extends ConsumerState<_AthkarCard> {
                     style: Theme.of(context).textTheme.labelMedium,
                   ),
                 ),
-                IconButton(
+                IconButton.filledTonal(
                   onPressed: completed
                       ? null
                       : () => setState(() => _done = _done + 1),
-                  icon: const Icon(Icons.add_circle_outline),
+                  icon: const Icon(Icons.add),
+                  tooltip: 'Count one',
                 ),
-                IconButton(
+                const SizedBox(width: 6),
+                IconButton.filledTonal(
                   onPressed: !completed
                       ? null
                       : () async {
@@ -278,10 +292,17 @@ class _AthkarCardState extends ConsumerState<_AthkarCard> {
                             setState(() => _done = 0);
                           }
                         },
-                  icon: const Icon(Icons.check_circle),
-                  color: completed ? Theme.of(context).colorScheme.primary : null,
+                  icon: const Icon(Icons.check),
+                  tooltip: 'Log completion',
+                  style: completed
+                      ? IconButton.styleFrom(
+                          backgroundColor: scheme.primary,
+                          foregroundColor: scheme.onPrimary,
+                        )
+                      : null,
                 ),
-                if (content.isCustom)
+                if (content.isCustom) ...[
+                  const SizedBox(width: 6),
                   IconButton(
                     onPressed: () async {
                       final message = await ref
@@ -292,8 +313,10 @@ class _AthkarCardState extends ConsumerState<_AthkarCard> {
                             .showSnackBar(SnackBar(content: Text(message)));
                       }
                     },
-                    icon: const Icon(Icons.delete_outline),
+                    icon: Icon(Icons.delete_outline, color: scheme.error),
+                    tooltip: 'Delete',
                   ),
+                ],
               ],
             ),
           ],

@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import '../../../data/models/religious/quran_reading.dart';
 import '../../../shared/widgets/chart_widgets.dart';
 import '../../../shared/widgets/empty_state.dart';
+import '../../../shared/widgets/section_header.dart';
 import '../providers/quran_reading_providers.dart';
 
 class QuranReadingScreen extends ConsumerWidget {
@@ -50,39 +51,65 @@ class QuranReadingScreen extends ConsumerWidget {
           final totalPages = logs.fold<int>(0, (sum, item) => sum + item.pagesRead);
           final totalMinutes = logs.fold<int>(0, (sum, item) => sum + item.durationMinutes);
 
+          final scheme = Theme.of(context).colorScheme;
+
           return ListView(
             padding: const EdgeInsets.all(16),
             children: [
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          const Text('Today'),
-                          Text('$totalPages pages / $totalMinutes min'),
-                        ],
-                      ),
-                      const SizedBox(height: 6),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          const Text('This week'),
-                          Text(pagesThisWeek.when(
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(16),
+                  gradient: LinearGradient(
+                    colors: [
+                      Color.alphaBlend(scheme.secondary.withValues(alpha: 0.12), scheme.surface),
+                      scheme.surface,
+                    ],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  border: Border.all(color: scheme.outlineVariant),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(Icons.menu_book_outlined, color: scheme.secondary, size: 20),
+                        const SizedBox(width: 8),
+                        Text('Reading Progress', style: Theme.of(context).textTheme.titleMedium),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text('Today'),
+                        Text(
+                          '$totalPages pages / $totalMinutes min',
+                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.bold),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text('This week'),
+                        Text(
+                          pagesThisWeek.when(
                             data: (pages) => '$pages pages',
                             loading: () => '…',
                             error: (_, _) => '-',
-                          )),
-                        ],
-                      ),
-                    ],
-                  ),
+                          ),
+                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.bold),
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 16),
               if (logs.isEmpty)
                 EmptyState(
                   title: 'No Quran readings logged yet today',
@@ -93,7 +120,7 @@ class QuranReadingScreen extends ConsumerWidget {
               else
                 ...logs.map((log) => _ReadingCard(log: log)),
               const SizedBox(height: 20),
-              Text('Pages Read (Last 7 Days)', style: Theme.of(context).textTheme.titleMedium),
+              const SectionHeader(title: 'Pages Read (Last 7 Days)'),
               const SizedBox(height: 8),
               last7Days.when(
                 data: (points) => Card(
@@ -106,7 +133,7 @@ class QuranReadingScreen extends ConsumerWidget {
                 error: (err, _) => Text('Could not load chart: $err'),
               ),
               const SizedBox(height: 20),
-              Text('History', style: Theme.of(context).textTheme.titleMedium),
+              const SectionHeader(title: 'History'),
               const SizedBox(height: 8),
               allReadings.when(
                 data: (all) {
@@ -278,8 +305,18 @@ class _ReadingCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     return Card(
+      margin: const EdgeInsets.only(bottom: 8),
       child: ListTile(
+        leading: Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: scheme.secondary.withValues(alpha: 0.15),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Icon(Icons.menu_book_outlined, color: scheme.secondary, size: 20),
+        ),
         title: Text(
           log.surahNumber == 0
               ? '${log.pagesRead} pages'
@@ -291,6 +328,9 @@ class _ReadingCard extends StatelessWidget {
           ' • ${DateFormat('MMM d, hh:mm a').format(log.readAt)}'
           '${log.memorized ? ' • Memorized' : ''}',
         ),
+        trailing: log.memorized
+            ? Icon(Icons.bookmark, color: scheme.secondary)
+            : null,
       ),
     );
   }

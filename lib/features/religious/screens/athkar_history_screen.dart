@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import '../../../data/models/religious/athkar_content.dart';
 import '../../../shared/widgets/chart_widgets.dart';
 import '../../../shared/widgets/empty_state.dart';
+import '../../../shared/widgets/section_header.dart';
 import '../providers/athkar_providers.dart';
 
 class AthkarHistoryScreen extends ConsumerWidget {
@@ -35,11 +36,12 @@ class AthkarHistoryView extends ConsumerWidget {
       data: (logs) {
         final sorted = [...logs]..sort((a, b) => b.completedAt.compareTo(a.completedAt));
 
+        final scheme = Theme.of(context).colorScheme;
+
         return ListView(
           padding: const EdgeInsets.all(16),
           children: [
-            Text('Completions this week (by category)',
-                style: Theme.of(context).textTheme.titleMedium),
+            const SectionHeader(title: 'Completions this week (by category)'),
             const SizedBox(height: 8),
             Card(
               child: Padding(
@@ -61,7 +63,7 @@ class AthkarHistoryView extends ConsumerWidget {
               ),
             ),
             const SizedBox(height: 20),
-            Text('All Completions', style: Theme.of(context).textTheme.titleMedium),
+            const SectionHeader(title: 'All Completions'),
             const SizedBox(height: 8),
             if (sorted.isEmpty)
               const EmptyState(
@@ -70,7 +72,16 @@ class AthkarHistoryView extends ConsumerWidget {
               ),
             ...sorted.map(
               (log) => Card(
+                margin: const EdgeInsets.only(bottom: 8),
                 child: ListTile(
+                  leading: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: scheme.tertiary.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Icon(Icons.favorite_outline, color: scheme.tertiary, size: 20),
+                  ),
                   title: Text(athkarCategoryLabel(log.category)),
                   subtitle: Text(
                     '${log.countDone}/${log.targetCount} • '
@@ -80,9 +91,7 @@ class AthkarHistoryView extends ConsumerWidget {
                   isThreeLine: log.notes != null && log.notes!.isNotEmpty,
                   trailing: Icon(
                     log.countDone >= log.targetCount ? Icons.check_circle : Icons.timelapse,
-                    color: log.countDone >= log.targetCount
-                        ? Theme.of(context).colorScheme.primary
-                        : Theme.of(context).colorScheme.tertiary,
+                    color: log.countDone >= log.targetCount ? scheme.primary : scheme.tertiary,
                   ),
                 ),
               ),

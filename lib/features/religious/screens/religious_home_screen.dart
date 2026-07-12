@@ -1,19 +1,31 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:intl/intl.dart';
+import 'package:intl/intl.dart' hide TextDirection;
 
 import '../../../data/models/religious/prayer_times_snapshot.dart';
 import '../../../data/models/religious/religious_entry.dart';
 import '../../../shared/widgets/empty_state.dart';
+import '../../../shared/widgets/section_header.dart';
 import '../providers/athkar_providers.dart';
 import '../providers/prayer_providers.dart';
 import '../providers/quran_reading_providers.dart';
 import '../providers/religious_tracking_providers.dart';
+import '../widgets/prayer_time_card.dart';
 import 'athkar_screen.dart';
 import 'bad_practice_screen.dart';
 import 'prayer_logs_screen.dart';
 import 'quran_reading_screen.dart';
 import 'religious_history_screen.dart';
+
+const List<({String arabic, String translation})> _dailyReminders = [
+  (arabic: 'سُبْحَانَ اللَّهِ وَبِحَمْدِهِ', translation: 'Glory be to Allah and praise Him'),
+  (arabic: 'الحَمْدُ لِلَّهِ', translation: 'All praise is due to Allah'),
+  (arabic: 'لَا إِلَٰهَ إِلَّا اللَّهُ', translation: 'There is no god but Allah'),
+  (arabic: 'اللَّهُ أَكْبَرُ', translation: 'Allah is the Greatest'),
+  (arabic: 'أَسْتَغْفِرُ اللَّهَ', translation: 'I seek forgiveness from Allah'),
+  (arabic: 'لَا حَوْلَ وَلَا قُوَّةَ إِلَّا بِاللَّهِ', translation: 'There is no power except with Allah'),
+  (arabic: 'حَسْبُنَا اللَّهُ وَنِعْمَ الْوَكِيلُ', translation: 'Allah is sufficient for us, and He is the best disposer of affairs'),
+];
 
 class ReligiousHomeScreen extends ConsumerWidget {
   static const routeName = '/religious';
@@ -56,9 +68,11 @@ class ReligiousHomeScreen extends ConsumerWidget {
         children: [
           _PrayerTimesSection(prayerTimes: prayerTimes),
           const SizedBox(height: 16),
+          const _DailyReminderCard(),
+          const SizedBox(height: 16),
           const _StatsRow(),
           const SizedBox(height: 20),
-          _SectionHeader(
+          SectionHeader(
             title: 'Quick Log',
             trailing: TextButton(
               onPressed: () => Navigator.of(context).pushNamed(QuranReadingScreen.routeName),
@@ -68,7 +82,7 @@ class ReligiousHomeScreen extends ConsumerWidget {
           const SizedBox(height: 10),
           _QuickLogGrid(),
           const SizedBox(height: 20),
-          _SectionHeader(title: "Today's Logs"),
+          const SectionHeader(title: "Today's Logs"),
           const SizedBox(height: 8),
           if (logsState.isLoading)
             const Padding(
@@ -85,21 +99,22 @@ class ReligiousHomeScreen extends ConsumerWidget {
           else
             ...todayLogs.map(
               (item) => Card(
+                margin: const EdgeInsets.only(bottom: 8),
                 child: ListTile(
-                  leading: CircleAvatar(
-                    backgroundColor:
-                        Theme.of(context).colorScheme.primaryContainer,
-                    child: Icon(
-                      _iconForType(item.type),
-                      color: Theme.of(context).colorScheme.onPrimaryContainer,
+                  leading: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: _colorForType(context, item.type).withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(10),
                     ),
+                    child: Icon(_iconForType(item.type), color: _colorForType(context, item.type)),
                   ),
                   title: Text(item.title),
                   subtitle: Text(
                     '${DateFormat('hh:mm a').format(item.loggedAt)} • ${_typeLabel(item.type)}${item.details == null || item.details!.isEmpty ? '' : '\n${item.details}'}',
                   ),
                   isThreeLine: item.details != null && item.details!.isNotEmpty,
-                  trailing: Text('x${item.count}'),
+                  trailing: Text('x${item.count}', style: Theme.of(context).textTheme.labelMedium),
                 ),
               ),
             ),
@@ -126,8 +141,23 @@ class ReligiousHomeScreen extends ConsumerWidget {
       builder: (context) {
         return StatefulBuilder(
           builder: (context, setState) {
+            final scheme = Theme.of(context).colorScheme;
+            final color = _colorForType(context, type);
             return AlertDialog(
-              title: Text('Log ${_typeLabel(type)}'),
+              title: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: color.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Icon(_iconForType(type), color: color, size: 20),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(child: Text('Log ${_typeLabel(type)}')),
+                ],
+              ),
               content: SingleChildScrollView(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
@@ -163,7 +193,8 @@ class ReligiousHomeScreen extends ConsumerWidget {
                       maxLines: 3,
                       decoration: const InputDecoration(labelText: 'Details (optional)'),
                     ),
-                    const SizedBox(height: 10),
+                    const SizedBox(height: 8),
+                    Divider(color: scheme.outlineVariant),
                     SwitchListTile(
                       contentPadding: EdgeInsets.zero,
                       title: const Text('Add reminder'),
@@ -267,6 +298,21 @@ class ReligiousHomeScreen extends ConsumerWidget {
     }
   }
 
+  static Color _colorForType(BuildContext context, ReligiousEntryType type) {
+    final scheme = Theme.of(context).colorScheme;
+    switch (type) {
+      case ReligiousEntryType.prayer:
+      case ReligiousEntryType.nightPrayer:
+        return scheme.primary;
+      case ReligiousEntryType.quranReading:
+        return scheme.secondary;
+      case ReligiousEntryType.athkar:
+        return scheme.tertiary;
+      case ReligiousEntryType.badEvent:
+        return scheme.error;
+    }
+  }
+
   static String _typeLabel(ReligiousEntryType type) {
     switch (type) {
       case ReligiousEntryType.prayer:
@@ -283,23 +329,47 @@ class ReligiousHomeScreen extends ConsumerWidget {
   }
 }
 
-class _SectionHeader extends StatelessWidget {
-  const _SectionHeader({required this.title, this.trailing});
-
-  final String title;
-  final Widget? trailing;
+class _DailyReminderCard extends StatelessWidget {
+  const _DailyReminderCard();
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(
-          title,
-          style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
-        ),
-        ?trailing,
-      ],
+    final scheme = Theme.of(context).colorScheme;
+    final now = DateTime.now();
+    final dayOfYear = now.difference(DateTime(now.year, 1, 1)).inDays;
+    final reminder = _dailyReminders[dayOfYear % _dailyReminders.length];
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(16),
+        color: scheme.tertiaryContainer.withValues(alpha: 0.5),
+        border: Border.all(color: scheme.outlineVariant),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.auto_awesome, color: scheme.tertiary, size: 20),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  reminder.arabic,
+                  textDirection: TextDirection.rtl,
+                  textAlign: TextAlign.right,
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  reminder.translation,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -521,6 +591,7 @@ class _PrayerTimesSection extends StatelessWidget {
       ),
       child: prayerTimes.when(
         data: (times) {
+          final now = DateTime.now();
           final entries = <MapEntry<String, DateTime>>[
             MapEntry('Fajr', times.fajr),
             MapEntry('Dhuhr', times.dhuhr),
@@ -528,22 +599,48 @@ class _PrayerTimesSection extends StatelessWidget {
             MapEntry('Maghrib', times.maghrib),
             MapEntry('Isha', times.isha),
           ];
+          final nextEntry = entries.firstWhere(
+            (entry) => entry.value.isAfter(now),
+            orElse: () => entries.first,
+          );
+          final untilNext = nextEntry.value.isAfter(now)
+              ? nextEntry.value.difference(now)
+              : nextEntry.value.add(const Duration(days: 1)).difference(now);
+
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Prayer Times', style: Theme.of(context).textTheme.titleMedium),
-              const SizedBox(height: 4),
-              Text('Source: ${times.sourceUrl} • Updated ${DateFormat('hh:mm a').format(times.fetchedAt)}'),
-              const SizedBox(height: 10),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  for (final item in entries)
-                    Chip(
-                      label: Text('${item.key}: ${DateFormat('hh:mm a').format(item.value)}'),
-                    ),
+                  Text('Prayer Times', style: Theme.of(context).textTheme.titleMedium),
+                  Text(
+                    'Next: ${nextEntry.key} in ${untilNext.inHours}h ${untilNext.inMinutes.remainder(60)}m',
+                    style: Theme.of(context).textTheme.labelMedium?.copyWith(color: scheme.primary, fontWeight: FontWeight.bold),
+                  ),
                 ],
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Updated ${DateFormat('hh:mm a').format(times.fetchedAt)}',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
+              ),
+              const SizedBox(height: 12),
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: [
+                    for (final item in entries) ...[
+                      PrayerTimeCard(
+                        prayerName: item.key,
+                        time: item.value,
+                        isNext: item.key == nextEntry.key,
+                        isPast: item.value.isBefore(now),
+                      ),
+                      const SizedBox(width: 8),
+                    ],
+                  ],
+                ),
               ),
             ],
           );

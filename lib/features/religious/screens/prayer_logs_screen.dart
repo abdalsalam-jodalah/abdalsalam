@@ -4,9 +4,11 @@ import 'package:intl/intl.dart';
 
 import '../../../data/models/religious/prayer_log.dart';
 import '../../../shared/widgets/empty_state.dart';
+import '../../../shared/widgets/section_header.dart';
 import '../providers/prayer_providers.dart';
 import '../providers/religious_tracking_providers.dart';
 import '../widgets/prayer_calendar_heatmap.dart';
+import '../widgets/prayer_streak_widget.dart';
 import 'quran_progress_screen.dart';
 
 class PrayerLogsScreen extends ConsumerWidget {
@@ -18,6 +20,7 @@ class PrayerLogsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final logsState = ref.watch(prayerLogsControllerProvider);
     final allLogsState = ref.watch(prayerAllLogsProvider);
+    final streak = ref.watch(religiousStreakProvider);
 
     return Scaffold(
       appBar: AppBar(
@@ -35,6 +38,11 @@ class PrayerLogsScreen extends ConsumerWidget {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
+          streak.maybeWhen(
+            data: (value) => PrayerStreakWidget(streakDays: value),
+            orElse: () => const SizedBox.shrink(),
+          ),
+          const SizedBox(height: 16),
           allLogsState.when(
             data: (allLogs) => _StatsSummaryRow(allLogs: allLogs),
             loading: () => const Padding(
@@ -44,8 +52,6 @@ class PrayerLogsScreen extends ConsumerWidget {
             error: (err, _) => Text('Could not load stats: $err'),
           ),
           const SizedBox(height: 16),
-          Text('Completion Heatmap (Last 30 Days)', style: Theme.of(context).textTheme.titleMedium),
-          const SizedBox(height: 8),
           allLogsState.when(
             data: (allLogs) => PrayerCalendarHeatmap(
               dailyCompletions: _dailyCompletions(allLogs),
@@ -54,7 +60,7 @@ class PrayerLogsScreen extends ConsumerWidget {
             error: (err, _) => Text('Could not load heatmap: $err'),
           ),
           const SizedBox(height: 20),
-          Text('Today', style: Theme.of(context).textTheme.titleMedium),
+          const SectionHeader(title: 'Today'),
           const SizedBox(height: 8),
           logsState.when(
             data: (logs) => logs.isEmpty
@@ -67,7 +73,7 @@ class PrayerLogsScreen extends ConsumerWidget {
             error: (err, _) => Text('Error: $err'),
           ),
           const SizedBox(height: 20),
-          Text('History', style: Theme.of(context).textTheme.titleMedium),
+          const SectionHeader(title: 'History'),
           const SizedBox(height: 8),
           allLogsState.when(
             data: (allLogs) {
@@ -298,15 +304,26 @@ class _StatsSummaryRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final onTimeCount = allLogs.where((log) => log.onTime).length;
     final onTimePercent = allLogs.isEmpty ? 0 : ((onTimeCount / allLogs.length) * 100).round();
+    final scheme = Theme.of(context).colorScheme;
 
     return Row(
       children: [
         Expanded(
-          child: _StatCard(label: 'Total Logs', value: '${allLogs.length}'),
+          child: _StatCard(
+            label: 'Total Logs',
+            value: '${allLogs.length}',
+            icon: Icons.mosque_outlined,
+            color: scheme.primary,
+          ),
         ),
         const SizedBox(width: 10),
         Expanded(
-          child: _StatCard(label: 'On Time', value: '$onTimePercent%'),
+          child: _StatCard(
+            label: 'On Time',
+            value: '$onTimePercent%',
+            icon: Icons.check_circle_outline,
+            color: scheme.tertiary,
+          ),
         ),
       ],
     );
@@ -314,10 +331,17 @@ class _StatsSummaryRow extends StatelessWidget {
 }
 
 class _StatCard extends StatelessWidget {
-  const _StatCard({required this.label, required this.value});
+  const _StatCard({
+    required this.label,
+    required this.value,
+    required this.icon,
+    required this.color,
+  });
 
   final String label;
   final String value;
+  final IconData icon;
+  final Color color;
 
   @override
   Widget build(BuildContext context) {
@@ -328,6 +352,8 @@ class _StatCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            Icon(icon, color: color, size: 20),
+            const SizedBox(height: 8),
             Text(label, style: Theme.of(context).textTheme.labelMedium),
             const SizedBox(height: 4),
             Text(value, style: Theme.of(context).textTheme.headlineSmall),
@@ -345,8 +371,18 @@ class _PrayerLogCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     return Card(
+      margin: const EdgeInsets.only(bottom: 8),
       child: ListTile(
+        leading: Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: scheme.primary.withValues(alpha: 0.15),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Icon(Icons.mosque_outlined, color: scheme.primary, size: 20),
+        ),
         title: Text(
           '${log.prayerName.name.toUpperCase()} • ${DateFormat('MMM d').format(log.prayedAt)}',
         ),
@@ -356,9 +392,7 @@ class _PrayerLogCard extends StatelessWidget {
         ),
         trailing: Icon(
           log.onTime ? Icons.check_circle : Icons.schedule,
-          color: log.onTime
-              ? Theme.of(context).colorScheme.primary
-              : Theme.of(context).colorScheme.tertiary,
+          color: log.onTime ? scheme.primary : scheme.tertiary,
         ),
       ),
     );

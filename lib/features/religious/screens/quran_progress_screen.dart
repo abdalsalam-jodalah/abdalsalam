@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
+import '../../../shared/widgets/empty_state.dart';
 import '../providers/quran_providers.dart';
 
 class QuranProgressScreen extends ConsumerWidget {
@@ -18,13 +19,17 @@ class QuranProgressScreen extends ConsumerWidget {
       body: state.when(
         data: (logs) {
           if (logs.isEmpty) {
-            return const Center(
-              child: Text('No Quran logs yet. Add your first progress entry.'),
+            return EmptyState(
+              title: 'No Quran logs yet',
+              subtitle: 'Add your first progress entry to start tracking.',
+              actionLabel: 'Add Progress',
+              onAction: () => _showAddDialog(context, ref),
             );
           }
 
           final totalPages = logs.fold<int>(0, (sum, item) => sum + item.pagesRead);
           final totalMinutes = logs.fold<int>(0, (sum, item) => sum + item.minutesSpent);
+          final scheme = Theme.of(context).colorScheme;
 
           return ListView(
             padding: const EdgeInsets.all(16),
@@ -35,8 +40,17 @@ class QuranProgressScreen extends ConsumerWidget {
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text('Today total'),
-                      Text('$totalPages pages / $totalMinutes min'),
+                      Row(
+                        children: [
+                          Icon(Icons.menu_book_outlined, color: scheme.secondary, size: 20),
+                          const SizedBox(width: 8),
+                          const Text('Today total'),
+                        ],
+                      ),
+                      Text(
+                        '$totalPages pages / $totalMinutes min',
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
                     ],
                   ),
                 ),
@@ -44,7 +58,16 @@ class QuranProgressScreen extends ConsumerWidget {
               const SizedBox(height: 12),
               ...logs.map(
                 (log) => Card(
+                  margin: const EdgeInsets.only(bottom: 8),
                   child: ListTile(
+                    leading: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: scheme.secondary.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Icon(Icons.menu_book_outlined, color: scheme.secondary, size: 20),
+                    ),
                     title: Text('${log.pagesRead} pages'),
                     subtitle: Text(
                       '${log.minutesSpent} min - ${DateFormat('hh:mm a').format(log.loggedAt)}',
