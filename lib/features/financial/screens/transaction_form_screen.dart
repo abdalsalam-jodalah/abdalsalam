@@ -3,7 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:uuid/uuid.dart';
 import '../../../data/models/financial/transaction_model.dart';
+import '../../../data/models/financial/category_model.dart';
+import '../../../data/models/financial/recurrence_pattern.dart';
 import '../services/currency_service.dart';
+import '../services/recurring_transaction_generator.dart';
 import '../providers/financial_providers.dart';
 
 class TransactionFormScreen extends ConsumerStatefulWidget {
@@ -21,36 +24,15 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
   late final TextEditingController _amountController;
 
   TransactionType _type = TransactionType.expense;
-  String _selectedCategory = 'Food & Dining';
+  String? _selectedCategoryId;
   DateTime _selectedDate = DateTime.now();
   String _selectedPaymentMethod = 'Cash';
   Currency _selectedCurrency = Currency.ils; // Default to ILS
   List<String> _tags = [];
   final _tagController = TextEditingController();
   bool _isRecurring = false;
-  String _recurringPattern = 'monthly';
+  RecurrencePattern _recurringPattern = RecurrencePattern.monthly;
   bool _showAdvanced = false;
-
-  final _categories = {
-    TransactionType.expense: {
-      'Food & Dining': Icons.restaurant,
-      'Transport': Icons.directions_car,
-      'Shopping': Icons.shopping_bag,
-      'Bills': Icons.receipt,
-      'Entertainment': Icons.movie,
-      'Health': Icons.health_and_safety,
-      'Education': Icons.school,
-      'Other': Icons.category,
-    },
-    TransactionType.income: {
-      'Salary': Icons.attach_money,
-      'Freelance': Icons.work,
-      'Investment': Icons.trending_up,
-      'Bonus': Icons.card_giftcard,
-      'Gift': Icons.card_giftcard,
-      'Other': Icons.category,
-    },
-  };
 
   final _paymentMethods = [
     ('Cash', Icons.money),
@@ -60,8 +42,6 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
     ('Mobile Payment', Icons.phone_android),
     ('Check', Icons.receipt),
   ];
-
-  final _recurringOptions = ['daily', 'weekly', 'monthly', 'yearly'];
 
   @override
   void initState() {
@@ -73,13 +53,13 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
       text: widget.transaction?.amount.toString() ?? '',
     );
     _type = widget.transaction?.type ?? TransactionType.expense;
-    _selectedCategory = widget.transaction?.categoryId ?? 'Food & Dining';
+    _selectedCategoryId = widget.transaction?.categoryId;
     _selectedDate = widget.transaction?.date ?? DateTime.now();
     _selectedPaymentMethod = widget.transaction?.paymentMethod ?? 'Cash';
     _tags = List.from(widget.transaction?.tags ?? []);
     _isRecurring = widget.transaction?.isRecurring ?? false;
-    _recurringPattern = widget.transaction?.recurringPattern ?? 'monthly';
-    
+    _recurringPattern = widget.transaction?.recurrence ?? RecurrencePattern.monthly;
+
     // Parse currency from transaction
     if (widget.transaction != null) {
       try {
@@ -299,7 +279,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
             onSelectionChanged: (Set<TransactionType> newSelection) {
               setState(() {
                 _type = newSelection.first;
-                _selectedCategory = _categories[_type]!.keys.first;
+                _selectedCategoryId = null;
               });
             },
           ),
@@ -462,7 +442,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
   }
 
   Widget _buildCategorySelector() {
-    final categoryIcons = _categories[_type]!;
+    final categoriesAsync = ref.watch(allCategoriesProvider);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -475,52 +455,81 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
           ),
         ),
         const SizedBox(height: 12),
-        Container(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: Colors.grey.withValues(alpha: 0.2),
-            ),
-            color: Colors.grey.withValues(alpha: 0.05),
-          ),
-          child: DropdownButtonFormField<String>(
-            initialValue: _selectedCategory,
-            decoration: InputDecoration(
-              border: InputBorder.none,
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 16,
-                vertical: 12,
-              ),
-              prefixIcon: Padding(
-                padding: const EdgeInsets.only(left: 12, right: 8),
-                child: Icon(
-                  categoryIcons[_selectedCategory],
-                  color: Theme.of(context).colorScheme.primary,
+        categoriesAsync.when(
+          loading: () => const LinearProgressIndicator(),
+          error: (error, stack) => Text('Failed to load categories: $error'),
+          data: (allCategories) {
+            final matchingType =
+                allCategories.where((c) => c.type == _matchingCategoryType).toList();
+
+            if (matchingType.isEmpty) {
+              return Text(
+                'No categories yet — add one from the Categories tab first.',
+                style: TextStyle(color: Theme.of(context).colorScheme.error),
+              );
+            }
+
+            final selectedId = matchingType.any((c) => c.id == _selectedCategoryId)
+                ? _selectedCategoryId
+                : matchingType.first.id;
+            if (selectedId != _selectedCategoryId) {
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (mounted) setState(() => _selectedCategoryId = selectedId);
+              });
+            }
+            final selectedCategory = matchingType.firstWhere((c) => c.id == selectedId);
+
+            return Container(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: Colors.grey.withValues(alpha: 0.2),
                 ),
+                color: Colors.grey.withValues(alpha: 0.05),
               ),
-            ),
-            items: categoryIcons.entries
-                .map((entry) => DropdownMenuItem(
-                      value: entry.key,
-                      child: Row(
-                        children: [
-                          Icon(entry.value, size: 20),
-                          const SizedBox(width: 12),
-                          Text(entry.key),
-                        ],
-                      ),
-                    ))
-                .toList(),
-            onChanged: (value) {
-              if (value != null) {
-                setState(() => _selectedCategory = value);
-              }
-            },
-          ),
+              child: DropdownButtonFormField<String>(
+                initialValue: selectedId,
+                decoration: InputDecoration(
+                  border: InputBorder.none,
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 12,
+                  ),
+                  prefixIcon: Padding(
+                    padding: const EdgeInsets.only(left: 12, right: 8),
+                    child: Icon(
+                      selectedCategory.icon,
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
+                  ),
+                ),
+                items: matchingType
+                    .map((category) => DropdownMenuItem(
+                          value: category.id,
+                          child: Row(
+                            children: [
+                              Icon(category.icon, size: 20),
+                              const SizedBox(width: 12),
+                              Text(category.name),
+                            ],
+                          ),
+                        ))
+                    .toList(),
+                onChanged: (value) {
+                  if (value != null) {
+                    setState(() => _selectedCategoryId = value);
+                  }
+                },
+              ),
+            );
+          },
         ),
       ],
     );
   }
+
+  CategoryType get _matchingCategoryType =>
+      _type == TransactionType.income ? CategoryType.income : CategoryType.expense;
 
   Widget _buildDatePicker() {
     final formatter = DateFormat('MMM dd, yyyy');
@@ -747,7 +756,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
                 ),
                 if (_isRecurring) ...[
                   const SizedBox(height: 12),
-                  DropdownButtonFormField<String>(
+                  DropdownButtonFormField<RecurrencePattern>(
                     initialValue: _recurringPattern,
                     decoration: InputDecoration(
                       labelText: 'Repeat',
@@ -759,11 +768,11 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
                         vertical: 12,
                       ),
                     ),
-                    items: _recurringOptions
+                    items: RecurrencePattern.values
                         .map((option) => DropdownMenuItem(
                               value: option,
                               child: Text(
-                                option[0].toUpperCase() + option.substring(1),
+                                option.name[0].toUpperCase() + option.name.substring(1),
                               ),
                             ))
                         .toList(),
@@ -825,7 +834,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
     }
   }
 
-  void _saveTransaction() {
+  Future<void> _saveTransaction() async {
     final amount = double.tryParse(_amountController.text);
     final description = _descriptionController.text.trim();
 
@@ -839,44 +848,55 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
       return;
     }
 
+    if (_selectedCategoryId == null) {
+      _showError('Please select a category');
+      return;
+    }
+
     final transaction = TransactionModel(
       id: widget.transaction?.id ?? const Uuid().v4(),
       userId: 'user1',
       type: _type,
       amount: amount,
       currency: _selectedCurrency.code,
-      categoryId: _selectedCategory,
+      categoryId: _selectedCategoryId!,
       date: _selectedDate,
       description: description,
       tags: _tags,
       paymentMethod: _selectedPaymentMethod,
       isRecurring: _isRecurring,
-      recurringPattern: _isRecurring ? _recurringPattern : null,
+      recurringPattern: _isRecurring ? _recurringPattern.name : null,
+      recurrenceNextDueDate: _isRecurring
+          ? (widget.transaction?.recurrenceNextDueDate ??
+              RecurringTransactionGenerator.nextDueDate(_selectedDate, _recurringPattern))
+          : null,
       createdAt: widget.transaction?.createdAt ?? DateTime.now(),
       updatedAt: DateTime.now(),
     );
 
-    // Save to database
     final financialService = ref.read(financialServiceProvider);
-    financialService.createTransaction(transaction).then((result) {
-      if (result.isSuccess) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              widget.transaction == null
-                  ? 'Transaction created successfully'
-                  : 'Transaction updated successfully',
-            ),
-            duration: const Duration(seconds: 2),
-            behavior: SnackBarBehavior.floating,
-            backgroundColor: Colors.green,
+    final isEditing = widget.transaction != null;
+    final isSuccess = isEditing
+        ? (await financialService.updateTransaction(transaction)).isSuccess
+        : (await financialService.createTransaction(transaction)).isSuccess;
+
+    if (!mounted) return;
+
+    if (isSuccess) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            isEditing ? 'Transaction updated successfully' : 'Transaction created successfully',
           ),
-        );
-        Navigator.pop(context, transaction);
-      } else {
-        _showError('Failed to save transaction: ${result.error}');
-      }
-    });
+          duration: const Duration(seconds: 2),
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: Colors.green,
+        ),
+      );
+      Navigator.pop(context, transaction);
+    } else {
+      _showError('Failed to save transaction');
+    }
   }
 
   void _deleteTransaction() {
@@ -891,9 +911,15 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
             child: const Text('Cancel'),
           ),
           FilledButton(
-            onPressed: () {
-              Navigator.pop(context);
-              Navigator.pop(context, 'deleted');
+            onPressed: () async {
+              final navigator = Navigator.of(context);
+              final result = await ref
+                  .read(financialServiceProvider)
+                  .deleteTransaction(widget.transaction!.id);
+              navigator.pop();
+              if (result.isSuccess) {
+                navigator.pop('deleted');
+              }
             },
             style: FilledButton.styleFrom(
               backgroundColor: Colors.red,

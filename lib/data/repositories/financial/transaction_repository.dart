@@ -12,6 +12,14 @@ abstract class TransactionRepository {
   Future<Result<List<TransactionModel>, Error>> getByCategory(
     String categoryId,
   );
+  Future<Result<List<TransactionModel>, Error>> getByCategoryAndDateRange(
+    String categoryId,
+    DateTime start,
+    DateTime end,
+  );
+  Future<Result<List<TransactionModel>, Error>> getByAccount(
+    String accountId,
+  );
   Future<Result<List<TransactionModel>, Error>> getByType(
     TransactionType type,
   );

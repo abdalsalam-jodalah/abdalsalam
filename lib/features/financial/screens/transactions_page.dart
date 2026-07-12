@@ -7,7 +7,11 @@ import '../providers/financial_providers.dart';
 class TransactionsPage extends ConsumerStatefulWidget {
   static const routeName = '/financial/transactions';
 
-  const TransactionsPage({super.key});
+  /// When true, renders without its own [Scaffold]/[AppBar] for embedding
+  /// inside the tabbed [FinancialScreen] shell.
+  final bool embedded;
+
+  const TransactionsPage({super.key, this.embedded = false});
 
   @override
   ConsumerState<TransactionsPage> createState() => _TransactionsPageState();
@@ -19,6 +23,17 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
 
   @override
   Widget build(BuildContext context) {
+    if (widget.embedded) {
+      return Column(
+        children: [
+          _buildEmbeddedHeader(),
+          if (_selectedCategory != null || _selectedType != null)
+            _buildActiveFilters(),
+          Expanded(child: _buildTransactionsList()),
+        ],
+      );
+    }
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Transactions'),
@@ -29,17 +44,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
           ),
           IconButton(
             icon: const Icon(Icons.add),
-            onPressed: () async {
-              final result = await Navigator.pushNamed(
-                context,
-                '/financial/transaction-form',
-              );
-              
-              // Refresh the list after adding/editing
-              if (result != null) {
-                ref.invalidate(allTransactionsProvider);
-              }
-            },
+            onPressed: () => _addTransaction(),
           ),
         ],
       ),
@@ -53,6 +58,38 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
         ],
       ),
     );
+  }
+
+  Widget _buildEmbeddedHeader() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 16, 8, 8),
+      child: Row(
+        children: [
+          Text(
+            'Transactions',
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+          ),
+          const Spacer(),
+          IconButton(
+            icon: const Icon(Icons.filter_list),
+            onPressed: _showFilterDialog,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _addTransaction() async {
+    final result = await Navigator.pushNamed(
+      context,
+      '/financial/transaction-form',
+    );
+
+    if (result != null) {
+      ref.invalidate(allTransactionsProvider);
+    }
   }
 
   Widget _buildActiveFilters() {
@@ -427,18 +464,28 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
           ),
           FilledButton(
             onPressed: () async {
-              // TODO: Actually delete transaction from database
-              Navigator.pop(context);
-              
-              // Refresh transactions list
-              ref.invalidate(allTransactionsProvider);
-              
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Transaction deleted'),
-                  backgroundColor: Colors.red,
-                ),
-              );
+              final navigator = Navigator.of(context);
+              final messenger = ScaffoldMessenger.of(context);
+              final result =
+                  await ref.read(financialServiceProvider).deleteTransaction(transaction.id);
+              navigator.pop();
+
+              if (result.isSuccess) {
+                ref.invalidate(allTransactionsProvider);
+                ref.invalidate(recentTransactionsProvider);
+                ref.invalidate(financialSummaryProvider);
+                ref.invalidate(categoryTotalsProvider);
+                messenger.showSnackBar(
+                  const SnackBar(
+                    content: Text('Transaction deleted'),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+              } else {
+                messenger.showSnackBar(
+                  SnackBar(content: Text('Failed to delete: ${result.error}')),
+                );
+              }
             },
             style: FilledButton.styleFrom(
               backgroundColor: Colors.red,

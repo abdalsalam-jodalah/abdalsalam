@@ -8,7 +8,11 @@ import '../providers/financial_providers.dart';
 class CategoriesPage extends ConsumerStatefulWidget {
   static const routeName = '/financial/categories';
 
-  const CategoriesPage({super.key});
+  /// When true, renders without its own [Scaffold]/[AppBar] for embedding
+  /// inside the tabbed [FinancialScreen] shell.
+  final bool embedded;
+
+  const CategoriesPage({super.key, this.embedded = false});
 
   @override
   ConsumerState<CategoriesPage> createState() => _CategoriesPageState();
@@ -54,6 +58,16 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage> {
 
   @override
   Widget build(BuildContext context) {
+    if (widget.embedded) {
+      return Column(
+        children: [
+          _buildEmbeddedHeader(),
+          _buildTypeFilter(),
+          Expanded(child: _buildCategoriesList()),
+        ],
+      );
+    }
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Categories'),
@@ -69,6 +83,27 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage> {
           _buildTypeFilter(),
           Expanded(
             child: _buildCategoriesList(),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEmbeddedHeader() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 16, 8, 8),
+      child: Row(
+        children: [
+          Text(
+            'Categories',
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+          ),
+          const Spacer(),
+          IconButton(
+            icon: const Icon(Icons.add),
+            onPressed: () => _showCategoryDialog(),
           ),
         ],
       ),
@@ -228,7 +263,7 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage> {
               ),
               const SizedBox(height: 4),
               Text(
-                '\$${monthTotal.toStringAsFixed(2)}',
+                '₪${monthTotal.toStringAsFixed(2)}',
                 style: const TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.bold,
@@ -324,7 +359,7 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage> {
                   ),
                 ),
                 const SizedBox(height: 16),
-                _buildStatCard('This Month', '\$${monthTotal.toStringAsFixed(2)}', category.color),
+                _buildStatCard('This Month', '₪${monthTotal.toStringAsFixed(2)}', category.color),
                 const SizedBox(height: 24),
                 const Text(
                   'Recent Transactions',
@@ -410,7 +445,7 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage> {
         style: const TextStyle(fontSize: 12),
       ),
       trailing: Text(
-        '\$${amount.toStringAsFixed(2)}',
+        '₪${amount.toStringAsFixed(2)}',
         style: const TextStyle(
           fontWeight: FontWeight.bold,
         ),
@@ -550,11 +585,11 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage> {
 
     final name = nameController.text.trim();
     nameController.dispose();
-    final repo = ref.read(categoryRepositoryProvider);
+    final service = ref.read(financialServiceProvider);
     final now = DateTime.now();
 
     if (category == null) {
-      final result = await repo.create(
+      final result = await service.createCategory(
         CategoryModel(
           id: _uuid.v4(),
           userId: _defaultUserId,
@@ -573,7 +608,7 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage> {
         successColor: Colors.green,
       );
     } else {
-      final result = await repo.update(
+      final result = await service.updateCategory(
         category.copyWith(
           name: name,
           type: selectedType,
@@ -609,7 +644,7 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage> {
             onPressed: () async {
               Navigator.pop(dialogContext);
               final result =
-                  await ref.read(categoryRepositoryProvider).delete(category.id);
+                  await ref.read(financialServiceProvider).deleteCategory(category);
               if (!mounted) return;
               _showResultSnackBar(
                 isSuccess: result.isSuccess,

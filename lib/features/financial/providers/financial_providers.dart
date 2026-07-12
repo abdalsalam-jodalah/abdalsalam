@@ -5,16 +5,28 @@ import '../../../data/repositories/financial/transaction_repository.dart';
 import '../../../data/repositories/financial/transaction_repository_impl.dart';
 import '../../../data/repositories/financial/category_repository.dart';
 import '../../../data/repositories/financial/budget_repository.dart';
+import '../../../data/repositories/financial/account_repository.dart';
+import '../../../data/repositories/financial/exchange_rate_repository.dart';
+import '../../../data/repositories/financial/exchange_rate_repository_impl.dart';
+import '../../../data/repositories/financial/financial_activity_log_repository.dart';
 import '../../../data/models/financial/transaction_model.dart';
 import '../../../data/models/financial/category_model.dart';
 import '../../../data/models/financial/budget_model.dart';
+import '../../../data/models/financial/account_model.dart';
+import '../../../data/models/financial/financial_activity_log_model.dart';
 import '../../../providers/app_providers.dart';
 import '../../../shared/infrastructure/logger_service.dart';
 import '../services/financial_service.dart';
 import '../services/currency_service.dart';
+import '../services/currency_conversion_service.dart';
+import '../services/enhanced_currency_service.dart';
+import '../services/financial_activity_logger.dart';
+import '../services/recurring_transaction_generator.dart';
 import '../services/financial_data_seeder.dart';
 import 'category_repository_impl.dart';
 import 'budget_repository_impl.dart';
+import 'account_repository_impl.dart';
+import 'financial_activity_log_repository_impl.dart';
 
 // Currency Service Provider
 final currencyServiceProvider = Provider<CurrencyService>((ref) {
@@ -69,13 +81,79 @@ final budgetRepositoryProvider = Provider<BudgetRepository>((ref) {
   return BudgetRepositoryImpl(storage, logger);
 });
 
+final accountRepositoryProvider = Provider<AccountRepository>((ref) {
+  final storage = ref.watch(storageGatewayProvider);
+  final logger = LoggerService.forModule(
+    'AccountRepository',
+    moduleType: logic.ModuleType.repository,
+  );
+  return AccountRepositoryImpl(storage, logger);
+});
+
+final financialActivityLogRepositoryProvider =
+    Provider<FinancialActivityLogRepository>((ref) {
+  final storage = ref.watch(storageGatewayProvider);
+  final logger = LoggerService.forModule(
+    'FinancialActivityLogRepository',
+    moduleType: logic.ModuleType.repository,
+  );
+  return FinancialActivityLogRepositoryImpl(storage, logger);
+});
+
+// Exchange Rate Repository Provider (moved here from dashboard_providers.dart —
+// this is financial-domain infrastructure, dashboard reuses it, not the reverse)
+final exchangeRateRepositoryProvider = Provider<ExchangeRateRepository>((ref) {
+  final logger = LoggerService.forModule(
+    'ExchangeRateRepository',
+    moduleType: logic.ModuleType.repository,
+  );
+  final storage = ref.watch(storageGatewayProvider);
+  return ExchangeRateRepositoryImpl(storage, logger);
+});
+
+final enhancedCurrencyServiceProvider = Provider<EnhancedCurrencyService>((ref) {
+  final logger = LoggerService.forModule(
+    'EnhancedCurrencyService',
+    moduleType: logic.ModuleType.service,
+  );
+  final repository = ref.watch(exchangeRateRepositoryProvider);
+  final currencyService = ref.watch(currencyServiceProvider);
+  return EnhancedCurrencyService(repository, logger, currencyService);
+});
+
+final currencyConversionServiceProvider = Provider<CurrencyConversionService>((ref) {
+  return CurrencyConversionService(
+    ref.watch(exchangeRateRepositoryProvider),
+    ref.watch(currencyServiceProvider),
+  );
+});
+
 // Service Provider
 final financialServiceProvider = Provider<FinancialService>((ref) {
   return FinancialService(
     transactionRepo: ref.watch(transactionRepositoryProvider),
     categoryRepo: ref.watch(categoryRepositoryProvider),
     budgetRepo: ref.watch(budgetRepositoryProvider),
+    accountRepo: ref.watch(accountRepositoryProvider),
+    activityLogRepo: ref.watch(financialActivityLogRepositoryProvider),
+    conversionService: ref.watch(currencyConversionServiceProvider),
   );
+});
+
+final recurringTransactionGeneratorProvider =
+    Provider<RecurringTransactionGenerator>((ref) {
+  return RecurringTransactionGenerator(
+    ref.watch(transactionRepositoryProvider),
+    FinancialActivityLogger(ref.watch(financialActivityLogRepositoryProvider)),
+  );
+});
+
+/// Runs once per app session (watched from the tabbed [FinancialScreen]'s
+/// first build): catches up any due recurring transactions and refreshes
+/// exchange rates, so historical conversions keep accumulating daily.
+final financialStartupTasksProvider = FutureProvider<void>((ref) async {
+  await ref.read(recurringTransactionGeneratorProvider).catchUpDueRecurrences();
+  await ref.read(enhancedCurrencyServiceProvider).syncDailyRates();
 });
 
 // Data Providers
@@ -99,6 +177,18 @@ final allCategoriesProvider = FutureProvider<List<CategoryModel>>((ref) async {
 
 final activeBudgetsProvider = FutureProvider<List<BudgetModel>>((ref) async {
   final repo = ref.watch(budgetRepositoryProvider);
+  final result = await repo.getActive();
+  return result.data ?? [];
+});
+
+final allAccountsProvider = FutureProvider<List<AccountModel>>((ref) async {
+  final repo = ref.watch(accountRepositoryProvider);
+  final result = await repo.getAll();
+  return result.data ?? [];
+});
+
+final activeAccountsProvider = FutureProvider<List<AccountModel>>((ref) async {
+  final repo = ref.watch(accountRepositoryProvider);
   final result = await repo.getActive();
   return result.data ?? [];
 });
@@ -135,6 +225,30 @@ final budgetProgressProvider = FutureProvider.family<Map<String, dynamic>, Budge
     return result.data ?? {};
   },
 );
+
+// Account Balance Provider (derived: initial balance + that account's transactions)
+final accountBalanceProvider = FutureProvider.family<double, AccountModel>(
+  (ref, account) async {
+    final service = ref.watch(financialServiceProvider);
+    final result = await service.getAccountBalance(account);
+    return result.data ?? account.initialBalance;
+  },
+);
+
+// Net Worth / Overall Summary Provider
+final netWorthProvider = FutureProvider<Map<String, dynamic>>((ref) async {
+  final service = ref.watch(financialServiceProvider);
+  final result = await service.getNetWorthSummary();
+  return result.data ?? {};
+});
+
+// Recent Financial Activity Log Provider
+final recentActivityLogProvider =
+    FutureProvider<List<FinancialActivityLogModel>>((ref) async {
+  final repo = ref.watch(financialActivityLogRepositoryProvider);
+  final result = await repo.getRecent(50);
+  return result.data ?? [];
+});
 
 // Helper class for date ranges
 class DateRange {

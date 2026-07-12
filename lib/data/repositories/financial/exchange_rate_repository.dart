@@ -20,5 +20,14 @@ abstract class ExchangeRateRepository {
     DateTime start,
     DateTime end,
   );
+
+  /// Nearest stored rate on or before [date] — used for historical
+  /// conversions so an old transaction never silently uses today's rate.
+  Future<Result<ExchangeRateModel?, Error>> getNearestRateOnOrBefore(
+    String fromCurrency,
+    String toCurrency,
+    DateTime date,
+  );
+
   Future<Result<void, Error>> deleteOldRates(DateTime before);
 }

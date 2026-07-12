@@ -4,10 +4,7 @@ import '../../../data/models/financial/exchange_rate_model.dart';
 import '../../../shared/infrastructure/logger_service.dart';
 import '../../../providers/app_providers.dart';
 import '../../weather/services/weather_service.dart';
-import '../../financial/services/enhanced_currency_service.dart';
 import '../../financial/providers/financial_providers.dart';
-import '../../../data/repositories/financial/exchange_rate_repository.dart';
-import '../../../data/repositories/financial/exchange_rate_repository_impl.dart';
 import 'package:abdalsalam_logic_flutter/abdalsalam_logic_flutter.dart' as logic;
 
 // Weather Service Provider
@@ -19,32 +16,6 @@ final weatherServiceProvider = Provider<WeatherService>((ref) {
   final storage = ref.watch(storageGatewayProvider);
   final service = WeatherService(logger, storage);
   service.initialize();
-  return service;
-});
-
-// Exchange Rate Repository Provider
-final exchangeRateRepositoryProvider = Provider<ExchangeRateRepository>((ref) {
-  final logger = LoggerService.forModule(
-    'ExchangeRateRepository',
-    moduleType: logic.ModuleType.repository,
-  );
-  final storage = ref.watch(storageGatewayProvider);
-  return ExchangeRateRepositoryImpl(storage, logger);
-});
-
-// Enhanced Currency Service Provider
-final enhancedCurrencyServiceProvider = Provider<EnhancedCurrencyService>((ref) {
-  final logger = LoggerService.forModule(
-    'EnhancedCurrencyService',
-    moduleType: logic.ModuleType.service,
-  );
-  final repository = ref.watch(exchangeRateRepositoryProvider);
-  final currencyService = ref.watch(currencyServiceProvider);
-  final service = EnhancedCurrencyService(repository, logger, currencyService);
-  
-  // Trigger daily sync on initialization
-  service.syncDailyRates();
-  
   return service;
 });
 

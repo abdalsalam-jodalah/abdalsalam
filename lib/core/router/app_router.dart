@@ -7,8 +7,10 @@ import '../../features/calendar/screens/event_list_screen.dart';
 import '../../features/calendar/screens/google_calendar_sync_screen.dart';
 import '../../features/calendar/screens/unified_timeline_screen.dart';
 import '../../features/financial/screens/financial_screen.dart';
+import '../../features/financial/screens/accounts_page.dart';
 import '../../features/financial/screens/budgets_page.dart';
 import '../../features/financial/screens/categories_page.dart';
+import '../../features/financial/screens/financial_activity_log_screen.dart';
 import '../../features/financial/screens/transactions_page.dart';
 import '../../features/financial/screens/transaction_form_screen.dart';
 import '../../data/models/financial/transaction_model.dart';
@@ -134,6 +136,16 @@ class AppRouter {
       case CategoriesPage.routeName:
         return MaterialPageRoute<void>(
           builder: (_) => const CategoriesPage(),
+          settings: settings,
+        );
+      case AccountsPage.routeName:
+        return MaterialPageRoute<void>(
+          builder: (_) => const AccountsPage(),
+          settings: settings,
+        );
+      case FinancialActivityLogScreen.routeName:
+        return MaterialPageRoute<void>(
+          builder: (_) => const FinancialActivityLogScreen(),
           settings: settings,
         );
       case TransactionFormScreen.routeName:

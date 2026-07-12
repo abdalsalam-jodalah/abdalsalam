@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 import 'package:uuid/uuid.dart';
 import '../../../data/models/financial/budget_model.dart';
 import '../../../data/models/financial/category_model.dart';
@@ -8,7 +9,11 @@ import '../providers/financial_providers.dart';
 class BudgetsPage extends ConsumerStatefulWidget {
   static const routeName = '/financial/budgets';
 
-  const BudgetsPage({super.key});
+  /// When true, renders without its own [Scaffold]/[AppBar] for embedding
+  /// inside the tabbed [FinancialScreen] shell.
+  final bool embedded;
+
+  const BudgetsPage({super.key, this.embedded = false});
 
   @override
   ConsumerState<BudgetsPage> createState() => _BudgetsPageState();
@@ -23,6 +28,16 @@ class _BudgetsPageState extends ConsumerState<BudgetsPage> {
 
   @override
   Widget build(BuildContext context) {
+    if (widget.embedded) {
+      return Column(
+        children: [
+          _buildEmbeddedHeader(),
+          _buildPeriodFilter(),
+          Expanded(child: _buildBudgetsList()),
+        ],
+      );
+    }
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Budgets'),
@@ -44,30 +59,62 @@ class _BudgetsPageState extends ConsumerState<BudgetsPage> {
     );
   }
 
+  Widget _buildEmbeddedHeader() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 16, 8, 8),
+      child: Row(
+        children: [
+          Text(
+            'Budgets',
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+          ),
+          const Spacer(),
+          IconButton(
+            icon: const Icon(Icons.add),
+            onPressed: _showBudgetDialog,
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildPeriodFilter() {
     return Container(
       padding: const EdgeInsets.all(16),
-      child: SegmentedButton<BudgetPeriod>(
-        segments: const [
-          ButtonSegment(
-            value: BudgetPeriod.daily,
-            label: Text('Day'),
-          ),
-          ButtonSegment(
-            value: BudgetPeriod.weekly,
-            label: Text('Week'),
-          ),
-          ButtonSegment(
-            value: BudgetPeriod.monthly,
-            label: Text('Month'),
-          ),
-        ],
-        selected: {_selectedPeriod},
-        onSelectionChanged: (Set<BudgetPeriod> newSelection) {
-          setState(() {
-            _selectedPeriod = newSelection.first;
-          });
-        },
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: SegmentedButton<BudgetPeriod>(
+          segments: const [
+            ButtonSegment(
+              value: BudgetPeriod.daily,
+              label: Text('Day'),
+            ),
+            ButtonSegment(
+              value: BudgetPeriod.weekly,
+              label: Text('Week'),
+            ),
+            ButtonSegment(
+              value: BudgetPeriod.monthly,
+              label: Text('Month'),
+            ),
+            ButtonSegment(
+              value: BudgetPeriod.yearly,
+              label: Text('Year'),
+            ),
+            ButtonSegment(
+              value: BudgetPeriod.custom,
+              label: Text('Custom'),
+            ),
+          ],
+          selected: {_selectedPeriod},
+          onSelectionChanged: (Set<BudgetPeriod> newSelection) {
+            setState(() {
+              _selectedPeriod = newSelection.first;
+            });
+          },
+        ),
       ),
     );
   }
@@ -250,7 +297,7 @@ class _BudgetsPageState extends ConsumerState<BudgetsPage> {
                       ),
                     ),
                     Text(
-                      '\$${spent.toStringAsFixed(2)}',
+                      '₪${spent.toStringAsFixed(2)}',
                       style: const TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
@@ -269,7 +316,7 @@ class _BudgetsPageState extends ConsumerState<BudgetsPage> {
                       ),
                     ),
                     Text(
-                      '\$${remaining.toStringAsFixed(2)}',
+                      '₪${remaining.toStringAsFixed(2)}',
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
@@ -289,7 +336,7 @@ class _BudgetsPageState extends ConsumerState<BudgetsPage> {
                       ),
                     ),
                     Text(
-                      '\$${budget.amount.toStringAsFixed(2)}',
+                      '₪${budget.amount.toStringAsFixed(2)}',
                       style: const TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
@@ -375,6 +422,10 @@ class _BudgetsPageState extends ConsumerState<BudgetsPage> {
     );
     String? selectedCategoryId = budget?.categoryId ?? categories.first.id;
     BudgetPeriod selectedPeriod = budget?.period ?? _selectedPeriod;
+    DateTimeRange customRange = DateTimeRange(
+      start: budget?.startDate ?? DateTime.now(),
+      end: budget?.endDate ?? DateTime.now().add(const Duration(days: 30)),
+    );
 
     final saved = await showDialog<bool>(
       context: context,
@@ -408,7 +459,7 @@ class _BudgetsPageState extends ConsumerState<BudgetsPage> {
                     decoration: const InputDecoration(
                       labelText: 'Amount',
                       border: OutlineInputBorder(),
-                      prefixText: '\$',
+                      prefixText: '₪',
                     ),
                     keyboardType: TextInputType.number,
                     validator: (value) {
@@ -439,10 +490,39 @@ class _BudgetsPageState extends ConsumerState<BudgetsPage> {
                         value: BudgetPeriod.monthly,
                         child: Text('Monthly'),
                       ),
+                      DropdownMenuItem(
+                        value: BudgetPeriod.yearly,
+                        child: Text('Yearly'),
+                      ),
+                      DropdownMenuItem(
+                        value: BudgetPeriod.custom,
+                        child: Text('Custom range'),
+                      ),
                     ],
                     onChanged: (value) => setDialogState(
                         () => selectedPeriod = value ?? selectedPeriod),
                   ),
+                  if (selectedPeriod == BudgetPeriod.custom) ...[
+                    const SizedBox(height: 16),
+                    OutlinedButton.icon(
+                      icon: const Icon(Icons.date_range),
+                      label: Text(
+                        '${DateFormat('MMM d, yyyy').format(customRange.start)} – '
+                        '${DateFormat('MMM d, yyyy').format(customRange.end)}',
+                      ),
+                      onPressed: () async {
+                        final picked = await showDateRangePicker(
+                          context: dialogContext,
+                          firstDate: DateTime(2020),
+                          lastDate: DateTime(2100),
+                          initialDateRange: customRange,
+                        );
+                        if (picked != null) {
+                          setDialogState(() => customRange = picked);
+                        }
+                      },
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -472,12 +552,14 @@ class _BudgetsPageState extends ConsumerState<BudgetsPage> {
 
     final amount = double.parse(amountController.text);
     amountController.dispose();
-    final repo = ref.read(budgetRepositoryProvider);
+    final service = ref.read(financialServiceProvider);
     final now = DateTime.now();
+    final range = selectedPeriod == BudgetPeriod.custom
+        ? (start: customRange.start, end: customRange.end)
+        : _rangeForPeriod(selectedPeriod);
 
     if (budget == null) {
-      final range = _rangeForPeriod(selectedPeriod);
-      final result = await repo.create(
+      final result = await service.createBudget(
         BudgetModel(
           id: _uuid.v4(),
           userId: _defaultUserId,
@@ -498,11 +580,13 @@ class _BudgetsPageState extends ConsumerState<BudgetsPage> {
         successColor: Colors.green,
       );
     } else {
-      final result = await repo.update(
+      final result = await service.updateBudget(
         budget.copyWith(
           categoryId: selectedCategoryId,
           amount: amount,
           period: selectedPeriod,
+          startDate: range.start,
+          endDate: range.end,
           updatedAt: now,
         ),
       );
@@ -532,7 +616,7 @@ class _BudgetsPageState extends ConsumerState<BudgetsPage> {
             onPressed: () async {
               Navigator.pop(dialogContext);
               final result =
-                  await ref.read(budgetRepositoryProvider).delete(budget.id);
+                  await ref.read(financialServiceProvider).deleteBudget(budget);
               if (!mounted) return;
               _showResultSnackBar(
                 isSuccess: result.isSuccess,

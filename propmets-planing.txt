@@ -1,0 +1,24 @@
+priorties: 
+- religios 
+- financial
+- planing 
+- single point:
+    - sport 
+    - health 
+    - medeication
+- calender with concation to palning and all thing
+- notes 
+- habits 
+- securty
+- analytics 
+- settings
+
+- general app enhanceing
+---------
+backedn
+---------
+multiplatform
+---------
+ai 
+---------
+external concetion

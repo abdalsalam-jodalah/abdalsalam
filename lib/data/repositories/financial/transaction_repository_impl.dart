@@ -106,6 +106,53 @@ class TransactionRepositoryImpl implements TransactionRepository {
   }
 
   @override
+  Future<Result<List<TransactionModel>, Error>> getByCategoryAndDateRange(
+    String categoryId,
+    DateTime start,
+    DateTime end,
+  ) async {
+    try {
+      final dateRangeResult = await getByDateRange(start, end);
+      if (dateRangeResult.isFailure) {
+        return Failure(dateRangeResult.error!);
+      }
+
+      final filtered = dateRangeResult.data!
+          .where((t) => t.categoryId == categoryId)
+          .toList();
+
+      return Success(filtered);
+    } catch (e, st) {
+      _logger.error(
+        'Failed to get transactions by category and date range',
+        error: e,
+        stackTrace: st,
+      );
+      return Failure(DatabaseError(e.toString()));
+    }
+  }
+
+  @override
+  Future<Result<List<TransactionModel>, Error>> getByAccount(
+    String accountId,
+  ) async {
+    try {
+      final allResult = await getAll();
+      if (allResult.isFailure) {
+        return Failure(allResult.error!);
+      }
+
+      final filtered =
+          allResult.data!.where((t) => t.accountId == accountId).toList();
+
+      return Success(filtered);
+    } catch (e, st) {
+      _logger.error('Failed to get transactions by account', error: e, stackTrace: st);
+      return Failure(DatabaseError(e.toString()));
+    }
+  }
+
+  @override
   Future<Result<List<TransactionModel>, Error>> getByType(
     TransactionType type,
   ) async {

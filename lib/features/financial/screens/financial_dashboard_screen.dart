@@ -9,11 +9,16 @@ import '../../../data/models/financial/category_model.dart';
 import 'transactions_page.dart';
 import 'budgets_page.dart';
 import 'categories_page.dart';
+import 'financial_activity_log_screen.dart';
 
 enum TimePeriod { day, week, month, year }
 
 class FinancialDashboardScreen extends ConsumerStatefulWidget {
-  const FinancialDashboardScreen({super.key});
+  /// When true, renders without its own [Scaffold]/[AppBar] for embedding
+  /// inside the tabbed [FinancialScreen] shell.
+  final bool embedded;
+
+  const FinancialDashboardScreen({super.key, this.embedded = false});
 
   @override
   ConsumerState<FinancialDashboardScreen> createState() =>
@@ -52,55 +57,200 @@ class _FinancialDashboardScreenState extends ConsumerState<FinancialDashboardScr
 
   @override
   Widget build(BuildContext context) {
+    ref.watch(financialStartupTasksProvider);
+
+    if (widget.embedded) {
+      return _buildBody();
+    }
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Financial Dashboard'),
         actions: [
           IconButton(
+            icon: const Icon(Icons.history),
+            tooltip: 'Activity log',
+            onPressed: _openActivityLog,
+          ),
+          IconButton(
             icon: const Icon(Icons.add),
-            onPressed: () async {
-              final result = await Navigator.pushNamed(
-                context,
-                '/financial/transaction-form',
-              );
-              
-              // Refresh all data after adding transaction
-              if (result != null) {
-                ref.invalidate(allTransactionsProvider);
-                ref.invalidate(recentTransactionsProvider);
-                ref.invalidate(financialSummaryProvider);
-                ref.invalidate(categoryTotalsProvider);
-              }
-            },
+            onPressed: _addTransaction,
           ),
         ],
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // 1. Total Money Widget
-            _buildTotalMoneyWidget(),
-            const SizedBox(height: 24),
+      body: _buildBody(),
+    );
+  }
 
-            // 2. Chart Section
-            _buildChartSection(),
-            const SizedBox(height: 24),
+  Future<void> _addTransaction() async {
+    final result = await Navigator.pushNamed(
+      context,
+      '/financial/transaction-form',
+    );
 
-            // 3. Budgets Section
-            _buildBudgetsSection(),
-            const SizedBox(height: 24),
+    if (result != null) {
+      ref.invalidate(allTransactionsProvider);
+      ref.invalidate(recentTransactionsProvider);
+      ref.invalidate(financialSummaryProvider);
+      ref.invalidate(categoryTotalsProvider);
+    }
+  }
 
-            // 4. Recent Transactions Section
-            _buildTransactionsSection(),
-            const SizedBox(height: 24),
+  void _openActivityLog() {
+    Navigator.pushNamed(context, FinancialActivityLogScreen.routeName);
+  }
 
-            // 5. Categories Section
-            _buildCategoriesSection(),
+  Widget _buildBody() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (widget.embedded) ...[
+            _buildEmbeddedHeader(),
+            const SizedBox(height: 16),
           ],
+
+          // Net summary
+          _buildNetSummaryCard(),
+          const SizedBox(height: 24),
+
+          // 1. Total Money Widget
+          _buildTotalMoneyWidget(),
+          const SizedBox(height: 24),
+
+          // 2. Chart Section
+          _buildChartSection(),
+          const SizedBox(height: 24),
+
+          // 3. Budgets Section
+          _buildBudgetsSection(),
+          const SizedBox(height: 24),
+
+          // 4. Recent Transactions Section
+          _buildTransactionsSection(),
+          const SizedBox(height: 24),
+
+          // 5. Categories Section
+          _buildCategoriesSection(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEmbeddedHeader() {
+    return Row(
+      children: [
+        Text(
+          'Dashboard',
+          style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
+        ),
+        const Spacer(),
+        IconButton(
+          icon: const Icon(Icons.history),
+          tooltip: 'Activity log',
+          onPressed: _openActivityLog,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildNetSummaryCard() {
+    final summaryAsync = ref.watch(netWorthProvider);
+
+    return summaryAsync.when(
+      loading: () => const Card(
+        child: Padding(
+          padding: EdgeInsets.all(20),
+          child: Center(child: CircularProgressIndicator()),
         ),
       ),
+      error: (error, stack) => Card(
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Text('Error loading summary: $error'),
+        ),
+      ),
+      data: (summary) {
+        final netWorth = (summary['netWorth'] as double?) ?? 0;
+        final accountCount = (summary['accountCount'] as int?) ?? 0;
+        final totalBudgets = (summary['totalBudgets'] as int?) ?? 0;
+        final budgetsNearOrOverLimit = (summary['budgetsNearOrOverLimit'] as int?) ?? 0;
+        final upcomingRecurring =
+            (summary['upcomingRecurring'] as List<TransactionModel>?) ?? [];
+
+        return Card(
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(Icons.savings, color: Theme.of(context).colorScheme.primary),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Net Worth',
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  '₪${netWorth.toStringAsFixed(2)}',
+                  style: const TextStyle(fontSize: 26, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  '$accountCount account${accountCount == 1 ? '' : 's'}',
+                  style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                ),
+                const Divider(height: 24),
+                Row(
+                  children: [
+                    Icon(
+                      budgetsNearOrOverLimit > 0 ? Icons.warning_amber : Icons.check_circle,
+                      size: 18,
+                      color: budgetsNearOrOverLimit > 0 ? Colors.orange : Colors.green,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        totalBudgets == 0
+                            ? 'No active budgets'
+                            : '$budgetsNearOrOverLimit of $totalBudgets budgets near/over limit',
+                      ),
+                    ),
+                  ],
+                ),
+                if (upcomingRecurring.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  Text(
+                    'Upcoming recurring',
+                    style: Theme.of(context).textTheme.labelLarge,
+                  ),
+                  const SizedBox(height: 4),
+                  ...upcomingRecurring.map((t) => Padding(
+                        padding: const EdgeInsets.only(top: 4),
+                        child: Row(
+                          children: [
+                            Expanded(child: Text(t.description)),
+                            Text(
+                              '${t.amount.toStringAsFixed(2)} ${t.currency} • '
+                              '${DateFormat('MMM d').format(t.recurrenceNextDueDate!)}',
+                              style: const TextStyle(fontSize: 12),
+                            ),
+                          ],
+                        ),
+                      )),
+                ],
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -149,7 +299,7 @@ class _FinancialDashboardScreenState extends ConsumerState<FinancialDashboardScr
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        '\$${balance.toStringAsFixed(2)}',
+                        '₪${balance.toStringAsFixed(2)}',
                         style: TextStyle(
                           fontSize: 28,
                           fontWeight: FontWeight.bold,
@@ -160,7 +310,7 @@ class _FinancialDashboardScreenState extends ConsumerState<FinancialDashboardScr
                       Row(
                         children: [
                           Text(
-                            'Income: \$${income.toStringAsFixed(0)} • ',
+                            'Income: ₪${income.toStringAsFixed(0)} • ',
                             style: TextStyle(
                               fontSize: 12,
                               color: Colors.green,
@@ -168,7 +318,7 @@ class _FinancialDashboardScreenState extends ConsumerState<FinancialDashboardScr
                             ),
                           ),
                           Text(
-                            'Expense: \$${expense.toStringAsFixed(0)}',
+                            'Expense: ₪${expense.toStringAsFixed(0)}',
                             style: TextStyle(
                               fontSize: 12,
                               color: Colors.red,
@@ -241,6 +391,10 @@ class _FinancialDashboardScreenState extends ConsumerState<FinancialDashboardScr
       scrollDirection: Axis.horizontal,
       child: SegmentedButton<TimePeriod>(
         segments: const [
+          ButtonSegment(
+            value: TimePeriod.day,
+            label: Text('Day'),
+          ),
           ButtonSegment(
             value: TimePeriod.week,
             label: Text('Week'),
@@ -349,7 +503,7 @@ class _FinancialDashboardScreenState extends ConsumerState<FinancialDashboardScr
                   reservedSize: 42,
                   getTitlesWidget: (double value, TitleMeta meta) {
                     return Text(
-                      '\$${(value / 1000).toStringAsFixed(1)}k',
+                      '₪${(value / 1000).toStringAsFixed(1)}k',
                       style: const TextStyle(fontSize: 10),
                     );
                   },
@@ -449,13 +603,8 @@ class _FinancialDashboardScreenState extends ConsumerState<FinancialDashboardScr
             ),
             TextButton(
               onPressed: () async {
-                await Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => const BudgetsPage(),
-                  ),
-                );
-                
+                await Navigator.pushNamed(context, BudgetsPage.routeName);
+
                 // Refresh budgets after returning
                 ref.invalidate(activeBudgetsProvider);
               },
@@ -489,20 +638,11 @@ class _FinancialDashboardScreenState extends ConsumerState<FinancialDashboardScr
                         orElse: CategoryModel.unknown,
                       );
 
-                      // Calculate spent amount
-                      final dateRange = DateRange(budget.startDate, budget.endDate);
-                      final transactionsAsync = ref.watch(allTransactionsProvider);
+                      final progressAsync = ref.watch(budgetProgressProvider(budget));
 
-                      return transactionsAsync.when(
-                        data: (transactions) {
-                          final spent = transactions
-                              .where((t) =>
-                                  t.categoryId == budget.categoryId &&
-                                  t.type == TransactionType.expense &&
-                                  t.date.isAfter(budget.startDate) &&
-                                  t.date.isBefore(budget.endDate))
-                              .fold<double>(0, (sum, t) => sum + t.amount);
-
+                      return progressAsync.when(
+                        data: (progress) {
+                          final spent = (progress['spent'] as double?) ?? 0;
                           return _buildBudgetCard(
                             category.name,
                             budget.amount,
@@ -607,7 +747,7 @@ class _FinancialDashboardScreenState extends ConsumerState<FinancialDashboardScr
             ),
             const SizedBox(height: 6),
             Text(
-              '\$${spent.toStringAsFixed(0)}/\$${budget.toStringAsFixed(0)}',
+              '₪${spent.toStringAsFixed(0)}/₪${budget.toStringAsFixed(0)}',
               style: const TextStyle(
                 fontSize: 10,
                 color: Colors.grey,
@@ -640,13 +780,8 @@ class _FinancialDashboardScreenState extends ConsumerState<FinancialDashboardScr
             ),
             TextButton(
               onPressed: () async {
-                await Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => const TransactionsPage(),
-                  ),
-                );
-                
+                await Navigator.pushNamed(context, TransactionsPage.routeName);
+
                 // Refresh transactions after returning
                 ref.invalidate(allTransactionsProvider);
                 ref.invalidate(recentTransactionsProvider);
@@ -735,7 +870,7 @@ class _FinancialDashboardScreenState extends ConsumerState<FinancialDashboardScr
           style: const TextStyle(fontSize: 12),
         ),
         trailing: Text(
-          '${isIncome ? '+' : ''}\$${amount.abs().toStringAsFixed(2)}',
+          '${isIncome ? '+' : ''}₪${amount.abs().toStringAsFixed(2)}',
           style: TextStyle(
             fontSize: 16,
             fontWeight: FontWeight.bold,
@@ -766,13 +901,8 @@ class _FinancialDashboardScreenState extends ConsumerState<FinancialDashboardScr
             ),
             TextButton(
               onPressed: () async {
-                await Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => const CategoriesPage(),
-                  ),
-                );
-                
+                await Navigator.pushNamed(context, CategoriesPage.routeName);
+
                 // Refresh categories after returning
                 ref.invalidate(allCategoriesProvider);
                 ref.invalidate(categoryTotalsProvider);
@@ -868,7 +998,7 @@ class _FinancialDashboardScreenState extends ConsumerState<FinancialDashboardScr
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  '\$${amount.toStringAsFixed(0)}',
+                  '₪${amount.toStringAsFixed(0)}',
                   style: const TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,

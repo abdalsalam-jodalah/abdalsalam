@@ -6,6 +6,7 @@ class BudgetModel extends BaseModel {
   final String userId;
   final String categoryId;
   final double amount;
+  final String? currency; // null => inherits base currency
   final BudgetPeriod period;
   final DateTime startDate;
   final DateTime endDate;
@@ -18,6 +19,7 @@ class BudgetModel extends BaseModel {
     required this.userId,
     required this.categoryId,
     required this.amount,
+    this.currency,
     required this.period,
     required this.startDate,
     required this.endDate,
@@ -34,6 +36,7 @@ class BudgetModel extends BaseModel {
         'userId': userId,
         'categoryId': categoryId,
         'amount': amount,
+        'currency': currency,
         'period': period.name,
         'startDate': startDate.toIso8601String(),
         'endDate': endDate.toIso8601String(),
@@ -50,6 +53,7 @@ class BudgetModel extends BaseModel {
       userId: json['userId'] as String,
       categoryId: json['categoryId'] as String,
       amount: (json['amount'] as num).toDouble(),
+      currency: json['currency'] as String?,
       period: BudgetPeriod.values.byName(json['period'] as String),
       startDate: DateTime.parse(json['startDate'] as String),
       endDate: DateTime.parse(json['endDate'] as String),
@@ -68,6 +72,7 @@ class BudgetModel extends BaseModel {
     String? userId,
     String? categoryId,
     double? amount,
+    String? currency,
     BudgetPeriod? period,
     DateTime? startDate,
     DateTime? endDate,
@@ -82,6 +87,7 @@ class BudgetModel extends BaseModel {
       userId: userId ?? this.userId,
       categoryId: categoryId ?? this.categoryId,
       amount: amount ?? this.amount,
+      currency: currency ?? this.currency,
       period: period ?? this.period,
       startDate: startDate ?? this.startDate,
       endDate: endDate ?? this.endDate,
@@ -99,6 +105,7 @@ class BudgetModel extends BaseModel {
         userId,
         categoryId,
         amount,
+        currency,
         period,
         startDate,
         endDate,
