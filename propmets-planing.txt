@@ -1,13 +1,14 @@
 priorties: 
 - religios ✅
 - financial ✅
-- planing 
+- planing  
+- notes 
+
 - single point:
     - sport 
     - health 
     - medeication
 - calender with concation to palning and all thing
-- notes 
 - habits 
 - securty
 - analytics 
@@ -22,3 +23,18 @@ multiplatform
 ai : anlytics, answer qs, make actionfor 
 ---------
 external concetion
+
+
+for the planing secation 
+se shoudl have mainly two parts 
+1- days plaining 
+2- life plaining 
+
+- for teh days paling , i hsoulkdb e abel t oseet taks , drag them up adn downs, chcke tjhe m as cmcopleted ,..... 
+laos i shoudl eb abl to set goals for teh day so eahc day has golas geenraly 
+- for hlofe plainbg, it shoudl be like i have task adn have gaoals and areas idk 
+it should be liek i have topcis and sub topics to paln them 
+aslo i nca rlaedt certain task in dyas palming with item/s in lif palainag 
+
+it shoudl be two sepatrede secationi n tshde i bar for the dayly task and keep thins in palaing to bet hlife palings 
+kepp other thinsg iexist nowin paling as side points in paling  
