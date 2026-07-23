@@ -16,6 +16,7 @@ class Goal extends BaseModel {
   final String? parentGoalId;
   final double progress;
   final LifeArea? area;
+  final String? topicId;
 
   const Goal({
     required super.id,
@@ -31,6 +32,7 @@ class Goal extends BaseModel {
     this.parentGoalId,
     this.progress = 0.0,
     this.area,
+    this.topicId,
   });
 
   factory Goal.fromJson(Map<String, dynamic> json) {
@@ -48,6 +50,7 @@ class Goal extends BaseModel {
       parentGoalId: json['parentGoalId'] as String?,
       progress: (json['progress'] as num?)?.toDouble() ?? 0.0,
       area: json['area'] == null ? null : LifeArea.values.byName(json['area'] as String),
+      topicId: json['topicId'] as String?,
     );
   }
 
@@ -61,6 +64,7 @@ class Goal extends BaseModel {
     String? parentGoalId,
     double? progress,
     LifeArea? area,
+    String? topicId,
   }) =>
       Goal(
         id: id,
@@ -76,6 +80,7 @@ class Goal extends BaseModel {
         parentGoalId: parentGoalId ?? this.parentGoalId,
         progress: progress ?? this.progress,
         area: area ?? this.area,
+        topicId: topicId ?? this.topicId,
       );
 
   @override
@@ -93,5 +98,6 @@ class Goal extends BaseModel {
         'parentGoalId': parentGoalId,
         'progress': progress,
         'area': area?.name,
+        'topicId': topicId,
       };
 }

@@ -28,8 +28,10 @@ import '../../features/health/screens/medication_form_screen.dart';
 import '../../features/health/screens/medication_list_screen.dart';
 import '../../features/notes/screens/notes_screen.dart';
 import '../../features/planning/screens/achievements_screen.dart';
+import '../../features/planning/screens/day_planning_screen.dart';
 import '../../features/planning/screens/goals_screen.dart';
 import '../../features/planning/screens/life_plan_screen.dart';
+import '../../features/planning/screens/life_planning_topics_screen.dart';
 import '../../features/planning/screens/planning_home_screen.dart';
 import '../../features/planning/screens/reviews_screen.dart';
 import '../../features/notes/screens/note_categories_screen.dart';
@@ -333,6 +335,16 @@ class AppRouter {
       case PlanningHomeScreen.routeName:
         return MaterialPageRoute<void>(
           builder: (_) => const PlanningHomeScreen(),
+          settings: settings,
+        );
+      case DayPlanningScreen.routeName:
+        return MaterialPageRoute<void>(
+          builder: (_) => const DayPlanningScreen(),
+          settings: settings,
+        );
+      case LifePlanningTopicsScreen.routeName:
+        return MaterialPageRoute<void>(
+          builder: (_) => const LifePlanningTopicsScreen(),
           settings: settings,
         );
       case LifePlanScreen.routeName:

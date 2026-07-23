@@ -1,0 +1,285 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:uuid/uuid.dart';
+
+import '../../../data/models/planning/goal.dart';
+import '../../../data/models/planning/planning_task.dart';
+import '../providers/planning_providers.dart';
+import '../widgets/planning_task_dialog.dart';
+import '../widgets/reorderable_task_list.dart';
+
+const _uuid = Uuid();
+
+DateTime _dateOnly(DateTime date) => DateTime(date.year, date.month, date.day);
+
+class DayPlanningScreen extends ConsumerStatefulWidget {
+  static const routeName = '/planning/day';
+
+  const DayPlanningScreen({super.key});
+
+  @override
+  ConsumerState<DayPlanningScreen> createState() => _DayPlanningScreenState();
+}
+
+class _DayPlanningScreenState extends ConsumerState<DayPlanningScreen> {
+  DateTime _selectedDate = _dateOnly(DateTime.now());
+
+  String _formatDate(DateTime date) =>
+      '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+
+  void _shiftDay(int delta) {
+    setState(() => _selectedDate = _dateOnly(_selectedDate.add(Duration(days: delta))));
+  }
+
+  Future<void> _pickDate() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _selectedDate,
+      firstDate: DateTime(2020),
+      lastDate: DateTime(2100),
+    );
+    if (picked != null) {
+      setState(() => _selectedDate = _dateOnly(picked));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final goalsAsync = ref.watch(goalsForDateProvider(_selectedDate));
+    final tasksAsync = ref.watch(tasksForDateProvider(_selectedDate));
+
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(_formatDate(_selectedDate)),
+        actions: [
+          IconButton(icon: const Icon(Icons.chevron_left), onPressed: () => _shiftDay(-1)),
+          IconButton(icon: const Icon(Icons.calendar_today_outlined), onPressed: _pickDate),
+          IconButton(icon: const Icon(Icons.chevron_right), onPressed: () => _shiftDay(1)),
+        ],
+      ),
+      body: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          _buildGoalsSection(goalsAsync),
+          const Divider(height: 32),
+          _buildTasksSection(tasksAsync),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildGoalsSection(AsyncValue<List<Goal>> goalsAsync) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text('Goals for today', style: Theme.of(context).textTheme.titleMedium),
+            IconButton(icon: const Icon(Icons.add), onPressed: _addGoal),
+          ],
+        ),
+        goalsAsync.when(
+          loading: () => const Padding(
+            padding: EdgeInsets.symmetric(vertical: 12),
+            child: Center(child: CircularProgressIndicator()),
+          ),
+          error: (error, stack) => const Text('Failed to load goals'),
+          data: (goals) {
+            if (goals.isEmpty) {
+              return const Padding(
+                padding: EdgeInsets.symmetric(vertical: 12),
+                child: Text('No goals set for this day yet.'),
+              );
+            }
+            return Column(
+              children: [
+                for (final goal in goals)
+                  CheckboxListTile(
+                    value: goal.status == GoalStatus.achieved,
+                    onChanged: (value) => _toggleGoal(goal, value ?? false),
+                    controlAffinity: ListTileControlAffinity.leading,
+                    title: Text(
+                      goal.title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: goal.status == GoalStatus.achieved
+                          ? const TextStyle(decoration: TextDecoration.lineThrough)
+                          : null,
+                    ),
+                    subtitle: goal.description != null && goal.description!.isNotEmpty
+                        ? Text(goal.description!, maxLines: 2, overflow: TextOverflow.ellipsis)
+                        : null,
+                    secondary: IconButton(
+                      icon: const Icon(Icons.delete_outline),
+                      onPressed: () => _deleteGoal(goal),
+                    ),
+                  ),
+              ],
+            );
+          },
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTasksSection(AsyncValue<List<PlanningTask>> tasksAsync) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text('Tasks', style: Theme.of(context).textTheme.titleMedium),
+            IconButton(icon: const Icon(Icons.add), onPressed: () => _addOrEditTask()),
+          ],
+        ),
+        tasksAsync.when(
+          loading: () => const Padding(
+            padding: EdgeInsets.symmetric(vertical: 12),
+            child: Center(child: CircularProgressIndicator()),
+          ),
+          error: (error, stack) => const Text('Failed to load tasks'),
+          data: (tasks) => ReorderableTaskList(
+            tasks: tasks,
+            onToggle: _toggleTask,
+            onEdit: (task) => _addOrEditTask(existing: task),
+            onDelete: _deleteTask,
+            onReorder: _reorderTasks,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _addGoal() async {
+    final formKey = GlobalKey<FormState>();
+    final titleController = TextEditingController();
+    final descriptionController = TextEditingController();
+
+    final saved = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('New Goal'),
+        content: Form(
+          key: formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextFormField(
+                controller: titleController,
+                decoration: const InputDecoration(labelText: 'Title', border: OutlineInputBorder()),
+                validator: (value) => (value == null || value.trim().isEmpty) ? 'Title is required' : null,
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: descriptionController,
+                maxLines: 2,
+                decoration: const InputDecoration(labelText: 'Description (optional)', border: OutlineInputBorder()),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Cancel')),
+          FilledButton(
+            onPressed: () {
+              if (formKey.currentState?.validate() ?? false) {
+                Navigator.pop(dialogContext, true);
+              }
+            },
+            child: const Text('Create'),
+          ),
+        ],
+      ),
+    );
+
+    if (saved != true) {
+      titleController.dispose();
+      descriptionController.dispose();
+      return;
+    }
+
+    final title = titleController.text.trim();
+    final description = descriptionController.text.trim();
+    titleController.dispose();
+    descriptionController.dispose();
+
+    final repo = ref.read(goalRepositoryProvider);
+    final now = DateTime.now();
+    await repo.create(
+      Goal(
+        id: _uuid.v4(),
+        createdAt: now,
+        updatedAt: now,
+        userId: planningUserId,
+        title: title,
+        description: description.isEmpty ? null : description,
+        scope: GoalScope.daily,
+        status: GoalStatus.notStarted,
+        targetDate: _selectedDate,
+      ),
+    );
+    ref.invalidate(goalsForDateProvider(_selectedDate));
+    ref.invalidate(activeGoalsProvider);
+  }
+
+  Future<void> _toggleGoal(Goal goal, bool completed) async {
+    final repo = ref.read(goalRepositoryProvider);
+    await repo.update(
+      goal.copyWith(
+        status: completed ? GoalStatus.achieved : GoalStatus.notStarted,
+        updatedAt: DateTime.now(),
+      ),
+    );
+    ref.invalidate(goalsForDateProvider(_selectedDate));
+    ref.invalidate(activeGoalsProvider);
+  }
+
+  Future<void> _deleteGoal(Goal goal) async {
+    final repo = ref.read(goalRepositoryProvider);
+    await repo.softDelete(goal.id);
+    ref.invalidate(goalsForDateProvider(_selectedDate));
+    ref.invalidate(activeGoalsProvider);
+  }
+
+  Future<void> _addOrEditTask({PlanningTask? existing}) async {
+    final currentTasks = ref.read(tasksForDateProvider(_selectedDate)).maybeWhen(
+          data: (list) => list,
+          orElse: () => const <PlanningTask>[],
+        );
+    final todaysGoals = ref.read(goalsForDateProvider(_selectedDate)).maybeWhen(
+          data: (list) => list,
+          orElse: () => const <Goal>[],
+        );
+    await showPlanningTaskDialog(
+      context,
+      ref,
+      existing: existing,
+      date: _selectedDate,
+      linkableGoals: todaysGoals,
+      order: currentTasks.length,
+    );
+  }
+
+  Future<void> _toggleTask(PlanningTask task, bool completed) async {
+    final repo = ref.read(planningTaskRepositoryProvider);
+    await repo.update(task.copyWith(isCompleted: completed, updatedAt: DateTime.now()));
+    ref.invalidate(tasksForDateProvider(_selectedDate));
+  }
+
+  Future<void> _deleteTask(PlanningTask task) async {
+    final repo = ref.read(planningTaskRepositoryProvider);
+    await repo.softDelete(task.id);
+    ref.invalidate(tasksForDateProvider(_selectedDate));
+  }
+
+  Future<void> _reorderTasks(List<PlanningTask> reordered) async {
+    final repo = ref.read(planningTaskRepositoryProvider);
+    final updated = [
+      for (var i = 0; i < reordered.length; i++) reordered[i].copyWith(order: i, updatedAt: DateTime.now()),
+    ];
+    await repo.updateBulk(updated);
+    ref.invalidate(tasksForDateProvider(_selectedDate));
+  }
+}

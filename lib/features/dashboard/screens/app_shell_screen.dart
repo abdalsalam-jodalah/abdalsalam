@@ -13,6 +13,7 @@ import '../../habits/screens/habits_screen.dart';
 import '../../health/screens/health_screen.dart';
 import '../../health/screens/medication_list_screen.dart';
 import '../../notes/screens/notes_screen.dart';
+import '../../planning/screens/day_planning_screen.dart';
 import '../../planning/screens/goals_screen.dart';
 import '../../planning/screens/planning_home_screen.dart';
 import '../../religious/screens/religious_screen.dart';
@@ -50,7 +51,8 @@ class _AppShellScreenState extends ConsumerState<AppShellScreen> {
     _ShellDestination('religious', 'Religious', Icons.mosque_outlined, ReligiousScreen()),
     _ShellDestination('financial', 'Financial', Icons.account_balance_wallet_outlined, FinancialScreen()),
     _ShellDestination('habits', 'Habits', Icons.repeat_rounded, HabitsScreen()),
-    _ShellDestination('planning', 'Planning', Icons.flag_outlined, PlanningHomeScreen()),
+    _ShellDestination('planning', 'Life Planning', Icons.flag_outlined, PlanningHomeScreen()),
+    _ShellDestination('day-planning', 'Day Planning', Icons.today_outlined, DayPlanningScreen()),
     _ShellDestination('sports', 'Sports', Icons.fitness_center, SportsScreen()),
     _ShellDestination('health', 'Health', Icons.health_and_safety_outlined, HealthScreen()),
     _ShellDestination('medications', 'Medications', Icons.medication_outlined, MedicationListScreen()),

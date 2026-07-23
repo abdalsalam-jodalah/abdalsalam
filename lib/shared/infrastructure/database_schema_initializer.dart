@@ -36,6 +36,8 @@ class DatabaseSchemaInitializer {
     'life_goals',
     'life_achievements',
     'life_reviews',
+    'life_plan_topics',
+    'life_planning_tasks',
     'sync_queue',
   ];
 

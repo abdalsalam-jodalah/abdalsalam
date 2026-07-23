@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'achievements_screen.dart';
 import 'goals_screen.dart';
 import 'life_plan_screen.dart';
+import 'life_planning_topics_screen.dart';
 import 'reviews_screen.dart';
 
 class PlanningHomeScreen extends StatelessWidget {
@@ -13,10 +14,17 @@ class PlanningHomeScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Life & Day Planning')),
+      appBar: AppBar(title: const Text('Life Planning')),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
+          _PlanningTile(
+            icon: Icons.account_tree_outlined,
+            title: 'Topics',
+            subtitle: 'Topics, sub-topics, goals & tasks',
+            onTap: () => Navigator.of(context).pushNamed(LifePlanningTopicsScreen.routeName),
+          ),
+          const Divider(height: 32),
           _PlanningTile(
             icon: Icons.auto_awesome_outlined,
             title: 'Life Plan',
