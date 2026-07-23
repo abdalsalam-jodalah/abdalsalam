@@ -3,11 +3,15 @@ import 'package:flutter/material.dart';
 class NoteCard extends StatelessWidget {
   final String title;
   final String preview;
+  final VoidCallback? onTap;
+  final Widget? trailing;
 
   const NoteCard({
     super.key,
     required this.title,
     required this.preview,
+    this.onTap,
+    this.trailing,
   });
 
   @override
@@ -15,8 +19,10 @@ class NoteCard extends StatelessWidget {
     return Card(
       child: ListTile(
         leading: const Icon(Icons.sticky_note_2_outlined),
-        title: Text(title),
-        subtitle: Text(preview, maxLines: 2, overflow: TextOverflow.ellipsis),
+        title: Text(title, maxLines: 1, overflow: TextOverflow.ellipsis),
+        subtitle: preview.isEmpty ? null : Text(preview, maxLines: 2, overflow: TextOverflow.ellipsis),
+        trailing: trailing,
+        onTap: onTap,
       ),
     );
   }
@@ -26,12 +32,14 @@ class TodoItem extends StatelessWidget {
   final String title;
   final bool completed;
   final ValueChanged<bool?>? onChanged;
+  final Widget? trailing;
 
   const TodoItem({
     super.key,
     required this.title,
     required this.completed,
     this.onChanged,
+    this.trailing,
   });
 
   @override
@@ -39,7 +47,14 @@ class TodoItem extends StatelessWidget {
     return CheckboxListTile(
       value: completed,
       onChanged: onChanged,
-      title: Text(title),
+      controlAffinity: ListTileControlAffinity.leading,
+      title: Text(
+        title,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: completed ? const TextStyle(decoration: TextDecoration.lineThrough) : null,
+      ),
+      secondary: trailing,
     );
   }
 }
@@ -138,16 +153,5 @@ class _RichTextEditorWidgetState extends State<RichTextEditorWidget> {
         ),
       ],
     );
-  }
-}
-
-class TagChip extends StatelessWidget {
-  final String tag;
-
-  const TagChip({super.key, required this.tag});
-
-  @override
-  Widget build(BuildContext context) {
-    return Chip(label: Text(tag));
   }
 }

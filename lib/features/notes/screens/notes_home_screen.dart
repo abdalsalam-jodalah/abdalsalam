@@ -1,84 +1,111 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../data/models/notes/note.dart';
+import '../providers/notes_providers.dart';
+import '../widgets/note_dialog.dart';
 import '../widgets/notes_widgets.dart';
-import 'note_categories_screen.dart';
-import 'note_editor_screen.dart';
-import 'search_results_screen.dart';
 import 'todo_list_screen.dart';
 
-class NotesHomeScreen extends StatelessWidget {
+enum _NoteMenuAction { edit, delete }
+
+class NotesHomeScreen extends ConsumerWidget {
   static const routeName = '/notes/home';
 
   const NotesHomeScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final notesAsync = ref.watch(activeNotesProvider);
+
     return Scaffold(
-      appBar: AppBar(title: const Text('Notes Home')),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: FilledButton.icon(
-                  onPressed: () => Navigator.of(context).pushNamed(NoteEditorScreen.routeName),
-                  icon: const Icon(Icons.edit_note),
-                  label: const Text('New Note'),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: () => Navigator.of(context).pushNamed(TodoListScreen.routeName),
-                  icon: const Icon(Icons.checklist_outlined),
-                  label: const Text('Todos'),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Wrap(
-            spacing: 8,
-            children: [
-              const TagChip(tag: 'Work'),
-              const TagChip(tag: 'Health'),
-              const TagChip(tag: 'Learning'),
-              ActionChip(
-                label: const Text('Categories'),
-                onPressed: () => Navigator.of(context).pushNamed(NoteCategoriesScreen.routeName),
-              ),
-              ActionChip(
-                label: const Text('Search'),
-                onPressed: () => Navigator.of(context).pushNamed(SearchResultsScreen.routeName),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Text('Pinned Notes', style: Theme.of(context).textTheme.titleMedium),
-          const SizedBox(height: 8),
-          const NoteCard(
-            title: 'Quarter Plan',
-            preview: 'Key goals, milestones, and weekly execution plan.',
-          ),
-          const NoteCard(
-            title: 'Friday Reflection',
-            preview: 'Wins, blockers, and next week focus points.',
-          ),
-          const SizedBox(height: 12),
-          Text('Open Todos', style: Theme.of(context).textTheme.titleMedium),
-          const SizedBox(height: 8),
-          const Card(
-            child: Column(
-              children: [
-                TodoItem(title: 'Review blood test report', completed: false),
-                Divider(height: 1),
-                TodoItem(title: 'Prepare weekly budget summary', completed: false),
-              ],
-            ),
+      appBar: AppBar(
+        title: const Text('Notes'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.checklist_outlined),
+            tooltip: 'Todos',
+            onPressed: () => Navigator.of(context).pushNamed(TodoListScreen.routeName),
           ),
         ],
       ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () => _addNote(context, ref),
+        child: const Icon(Icons.add),
+      ),
+      body: notesAsync.when(
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (error, stack) => const Center(child: Text('Failed to load notes')),
+        data: (notes) {
+          if (notes.isEmpty) {
+            return const Center(child: Text('No notes yet. Tap + to add one.'));
+          }
+          return ReorderableListView.builder(
+            padding: const EdgeInsets.all(16),
+            buildDefaultDragHandles: false,
+            itemCount: notes.length,
+            onReorderItem: (oldIndex, newIndex) => _reorder(ref, notes, oldIndex, newIndex),
+            itemBuilder: (context, index) {
+              final note = notes[index];
+              return ReorderableDelayedDragStartListener(
+                key: ValueKey(note.id),
+                index: index,
+                child: NoteCard(
+                  title: note.title,
+                  preview: note.content,
+                  onTap: () => _editNote(context, ref, note),
+                  trailing: PopupMenuButton<_NoteMenuAction>(
+                    icon: const Icon(Icons.more_vert),
+                    onSelected: (action) {
+                      switch (action) {
+                        case _NoteMenuAction.edit:
+                          _editNote(context, ref, note);
+                        case _NoteMenuAction.delete:
+                          _deleteNote(ref, note);
+                      }
+                    },
+                    itemBuilder: (context) => const [
+                      PopupMenuItem(value: _NoteMenuAction.edit, child: Text('Edit')),
+                      PopupMenuItem(value: _NoteMenuAction.delete, child: Text('Delete')),
+                    ],
+                  ),
+                ),
+              );
+            },
+          );
+        },
+      ),
     );
+  }
+
+  Future<void> _addNote(BuildContext context, WidgetRef ref) async {
+    final currentNotes = ref.read(activeNotesProvider).maybeWhen(
+          data: (list) => list,
+          orElse: () => const <Note>[],
+        );
+    await showNoteDialog(context, ref, order: currentNotes.length);
+  }
+
+  Future<void> _editNote(BuildContext context, WidgetRef ref, Note note) async {
+    await showNoteDialog(context, ref, existing: note);
+  }
+
+  Future<void> _deleteNote(WidgetRef ref, Note note) async {
+    final repo = ref.read(notesRepositoryProvider);
+    await repo.softDelete(note.id);
+    ref.invalidate(activeNotesProvider);
+  }
+
+  Future<void> _reorder(WidgetRef ref, List<Note> notes, int oldIndex, int newIndex) async {
+    final reordered = [...notes];
+    final moved = reordered.removeAt(oldIndex);
+    reordered.insert(newIndex, moved);
+
+    final repo = ref.read(notesRepositoryProvider);
+    final updated = [
+      for (var i = 0; i < reordered.length; i++) reordered[i].copyWith(order: i, updatedAt: DateTime.now()),
+    ];
+    await repo.updateBulk(updated);
+    ref.invalidate(activeNotesProvider);
   }
 }

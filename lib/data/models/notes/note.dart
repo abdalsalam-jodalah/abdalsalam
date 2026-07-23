@@ -10,6 +10,7 @@ class Note extends BaseModel {
   final bool archived;
   final List<String> attachments;
   final String? color;
+  final int order;
 
   const Note({
     required super.id,
@@ -25,6 +26,7 @@ class Note extends BaseModel {
     required this.archived,
     required this.attachments,
     required this.color,
+    this.order = 0,
   });
 
   factory Note.fromJson(Map<String, dynamic> json) => Note(
@@ -41,6 +43,30 @@ class Note extends BaseModel {
         archived: json['archived'] as bool? ?? false,
         attachments: (json['attachments'] as List<dynamic>? ?? const <dynamic>[]).cast<String>(),
         color: json['color'] as String?,
+        order: (json['order'] as num?)?.toInt() ?? 0,
+      );
+
+  Note copyWith({
+    DateTime? updatedAt,
+    String? title,
+    String? content,
+    int? order,
+  }) =>
+      Note(
+        id: id,
+        createdAt: createdAt,
+        updatedAt: updatedAt ?? this.updatedAt,
+        deletedAt: deletedAt,
+        userId: userId,
+        title: title ?? this.title,
+        content: content ?? this.content,
+        tags: tags,
+        categoryId: categoryId,
+        pinned: pinned,
+        archived: archived,
+        attachments: attachments,
+        color: color,
+        order: order ?? this.order,
       );
 
   @override
@@ -58,5 +84,6 @@ class Note extends BaseModel {
         'archived': archived,
         'attachments': attachments,
         'color': color,
+        'order': order,
       };
 }
