@@ -9,8 +9,11 @@ priorties:
     - health 
     - medeication
     - food
-- calender with concation to palning and all thing
+    - sleep
 - habits 
+multiplatform
+
+- calender with concation to palning and all thing
 - securty
 - analytics 
 - settings
@@ -19,14 +22,13 @@ priorties:
 ---------
 backedn
 ---------
-multiplatform
----------
 ai : anlytics, answer qs, make actionfor 
 ---------
 external concetion
 
+DEADLINE 1/10/2026
 
-
+-----------------
 for the planing secation 
 se shoudl have mainly two parts 
 1- days plaining 
@@ -63,3 +65,28 @@ teh idea is to build stomg health modul tthat deif my health history
 - so inthsi page we see sumaries analyis and deahboreds and bars and chcarts 
 we see delatedil logs and history 
 We cna genaret rproert  to shwoe drs teh reult 
+
+
+-----------
+the app shoudl work on as web adn as macos
+not only iphone ios and andoid 
+see what is teh breack ing 
+
+aslo the app shoudl be repcoecisn for lareg scresn eg ipad, mac screen, and teh smal screne eg iphone andn aodidnd permission_handler_windows
+-----------
+the app in any modele whne i rceat any thing i get excepation 
+"Another exception was thrown: A TextEditingController was used after being disposed.
+Another exception was thrown: 'package:flutter/src/widgets/framework.dart': Failed assertion: line
+6268 pos 12: '_dependents.isEmpty': is not true.
+Another exception was thrown: Tried to build dirty widget in the wrong build scope.
+"
+----------
+ the sidebar flotaing buuton that chneg teh side bar doem hidden to teh miodel small state
+  it shoudl eb able to swap
+  now it works by clikung it
+  but whe ni see it alsyes i thing to swap it  or press on it and sldie my finger , do u undertsnd?
+  it shoudl have both clciking and slideing fucnialty to open becosue it cuz abd behacvir for me
+
+  ------ 
+  the side bar when it opes even in smal lmode or in full moode it cuze ui oexcaptuin in any ui opend in any secation sincet eh cocnet ist composed on eac hother 
+  so fix it in cleaver way , spelcaiy in full moode 

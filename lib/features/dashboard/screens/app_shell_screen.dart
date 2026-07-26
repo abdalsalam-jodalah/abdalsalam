@@ -233,12 +233,86 @@ class _AppShellScreenState extends ConsumerState<AppShellScreen> {
     _dragDelta = 0;
   }
 
+  static const double _largeScreenBreakpoint = 900;
+
+  Widget _buildOpenHandle(double minTop, double maxTop) {
+    final handleTop = _openHandleTop.clamp(minTop, maxTop);
+    return Positioned(
+      top: handleTop,
+      left: 0,
+      child: Semantics(
+        button: true,
+        label: 'Open sidebar',
+        child: GestureDetector(
+          onTap: _openIconsOnly,
+          onDoubleTap: _stepOpen,
+          onVerticalDragUpdate: (details) {
+            setState(() {
+              _openHandleTop = (_openHandleTop + details.delta.dy).clamp(minTop, maxTop);
+            });
+          },
+          child: Builder(
+            builder: (context) => Container(
+              width: 20,
+              height: 64,
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                borderRadius: const BorderRadius.horizontal(right: Radius.circular(12)),
+                border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
+              ),
+              child: const Center(
+                child: Icon(Icons.chevron_right_rounded, size: 18),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final selected = _destinations[_index];
     final sidebarWidth = _sidebarWidth;
     final isClosed = _sidebarMode == _SidebarMode.closed;
     final isExpanded = _sidebarMode == _SidebarMode.expanded;
+
+    final content = Semantics(
+      label: '${selected.label} page',
+      child: IndexedStack(
+        index: _index,
+        children: _destinations.map((item) => item.page).toList(growable: false),
+      ),
+    );
+
+    final logWheelScrim = _logWheelOpen
+        ? Positioned.fill(
+            child: GestureDetector(
+              behavior: HitTestBehavior.translucent,
+              onTap: () => setState(() {
+                _logWheelOpen = false;
+                _logWheelIndex = 0;
+                _logWheelTurnCarry = 0;
+              }),
+              child: const SizedBox.expand(),
+            ),
+          )
+        : null;
+
+    final logFab = selected.key == 'dashboard'
+        ? Positioned(
+            right: 16,
+            bottom: 16,
+            child: _QuarterLogFab(
+              isOpen: _logWheelOpen,
+              actions: _logActions,
+              startIndex: _logWheelIndex,
+              onTurnDelta: _turnLogWheel,
+              onToggle: _toggleLogWheel,
+              onActionTap: _openLogRoute,
+            ),
+          )
+        : null;
 
     return Scaffold(
       body: SafeArea(
@@ -251,23 +325,64 @@ class _AppShellScreenState extends ConsumerState<AppShellScreen> {
             builder: (context, constraints) {
               final minTop = 12.0;
               final maxTop = (constraints.maxHeight - 76).clamp(minTop, double.infinity);
-              final handleTop = _openHandleTop.clamp(minTop, maxTop);
+              final isLargeScreen = constraints.maxWidth >= _largeScreenBreakpoint;
 
-              return Stack(
-                children: [
-                  // Content always fills the full body width so its layout
-                  // constraints never change when the sidebar opens/expands —
-                  // that width-push was the source of overflow exceptions in
-                  // child screens when the sidebar toggled.
-                  Positioned.fill(
-                    child: Semantics(
-                      label: '${selected.label} page',
-                      child: IndexedStack(
-                        index: _index,
-                        children: _destinations.map((item) => item.page).toList(growable: false),
+              if (isLargeScreen) {
+                // On large screens (web/macOS/tablet landscape) the sidebar
+                // is part of the layout, like before — it reserves real
+                // space next to the content instead of overlaying it.
+                return Row(
+                  children: [
+                    AnimatedContainer(
+                      duration: const Duration(milliseconds: 150),
+                      curve: Curves.easeOutQuart,
+                      width: sidebarWidth,
+                      decoration: BoxDecoration(
+                        color: sidebarWidth == 0
+                            ? Colors.transparent
+                            : Theme.of(context).colorScheme.surfaceContainerHighest,
+                        border: Border(
+                          right: BorderSide(
+                            color: sidebarWidth == 0
+                                ? Colors.transparent
+                                : Theme.of(context).colorScheme.outlineVariant,
+                          ),
+                        ),
+                      ),
+                      child: sidebarWidth == 0
+                          ? const SizedBox.shrink()
+                          : _Sidebar(
+                              mode: _sidebarMode,
+                              selectedIndex: _index,
+                              destinations: _destinations,
+                              onOpenStep: _stepOpen,
+                              onCloseStep: _stepClose,
+                              onCloseAll: () => _setMode(_SidebarMode.closed),
+                              onSelect: (value) => setState(() => _index = value),
+                              onReorder: _reorderDestinations,
+                            ),
+                    ),
+                    Expanded(
+                      child: Stack(
+                        children: [
+                          Positioned.fill(child: content),
+                          if (isClosed) _buildOpenHandle(minTop, maxTop),
+                          ?logWheelScrim,
+                          ?logFab,
+                        ],
                       ),
                     ),
-                  ),
+                  ],
+                );
+              }
+
+              // On small screens the sidebar overlays the content instead of
+              // pushing it, so child screens always get stable, full-width
+              // layout constraints regardless of sidebar state — that
+              // width-push was the source of overflow exceptions on phones.
+              return Stack(
+                children: [
+                  Positioned.fill(child: content),
                   if (isExpanded)
                     Positioned.fill(
                       child: GestureDetector(
@@ -308,62 +423,9 @@ class _AppShellScreenState extends ConsumerState<AppShellScreen> {
                             ),
                     ),
                   ),
-                  if (isClosed)
-                    Positioned(
-                      top: handleTop,
-                      left: 0,
-                      child: Semantics(
-                        button: true,
-                        label: 'Open sidebar',
-                        child: GestureDetector(
-                          onTap: _openIconsOnly,
-                          onDoubleTap: _stepOpen,
-                          onVerticalDragUpdate: (details) {
-                            setState(() {
-                              _openHandleTop =
-                                  (_openHandleTop + details.delta.dy).clamp(minTop, maxTop);
-                            });
-                          },
-                          child: Container(
-                            width: 20,
-                            height: 64,
-                            decoration: BoxDecoration(
-                              color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                              borderRadius: const BorderRadius.horizontal(right: Radius.circular(12)),
-                              border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
-                            ),
-                            child: const Center(
-                              child: Icon(Icons.chevron_right_rounded, size: 18),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  if (_logWheelOpen)
-                    Positioned.fill(
-                      child: GestureDetector(
-                        behavior: HitTestBehavior.translucent,
-                        onTap: () => setState(() {
-                          _logWheelOpen = false;
-                          _logWheelIndex = 0;
-                          _logWheelTurnCarry = 0;
-                        }),
-                        child: const SizedBox.expand(),
-                      ),
-                    ),
-                  if (selected.key == 'dashboard')
-                    Positioned(
-                      right: 16,
-                      bottom: 16,
-                      child: _QuarterLogFab(
-                        isOpen: _logWheelOpen,
-                        actions: _logActions,
-                        startIndex: _logWheelIndex,
-                        onTurnDelta: _turnLogWheel,
-                        onToggle: _toggleLogWheel,
-                        onActionTap: _openLogRoute,
-                      ),
-                    ),
+                  if (isClosed) _buildOpenHandle(minTop, maxTop),
+                  ?logWheelScrim,
+                  ?logFab,
                 ],
               );
             },

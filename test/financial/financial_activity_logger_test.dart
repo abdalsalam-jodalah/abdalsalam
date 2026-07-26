@@ -86,7 +86,7 @@ void main() {
         type: AccountType.cash,
         currency: 'ILS',
         initialBalance: 0,
-        iconCodePoint: 0xe000,
+        iconKey: 'account_balance_wallet',
         colorValue: 0xFF0000FF,
         createdAt: now,
         updatedAt: now,

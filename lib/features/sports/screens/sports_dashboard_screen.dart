@@ -383,10 +383,8 @@ class _SportsDashboardScreenState extends ConsumerState<SportsDashboardScreen> {
     final sortedHistory = [...history]..sort((a, b) => b.date.compareTo(a.date));
     double? lastHeight;
     for (final entry in sortedHistory) {
-      if (entry.heightCm != null) {
-        lastHeight = entry.heightCm;
-        break;
-      }
+      lastHeight = entry.heightCm;
+      break;
     }
 
     final heightController = TextEditingController(text: lastHeight?.toString() ?? '');

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../base_model.dart';
+import 'financial_icon_palette.dart';
 
 enum CategoryType { income, expense }
 
@@ -44,8 +45,7 @@ class CategoryModel extends BaseModel {
         'userId': userId,
         'name': name,
         'type': type.name,
-        'iconCodePoint': icon.codePoint,
-        'iconFontFamily': icon.fontFamily,
+        'iconKey': financialIconKeyFor(icon),
         'colorValue': color.toARGB32(),
         'parentCategoryId': parentCategoryId,
         'createdAt': createdAt.toIso8601String(),
@@ -59,10 +59,12 @@ class CategoryModel extends BaseModel {
       userId: json['userId'] as String,
       name: json['name'] as String,
       type: CategoryType.values.byName(json['type'] as String),
-      icon: IconData(
-        json['iconCodePoint'] as int,
-        fontFamily: json['iconFontFamily'] as String?,
-      ),
+      icon: json['iconKey'] != null
+          ? financialIconForKey(json['iconKey'] as String)
+          : financialIconForLegacyCodePoint(
+              json['iconCodePoint'] as int?,
+              json['iconFontFamily'] as String?,
+            ),
       color: Color(json['colorValue'] as int),
       parentCategoryId: json['parentCategoryId'] as String?,
       createdAt: DateTime.parse(json['createdAt'] as String),

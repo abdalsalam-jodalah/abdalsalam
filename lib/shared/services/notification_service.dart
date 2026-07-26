@@ -116,6 +116,7 @@ class NotificationService {
     final settings = InitializationSettings(
       android: androidInit,
       iOS: iosInit,
+      macOS: iosInit,
     );
     await plugin.initialize(
       settings,

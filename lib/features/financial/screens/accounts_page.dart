@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 import '../../../data/models/financial/account_model.dart';
+import '../../../data/models/financial/financial_icon_palette.dart';
 import '../providers/financial_providers.dart';
 
 class AccountsPage extends ConsumerStatefulWidget {
@@ -180,9 +181,7 @@ class _AccountsPageState extends ConsumerState<AccountsPage> {
     );
     AccountType selectedType = account?.type ?? AccountType.cash;
     String selectedCurrency = account?.currency ?? _currencyOptions.first;
-    IconData selectedIcon = account != null
-        ? IconData(account.iconCodePoint, fontFamily: account.iconFontFamily)
-        : _iconOptions.first;
+    IconData selectedIcon = account != null ? account.icon : _iconOptions.first;
     Color selectedColor = account != null ? Color(account.colorValue) : _colorOptions.first;
 
     final saved = await showDialog<bool>(
@@ -319,8 +318,7 @@ class _AccountsPageState extends ConsumerState<AccountsPage> {
           type: selectedType,
           currency: selectedCurrency,
           initialBalance: initialBalance,
-          iconCodePoint: selectedIcon.codePoint,
-          iconFontFamily: selectedIcon.fontFamily,
+          iconKey: financialIconKeyFor(selectedIcon),
           colorValue: selectedColor.toARGB32(),
           createdAt: now,
           updatedAt: now,
@@ -335,8 +333,7 @@ class _AccountsPageState extends ConsumerState<AccountsPage> {
           type: selectedType,
           currency: selectedCurrency,
           initialBalance: initialBalance,
-          iconCodePoint: selectedIcon.codePoint,
-          iconFontFamily: selectedIcon.fontFamily,
+          iconKey: financialIconKeyFor(selectedIcon),
           colorValue: selectedColor.toARGB32(),
           updatedAt: now,
         ),

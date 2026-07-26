@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../base_model.dart';
+import 'financial_icon_palette.dart';
 
 enum AccountType { cash, bank, card, savings }
 
@@ -9,8 +10,7 @@ class AccountModel extends BaseModel {
   final AccountType type;
   final String currency;
   final double initialBalance;
-  final int iconCodePoint;
-  final String? iconFontFamily;
+  final String iconKey;
   final int colorValue;
   @override
   final bool isActive;
@@ -22,8 +22,7 @@ class AccountModel extends BaseModel {
     required this.type,
     required this.currency,
     required this.initialBalance,
-    required this.iconCodePoint,
-    this.iconFontFamily,
+    required this.iconKey,
     required this.colorValue,
     this.isActive = true,
     required super.createdAt,
@@ -31,7 +30,7 @@ class AccountModel extends BaseModel {
     super.deletedAt,
   });
 
-  IconData get icon => IconData(iconCodePoint, fontFamily: iconFontFamily);
+  IconData get icon => financialIconForKey(iconKey);
   Color get color => Color(colorValue);
 
   @override
@@ -42,8 +41,7 @@ class AccountModel extends BaseModel {
         'type': type.name,
         'currency': currency,
         'initialBalance': initialBalance,
-        'iconCodePoint': iconCodePoint,
-        'iconFontFamily': iconFontFamily,
+        'iconKey': iconKey,
         'colorValue': colorValue,
         'isActive': isActive,
         'createdAt': createdAt.toIso8601String(),
@@ -59,8 +57,13 @@ class AccountModel extends BaseModel {
       type: AccountType.values.byName(json['type'] as String),
       currency: json['currency'] as String,
       initialBalance: (json['initialBalance'] as num).toDouble(),
-      iconCodePoint: json['iconCodePoint'] as int,
-      iconFontFamily: json['iconFontFamily'] as String?,
+      iconKey: json['iconKey'] as String? ??
+          financialIconKeyFor(
+            financialIconForLegacyCodePoint(
+              json['iconCodePoint'] as int?,
+              json['iconFontFamily'] as String?,
+            ),
+          ),
       colorValue: json['colorValue'] as int,
       isActive: json['isActive'] as bool? ?? true,
       createdAt: DateTime.parse(json['createdAt'] as String),
@@ -78,8 +81,7 @@ class AccountModel extends BaseModel {
     AccountType? type,
     String? currency,
     double? initialBalance,
-    int? iconCodePoint,
-    String? iconFontFamily,
+    String? iconKey,
     int? colorValue,
     bool? isActive,
     DateTime? createdAt,
@@ -93,8 +95,7 @@ class AccountModel extends BaseModel {
       type: type ?? this.type,
       currency: currency ?? this.currency,
       initialBalance: initialBalance ?? this.initialBalance,
-      iconCodePoint: iconCodePoint ?? this.iconCodePoint,
-      iconFontFamily: iconFontFamily ?? this.iconFontFamily,
+      iconKey: iconKey ?? this.iconKey,
       colorValue: colorValue ?? this.colorValue,
       isActive: isActive ?? this.isActive,
       createdAt: createdAt ?? this.createdAt,
@@ -111,8 +112,7 @@ class AccountModel extends BaseModel {
         type,
         currency,
         initialBalance,
-        iconCodePoint,
-        iconFontFamily,
+        iconKey,
         colorValue,
         isActive,
         createdAt,

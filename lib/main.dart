@@ -1,9 +1,12 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:abdalsalam_logic_flutter/abdalsalam_logic_flutter.dart' as logic;
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:sqflite/sqflite.dart' show databaseFactory;
+import 'package:sqflite_common_ffi_web/sqflite_ffi_web.dart';
 
 import 'app.dart';
 import 'data/repositories/health/health_repository.dart';
@@ -62,6 +65,9 @@ class _BootstrapAppState extends State<_BootstrapApp> {
   }
 
   Future<_BootstrapResult> _bootstrap() async {
+    if (kIsWeb) {
+      databaseFactory = databaseFactoryFfiWeb;
+    }
     await LoggerService.initialize();
 
     final appStateManager = logic.AppStateManagerImpl.create(
