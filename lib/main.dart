@@ -78,7 +78,8 @@ class _BootstrapAppState extends State<_BootstrapApp> {
     await StorageGateway.instance.initialize();
     await DatabaseSchemaInitializer.initialize(StorageGateway.instance);
 
-    final settings = await SettingsService(StorageGateway.instance).getSettings();
+    final settingsService = SettingsService(StorageGateway.instance);
+    final settings = await settingsService.getSettings();
     final initialSidebarOrder = (settings['sidebarOrder'] as List?)?.cast<String>();
 
     final notificationService = NotificationService(
@@ -89,6 +90,7 @@ class _BootstrapAppState extends State<_BootstrapApp> {
       storage: StorageGateway.instance,
       logger: LoggerService.forModule('ReminderService', moduleType: logic.ModuleType.service),
       notifications: notificationService,
+      settings: settingsService,
     );
     await notificationService.initialize(
       onNotificationTap: reminderService.handleNotificationResponse,

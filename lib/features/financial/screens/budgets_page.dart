@@ -5,6 +5,7 @@ import 'package:uuid/uuid.dart';
 import '../../../data/models/financial/budget_model.dart';
 import '../../../data/models/financial/category_model.dart';
 import '../providers/financial_providers.dart';
+import '../../../providers/app_providers.dart';
 
 class BudgetsPage extends ConsumerStatefulWidget {
   static const routeName = '/financial/budgets';
@@ -21,7 +22,6 @@ class BudgetsPage extends ConsumerStatefulWidget {
 
 class _BudgetsPageState extends ConsumerState<BudgetsPage> {
   static const _defaultUserId = 'user1';
-  static const _defaultAlertThreshold = 80.0;
 
   BudgetPeriod _selectedPeriod = BudgetPeriod.monthly;
   final _uuid = const Uuid();
@@ -403,6 +403,10 @@ class _BudgetsPageState extends ConsumerState<BudgetsPage> {
   }
 
   Future<void> _showBudgetDialog({BudgetModel? budget}) async {
+    final settings = await ref.read(settingsServiceProvider).getSettings();
+    if (!mounted) return;
+    final defaultAlertThreshold =
+        (settings['financialDefaultBudgetAlertThreshold'] as num?)?.toDouble() ?? 80.0;
     final categoriesAsync = ref.read(allCategoriesProvider);
     final categories = categoriesAsync.maybeWhen(
       data: (list) => list,
@@ -568,7 +572,7 @@ class _BudgetsPageState extends ConsumerState<BudgetsPage> {
           period: selectedPeriod,
           startDate: range.start,
           endDate: range.end,
-          alertThreshold: _defaultAlertThreshold,
+          alertThreshold: defaultAlertThreshold,
           createdAt: now,
           updatedAt: now,
         ),

@@ -12,6 +12,17 @@ import 'providers/app_providers.dart';
 import 'shared/services/reminder_service.dart';
 import 'shared/widgets/dev_tools_overlay.dart';
 
+ThemeMode _themeModeFromSetting(String? value) {
+  switch (value) {
+    case 'light':
+      return ThemeMode.light;
+    case 'dark':
+      return ThemeMode.dark;
+    default:
+      return ThemeMode.system;
+  }
+}
+
 class AbdalsalamApp extends ConsumerStatefulWidget {
   const AbdalsalamApp({super.key});
 
@@ -47,13 +58,19 @@ class _AbdalsalamAppState extends ConsumerState<AbdalsalamApp> {
 
   @override
   Widget build(BuildContext context) {
+    final appSettings = ref.watch(appSettingsProvider);
+    final themeMode = appSettings.maybeWhen(
+      data: (settings) => _themeModeFromSetting(settings['themeMode'] as String?),
+      orElse: () => ThemeMode.system,
+    );
+
     return MaterialApp(
       title: 'Abdalsalam',
       debugShowCheckedModeBanner: false,
       navigatorKey: _navigatorKey,
       theme: AppTheme.lightTheme,
       darkTheme: AppTheme.darkTheme,
-      themeMode: ThemeMode.system,
+      themeMode: themeMode,
       onGenerateRoute: AppRouter.onGenerateRoute,
       home: kDebugMode
           ? DevToolsOverlay(child: const AppShellScreen())

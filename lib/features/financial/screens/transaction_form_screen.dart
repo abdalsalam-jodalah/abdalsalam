@@ -8,6 +8,7 @@ import '../../../data/models/financial/recurrence_pattern.dart';
 import '../services/currency_service.dart';
 import '../services/recurring_transaction_generator.dart';
 import '../providers/financial_providers.dart';
+import '../../../providers/app_providers.dart';
 
 class TransactionFormScreen extends ConsumerStatefulWidget {
   static const routeName = '/financial/transaction-form';
@@ -70,6 +71,17 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
       } catch (e) {
         _selectedCurrency = Currency.ils;
       }
+    } else {
+      _loadDefaultCurrency();
+    }
+  }
+
+  Future<void> _loadDefaultCurrency() async {
+    final settings = await ref.read(settingsServiceProvider).getSettings();
+    final defaultCode = settings['currency'] as String?;
+    final match = Currency.values.where((c) => c.code == defaultCode);
+    if (match.isNotEmpty && mounted) {
+      setState(() => _selectedCurrency = match.first);
     }
   }
 

@@ -199,10 +199,12 @@ class ReligiousTrackerService extends BaseServiceImpl<ReligiousEntry> {
   ) async {
     final lat = (settings['prayerLocationLatitude'] as num?)?.toDouble() ?? 32.2211;
     final long = (settings['prayerLocationLongitude'] as num?)?.toDouble() ?? 35.2544;
+    final method = (settings['prayerMethod'] as String?) ?? 'muslim_world_league';
     final times = await _prayerTimeService.calculatePrayerTimes(
       date: date,
       latitude: lat,
       longitude: long,
+      method: method,
     );
     return times.map((key, value) => MapEntry(key, DateTime.parse(value)));
   }
@@ -221,10 +223,12 @@ class ReligiousTrackerService extends BaseServiceImpl<ReligiousEntry> {
         final settings = await _settings.getSettings();
         final lat = latitude ?? (settings['prayerLocationLatitude'] as num?)?.toDouble() ?? 32.2211;
         final long = longitude ?? (settings['prayerLocationLongitude'] as num?)?.toDouble() ?? 35.2544;
+        final method = (settings['prayerMethod'] as String?) ?? 'muslim_world_league';
         final times = await _prayerTimeService.calculatePrayerTimes(
           date: targetDate,
           latitude: lat,
           longitude: long,
+          method: method,
         );
         return Success(times.map((key, value) => MapEntry(key, DateTime.parse(value))));
       }

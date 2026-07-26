@@ -8,6 +8,7 @@ import 'package:abdalsalam/shared/infrastructure/logger_service.dart';
 import 'package:abdalsalam/shared/infrastructure/storage_gateway.dart';
 import 'package:abdalsalam/shared/services/notification_service.dart';
 import 'package:abdalsalam/shared/services/reminder_service.dart';
+import 'package:abdalsalam/shared/services/settings_service.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -78,6 +79,7 @@ void main() {
         storage: StorageGateway.instance,
         logger: logger,
         notifications: notifications,
+        settings: SettingsService(StorageGateway.instance),
       );
       service = HabitsService(repository, logger, reminders: reminders);
     });

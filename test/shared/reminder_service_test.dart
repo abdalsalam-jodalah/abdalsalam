@@ -2,6 +2,7 @@ import 'package:abdalsalam/shared/infrastructure/logger_service.dart';
 import 'package:abdalsalam/shared/infrastructure/storage_gateway.dart';
 import 'package:abdalsalam/shared/services/notification_service.dart';
 import 'package:abdalsalam/shared/services/reminder_service.dart';
+import 'package:abdalsalam/shared/services/settings_service.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -14,6 +15,8 @@ class _FakeNotificationService extends NotificationService {
 
   _FakeNotificationService({required super.plugin, required super.logger});
 
+  final List<bool> quietFlags = [];
+
   @override
   Future<void> zonedSchedule({
     required int id,
@@ -24,9 +27,11 @@ class _FakeNotificationService extends NotificationService {
     String? payload,
     bool recurringDaily = false,
     bool withMarkTakenAction = false,
+    bool quiet = false,
   }) async {
     scheduledIds.add(id);
     scheduledTimes.add(scheduledAt);
+    quietFlags.add(quiet);
   }
 
   @override
@@ -37,8 +42,10 @@ class _FakeNotificationService extends NotificationService {
     required NotificationChannelType channel,
     String? payload,
     bool withMarkTakenAction = false,
+    bool quiet = false,
   }) async {
     shownNowIds.add(id);
+    quietFlags.add(quiet);
   }
 
   @override
@@ -83,6 +90,7 @@ void main() {
         storage: StorageGateway.instance,
         logger: logger,
         notifications: notifications,
+        settings: SettingsService(StorageGateway.instance),
       );
     });
 
@@ -161,6 +169,21 @@ void main() {
       expect(stored.first.targetId, 'future');
       expect(notifications.scheduledIds, [future.notificationId]);
       expect(notifications.shownNowIds, isEmpty);
+    });
+
+    test('should deliver quietly by default (respectDoNotDisturb defaults true)', () async {
+      await service.schedule(buildPayload());
+
+      expect(notifications.quietFlags, [true]);
+    });
+
+    test('should deliver actively when respectDoNotDisturb is disabled', () async {
+      final settingsService = SettingsService(StorageGateway.instance);
+      await settingsService.updateSetting('respectDoNotDisturb', false);
+
+      await service.schedule(buildPayload());
+
+      expect(notifications.quietFlags, [false]);
     });
 
     test('should route notification payload json to tap stream', () async {

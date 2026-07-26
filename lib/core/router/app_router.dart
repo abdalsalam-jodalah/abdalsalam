@@ -72,9 +72,23 @@ import '../../features/sports/screens/exercise_library_screen.dart';
 import '../../features/sports/screens/sports_dashboard_screen.dart';
 import '../../features/sports/screens/sports_screen.dart';
 import '../../features/sports/screens/weekly_schedule_screen.dart';
-import '../../features/settings/screens/settings_screen.dart';
 import '../../features/settings/screens/backup_screen.dart';
+import '../../features/settings/screens/calendar_settings_screen.dart';
+import '../../features/settings/screens/dashboard_settings_screen.dart';
+import '../../features/settings/screens/financial_settings_screen.dart';
+import '../../features/settings/screens/food_settings_screen.dart';
+import '../../features/settings/screens/general_settings_screen.dart';
+import '../../features/settings/screens/habits_settings_screen.dart';
+import '../../features/settings/screens/health_settings_screen.dart';
+import '../../features/settings/screens/medications_settings_screen.dart';
+import '../../features/settings/screens/notes_settings_screen.dart';
+import '../../features/settings/screens/planning_settings_screen.dart';
+import '../../features/settings/screens/religious_settings_screen.dart';
 import '../../features/settings/screens/restore_screen.dart';
+import '../../features/settings/screens/security_settings_screen.dart';
+import '../../features/settings/screens/settings_hub_screen.dart';
+import '../../features/settings/screens/sleep_settings_screen.dart';
+import '../../features/settings/screens/sports_settings_screen.dart';
 import '../../shared/widgets/log_viewer_screen.dart';
 import '../../shared/widgets/database_viewer_screen.dart';
 
@@ -438,9 +452,79 @@ class AppRouter {
           builder: (_) => const AnalyticsScreen(),
           settings: settings,
         );
-      case SettingsScreen.routeName:
+      case SettingsHubScreen.routeName:
         return MaterialPageRoute<void>(
-          builder: (_) => const SettingsScreen(),
+          builder: (_) => const SettingsHubScreen(),
+          settings: settings,
+        );
+      case GeneralSettingsScreen.routeName:
+        return MaterialPageRoute<void>(
+          builder: (_) => const GeneralSettingsScreen(),
+          settings: settings,
+        );
+      case ReligiousSettingsScreen.routeName:
+        return MaterialPageRoute<void>(
+          builder: (_) => const ReligiousSettingsScreen(),
+          settings: settings,
+        );
+      case FinancialSettingsScreen.routeName:
+        return MaterialPageRoute<void>(
+          builder: (_) => const FinancialSettingsScreen(),
+          settings: settings,
+        );
+      case HabitsSettingsScreen.routeName:
+        return MaterialPageRoute<void>(
+          builder: (_) => const HabitsSettingsScreen(),
+          settings: settings,
+        );
+      case PlanningSettingsScreen.routeName:
+        return MaterialPageRoute<void>(
+          builder: (_) => const PlanningSettingsScreen(),
+          settings: settings,
+        );
+      case SportsSettingsScreen.routeName:
+        return MaterialPageRoute<void>(
+          builder: (_) => const SportsSettingsScreen(),
+          settings: settings,
+        );
+      case HealthSettingsScreen.routeName:
+        return MaterialPageRoute<void>(
+          builder: (_) => const HealthSettingsScreen(),
+          settings: settings,
+        );
+      case MedicationsSettingsScreen.routeName:
+        return MaterialPageRoute<void>(
+          builder: (_) => const MedicationsSettingsScreen(),
+          settings: settings,
+        );
+      case SleepSettingsScreen.routeName:
+        return MaterialPageRoute<void>(
+          builder: (_) => const SleepSettingsScreen(),
+          settings: settings,
+        );
+      case FoodSettingsScreen.routeName:
+        return MaterialPageRoute<void>(
+          builder: (_) => const FoodSettingsScreen(),
+          settings: settings,
+        );
+      case NotesSettingsScreen.routeName:
+        return MaterialPageRoute<void>(
+          builder: (_) => const NotesSettingsScreen(),
+          settings: settings,
+        );
+      case CalendarSettingsScreen.routeName:
+        return MaterialPageRoute<void>(
+          builder: (_) => const CalendarSettingsScreen(),
+          settings: settings,
+        );
+      case SecuritySettingsScreen.routeName:
+        return MaterialPageRoute<void>(
+          builder: (_) => const SecuritySettingsScreen(),
+          settings: settings,
+        );
+      case DashboardSettingsScreen.routeName:
+        return MaterialPageRoute<void>(
+          builder: (_) => const DashboardSettingsScreen(),
           settings: settings,
         );
       case BackupScreen.routeName:

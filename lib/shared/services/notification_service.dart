@@ -154,7 +154,11 @@ class NotificationService {
     );
   }
 
-  NotificationDetails _detailsFor(NotificationChannelType channel, {bool withMarkTakenAction = false}) {
+  NotificationDetails _detailsFor(
+    NotificationChannelType channel, {
+    bool withMarkTakenAction = false,
+    bool quiet = false,
+  }) {
     final selectedChannel = channels[channel]!;
     return NotificationDetails(
       android: AndroidNotificationDetails(
@@ -162,13 +166,15 @@ class NotificationService {
         selectedChannel.name,
         channelDescription: selectedChannel.description,
         importance: selectedChannel.importance,
-        priority: Priority.high,
+        priority: quiet ? Priority.low : Priority.high,
         actions: withMarkTakenAction
             ? const [AndroidNotificationAction(markTakenActionId, 'Mark as taken')]
             : null,
       ),
       iOS: DarwinNotificationDetails(
         categoryIdentifier: withMarkTakenAction ? _medicationCategoryId : null,
+        interruptionLevel:
+            quiet ? InterruptionLevel.passive : InterruptionLevel.active,
       ),
     );
   }
@@ -180,12 +186,13 @@ class NotificationService {
     required NotificationChannelType channel,
     String? payload,
     bool withMarkTakenAction = false,
+    bool quiet = false,
   }) async {
     await plugin.show(
       id,
       title,
       body,
-      _detailsFor(channel, withMarkTakenAction: withMarkTakenAction),
+      _detailsFor(channel, withMarkTakenAction: withMarkTakenAction, quiet: quiet),
       payload: payload,
     );
   }
@@ -199,13 +206,14 @@ class NotificationService {
     String? payload,
     bool recurringDaily = false,
     bool withMarkTakenAction = false,
+    bool quiet = false,
   }) async {
     await plugin.zonedSchedule(
       id,
       title,
       body,
       tz.TZDateTime.from(scheduledAt, tz.local),
-      _detailsFor(channel, withMarkTakenAction: withMarkTakenAction),
+      _detailsFor(channel, withMarkTakenAction: withMarkTakenAction, quiet: quiet),
       androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
       uiLocalNotificationDateInterpretation:
           UILocalNotificationDateInterpretation.absoluteTime,

@@ -20,7 +20,7 @@ import '../../planning/screens/goals_screen.dart';
 import '../../planning/screens/planning_home_screen.dart';
 import '../../religious/screens/religious_screen.dart';
 import '../../security/screens/security_screen.dart';
-import '../../settings/screens/settings_screen.dart';
+import '../../settings/screens/settings_hub_screen.dart';
 import '../../sports/screens/sports_screen.dart';
 
 class AppShellScreen extends ConsumerStatefulWidget {
@@ -64,7 +64,7 @@ class _AppShellScreenState extends ConsumerState<AppShellScreen> {
     _ShellDestination('calendar', 'Calendar', Icons.calendar_month_outlined, CalendarScreen()),
     _ShellDestination('security', 'Security', Icons.lock_outline, SecurityScreen()),
     _ShellDestination('analytics', 'Analytics', Icons.insights_outlined, AnalyticsScreen()),
-    _ShellDestination('settings', 'Settings', Icons.settings_outlined, SettingsScreen()),
+    _ShellDestination('settings', 'Settings', Icons.settings_outlined, SettingsHubScreen()),
   ];
 
   static const _logActions = <_LogAction>[

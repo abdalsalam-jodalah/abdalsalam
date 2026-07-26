@@ -4,6 +4,7 @@ import 'dart:convert';
 import '../infrastructure/logger_service.dart';
 import '../infrastructure/storage_gateway.dart';
 import 'notification_service.dart';
+import 'settings_service.dart';
 
 enum ReminderModule {
   religious,
@@ -66,11 +67,11 @@ class ReminderPayload {
 class ReminderService {
   static const _storageKey = 'scheduled_reminders';
   static const _settingsKey = 'reminder_settings';
-  static const _preferencesKey = 'reminder_preferences';
 
   final StorageGateway storage;
   final LoggerService logger;
   final NotificationService notifications;
+  final SettingsService settings;
   final StreamController<ReminderPayload> _tapController =
       StreamController<ReminderPayload>.broadcast();
   final StreamController<ReminderPayload> _markTakenController =
@@ -80,6 +81,7 @@ class ReminderService {
     required this.storage,
     required this.logger,
     required this.notifications,
+    required this.settings,
   });
 
   Stream<ReminderPayload> get tapStream => _tapController.stream;
@@ -109,6 +111,7 @@ class ReminderService {
     final channel = NotificationChannelType.values.byName(payload.module.name);
     final encodedPayload = jsonEncode(payload.toJson());
     final withMarkTakenAction = payload.module == ReminderModule.health && payload.metadata?['time'] != null;
+    final quiet = await shouldDeliverQuietly();
     if (payload.scheduledAt.isAfter(DateTime.now())) {
       await notifications.zonedSchedule(
         id: payload.notificationId,
@@ -119,6 +122,7 @@ class ReminderService {
         payload: encodedPayload,
         recurringDaily: payload.recurringDaily,
         withMarkTakenAction: withMarkTakenAction,
+        quiet: quiet,
       );
     } else {
       await notifications.showNow(
@@ -128,6 +132,7 @@ class ReminderService {
         channel: channel,
         payload: encodedPayload,
         withMarkTakenAction: withMarkTakenAction,
+        quiet: quiet,
       );
     }
   }
@@ -361,36 +366,9 @@ class ReminderService {
     return defaults;
   }
 
-  Future<void> setNotificationSound(String sound) async {
-    final preferences = await getPreferences();
-    preferences['sound'] = sound;
-    await storage.save(key: _preferencesKey, value: preferences);
-  }
-
-  Future<void> setNotificationPriority(String priority) async {
-    final preferences = await getPreferences();
-    preferences['priority'] = priority;
-    await storage.save(key: _preferencesKey, value: preferences);
-  }
-
-  Future<void> setRespectDoNotDisturb(bool enabled) async {
-    final preferences = await getPreferences();
-    preferences['respectDoNotDisturb'] = enabled;
-    await storage.save(key: _preferencesKey, value: preferences);
-  }
-
-  Future<Map<String, dynamic>> getPreferences() async {
-    return await storage.get<Map<String, dynamic>>(_preferencesKey) ??
-        <String, dynamic>{
-          'sound': 'default',
-          'priority': 'default',
-          'respectDoNotDisturb': true,
-        };
-  }
-
-  Future<bool> shouldDeliverNotification() async {
-    final prefs = await getPreferences();
-    return (prefs['respectDoNotDisturb'] as bool? ?? true);
+  Future<bool> shouldDeliverQuietly() async {
+    final userSettings = await settings.getSettings();
+    return (userSettings['respectDoNotDisturb'] as bool?) ?? true;
   }
 
   String? routeForPayload(ReminderPayload payload) {

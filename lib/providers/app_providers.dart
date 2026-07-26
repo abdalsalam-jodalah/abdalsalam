@@ -87,6 +87,7 @@ final reminderServiceProvider = Provider<ReminderService>((ref) {
     storage: ref.watch(storageGatewayProvider),
     logger: ref.watch(loggerProvider),
     notifications: ref.watch(notificationServiceProvider),
+    settings: ref.watch(settingsServiceProvider),
   );
 });
 

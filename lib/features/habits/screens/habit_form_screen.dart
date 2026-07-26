@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../../data/models/habits/habit.dart';
+import '../../../providers/app_providers.dart';
 import '../providers/habits_providers.dart';
 import '../widgets/habit_style_picker.dart';
 
@@ -46,6 +47,7 @@ class _HabitFormScreenState extends ConsumerState<HabitFormScreen> {
   late final TextEditingController _customBadCategoryController;
 
   TimeOfDay? _reminderTime;
+  TimeOfDay _defaultReminderTime = const TimeOfDay(hour: 8, minute: 0);
   late HabitFrequency _frequency;
   late String _category;
   late bool _isGoodHabit;
@@ -74,6 +76,17 @@ class _HabitFormScreenState extends ConsumerState<HabitFormScreen> {
     _customWeekdays = (habit?.customWeekdays ?? const <int>[]).toSet();
     _icon = habit?.icon ?? kDefaultHabitIcon;
     _color = habit?.color ?? kDefaultHabitColor;
+    if (habit == null) {
+      _loadDefaultReminderTime();
+    }
+  }
+
+  Future<void> _loadDefaultReminderTime() async {
+    final settings = await ref.read(settingsServiceProvider).getSettings();
+    final minutes = (settings['habitsDefaultReminderMinutes'] as int?) ?? 480;
+    if (mounted) {
+      setState(() => _defaultReminderTime = TimeOfDay(hour: minutes ~/ 60, minute: minutes % 60));
+    }
   }
 
   @override
@@ -316,7 +329,7 @@ class _HabitFormScreenState extends ConsumerState<HabitFormScreen> {
                   value: _reminderTime != null,
                   onChanged: (enabled) {
                     setState(() {
-                      _reminderTime = enabled ? (_reminderTime ?? const TimeOfDay(hour: 8, minute: 0)) : null;
+                      _reminderTime = enabled ? (_reminderTime ?? _defaultReminderTime) : null;
                     });
                   },
                 ),
