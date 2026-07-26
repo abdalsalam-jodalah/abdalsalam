@@ -98,6 +98,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     final autoLockMinutes = (_settings['autoLockMinutes'] as int?) ?? 5;
     final backupReminderDays = (_settings['backupReminderDays'] as int?) ?? 7;
     final notificationPriority = (_settings['notificationPriority'] as String?) ?? 'default';
+    final sleepGoalHours = (_settings['sleepGoalHours'] as num?)?.toDouble() ?? 8.0;
     final dashboardHidden = (_settings['dashboardHiddenCards'] as List<dynamic>? ?? const <dynamic>[])
         .map((item) => item.toString())
         .toSet();
@@ -335,6 +336,24 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             subtitle: Text('$autoLockMinutes minutes'),
             trailing: const Icon(Icons.timer_outlined),
             onTap: () => _update('autoLockMinutes', autoLockMinutes == 5 ? 10 : 5),
+          ),
+          const Divider(),
+          const ListTile(title: Text('Sleep')),
+          ListTile(
+            title: const Text('Weekly sleep goal'),
+            subtitle: Text('${sleepGoalHours.toStringAsFixed(1)} hours per night'),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Slider(
+              value: sleepGoalHours,
+              min: 4,
+              max: 12,
+              divisions: 16,
+              label: '${sleepGoalHours.toStringAsFixed(1)}h',
+              onChanged: (value) => setState(() => _settings['sleepGoalHours'] = value),
+              onChangeEnd: (value) => _update('sleepGoalHours', value),
+            ),
           ),
           const Divider(),
           const ListTile(title: Text('Backup & Restore')),

@@ -5,6 +5,8 @@ import '../../../data/repositories/sleep/sleep_log_repository.dart';
 import '../../../shared/services/base_service_impl.dart';
 
 class SleepLogService extends BaseServiceImpl<SleepLog> {
+  static const _caffeineProximityThreshold = Duration(hours: 6);
+
   SleepLogService(SleepLogRepository super.repository, super.logger);
 
   SleepLogRepository get _repo => repository as SleepLogRepository;
@@ -85,5 +87,54 @@ class SleepLogService extends BaseServiceImpl<SleepLog> {
 
   Future<Result<List<SleepLog>, AppError>> getTrend(DateTime start, DateTime end) {
     return _repo.getByDateRange(start, end);
+  }
+
+  Future<Result<Map<String, dynamic>, AppError>> getInsights() async {
+    final all = await getActive();
+    if (all.isFailure) {
+      return Failure(all.error!);
+    }
+
+    final logs = all.data!;
+    final now = DateTime.now();
+    final startOfThisWeek = _startOfWeek(now);
+    final startOfLastWeek = startOfThisWeek.subtract(const Duration(days: 7));
+
+    final avgHoursThisWeek = _averageHoursInRange(logs, startOfThisWeek, startOfThisWeek.add(const Duration(days: 7)));
+    final avgHoursLastWeek = _averageHoursInRange(logs, startOfLastWeek, startOfThisWeek);
+    final weeklyDeltaHours =
+        (avgHoursThisWeek != null && avgHoursLastWeek != null) ? avgHoursThisWeek - avgHoursLastWeek : null;
+
+    final since = now.subtract(const Duration(days: 7));
+    final recentLogs = logs.where((log) => log.sleepStart.isAfter(since)).toList();
+    final flagged = recentLogs.where((log) {
+      final caffeineTime = log.lastCaffeineTime;
+      if (caffeineTime == null) {
+        return false;
+      }
+      return log.sleepStart.difference(caffeineTime) <= _caffeineProximityThreshold;
+    }).toList();
+
+    return Success(<String, dynamic>{
+      'avgHoursThisWeek': avgHoursThisWeek,
+      'avgHoursLastWeek': avgHoursLastWeek,
+      'weeklyDeltaHours': weeklyDeltaHours,
+      'caffeineTooCloseNights': flagged.length,
+      'caffeineTooCloseDates': flagged.map((log) => log.sleepStart).toList(),
+    });
+  }
+
+  DateTime _startOfWeek(DateTime date) {
+    final normalized = DateTime(date.year, date.month, date.day);
+    return normalized.subtract(Duration(days: normalized.weekday - DateTime.monday));
+  }
+
+  double? _averageHoursInRange(List<SleepLog> logs, DateTime start, DateTime end) {
+    final inRange = logs.where((log) => !log.sleepStart.isBefore(start) && log.sleepStart.isBefore(end)).toList();
+    if (inRange.isEmpty) {
+      return null;
+    }
+    final totalMinutes = inRange.fold<int>(0, (sum, log) => sum + log.duration.inMinutes);
+    return totalMinutes / inRange.length / 60;
   }
 }

@@ -37,6 +37,17 @@ class _FoodLogsScreenState extends ConsumerState<FoodLogsScreen> {
     }
   }
 
+  Future<void> _logAgain(FoodLog log) async {
+    final saved = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(builder: (context) => FoodLogFormScreen(template: log)),
+    );
+    if (saved == true) {
+      ref.invalidate(foodLogsProvider);
+      ref.invalidate(foodLogStatisticsProvider);
+    }
+  }
+
   String _formatDate(DateTime date) =>
       '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
 
@@ -85,9 +96,18 @@ class _FoodLogsScreenState extends ConsumerState<FoodLogsScreen> {
                         '${log.calories != null ? ' • ${log.calories!.toStringAsFixed(0)} kcal' : ''}',
                       ),
                       onTap: () => _openForm(log: log),
-                      trailing: IconButton(
-                        icon: const Icon(Icons.delete_outline),
-                        onPressed: () => _delete(log),
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          IconButton(
+                            icon: const Icon(Icons.repeat),
+                            onPressed: () => _logAgain(log),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.delete_outline),
+                            onPressed: () => _delete(log),
+                          ),
+                        ],
                       ),
                     ),
                   )),

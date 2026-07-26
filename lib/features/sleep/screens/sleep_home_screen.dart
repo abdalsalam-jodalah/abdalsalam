@@ -21,6 +21,8 @@ class SleepHomeScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final logs = ref.watch(sleepLogsProvider);
     final stats = ref.watch(sleepLogStatisticsProvider);
+    final insights = ref.watch(sleepInsightsProvider);
+    final goalHours = ref.watch(sleepGoalHoursProvider);
 
     final body = ListView(
       padding: const EdgeInsets.all(16),
@@ -73,6 +75,82 @@ class SleepHomeScreen extends ConsumerWidget {
               ..sort((a, b) => a.sleepStart.compareTo(b.sleepStart));
             final points = sorted.map((log) => log.duration.inMinutes / 60).toList();
             return TrendLineChart(points: points);
+          },
+        ),
+        const SizedBox(height: 16),
+        Text('Weekly Insights', style: Theme.of(context).textTheme.titleMedium),
+        const SizedBox(height: 8),
+        insights.when(
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (error, _) => Text('Failed to load insights: $error'),
+          data: (data) {
+            final avgThisWeek = data['avgHoursThisWeek'] as double?;
+            final deltaHours = data['weeklyDeltaHours'] as double?;
+            final caffeineNights = data['caffeineTooCloseNights'] as int? ?? 0;
+            final avgLabel = avgThisWeek == null
+                ? 'No data yet this week'
+                : '${avgThisWeek.toStringAsFixed(1)}h avg this week'
+                    '${deltaHours == null ? '' : ' (${deltaHours >= 0 ? '+' : ''}${deltaHours.toStringAsFixed(1)}h vs last week)'}';
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Card(
+                  child: ListTile(
+                    leading: const Icon(Icons.insights_outlined),
+                    title: Text(avgLabel),
+                  ),
+                ),
+                if (caffeineNights > 0)
+                  Card(
+                    color: Theme.of(context).colorScheme.errorContainer,
+                    child: ListTile(
+                      leading: Icon(Icons.warning_amber_outlined, color: Theme.of(context).colorScheme.onErrorContainer),
+                      title: Text(
+                        'Caffeine within 6h of bedtime on $caffeineNights night(s) this week',
+                        style: TextStyle(color: Theme.of(context).colorScheme.onErrorContainer),
+                      ),
+                    ),
+                  ),
+              ],
+            );
+          },
+        ),
+        const SizedBox(height: 16),
+        Text('Weekly Sleep Goal', style: Theme.of(context).textTheme.titleMedium),
+        const SizedBox(height: 8),
+        goalHours.when(
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (error, _) => Text('Failed to load goal: $error'),
+          data: (goal) {
+            return logs.when(
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (error, _) => Text('Failed to load logs: $error'),
+              data: (allLogs) {
+                final startOfWeek = DateTime.now().subtract(Duration(days: DateTime.now().weekday - DateTime.monday));
+                final startOfWeekDay = DateTime(startOfWeek.year, startOfWeek.month, startOfWeek.day);
+                final weekTotalHours = allLogs
+                    .where((log) => !log.sleepStart.isBefore(startOfWeekDay))
+                    .fold<double>(0, (sum, log) => sum + log.duration.inMinutes / 60);
+                final goalTotalHours = goal * 7;
+                final progress = goalTotalHours == 0 ? 0.0 : (weekTotalHours / goalTotalHours).clamp(0.0, 1.0);
+                return Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        LinearProgressIndicator(value: progress),
+                        const SizedBox(height: 8),
+                        Text(
+                          '${weekTotalHours.toStringAsFixed(1)}h / ${goalTotalHours.toStringAsFixed(1)}h this week '
+                          'toward your ${goal.toStringAsFixed(1)}h/night goal',
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            );
           },
         ),
         const SizedBox(height: 16),

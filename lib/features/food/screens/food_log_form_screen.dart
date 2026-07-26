@@ -15,8 +15,9 @@ const _foodCategories = <String>['Breakfast', 'Lunch', 'Dinner', 'Snack', 'Other
 class FoodLogFormScreen extends ConsumerStatefulWidget {
   static const routeName = '/food/logs/form';
   final FoodLog? log;
+  final FoodLog? template;
 
-  const FoodLogFormScreen({super.key, this.log});
+  const FoodLogFormScreen({super.key, this.log, this.template});
 
   @override
   ConsumerState<FoodLogFormScreen> createState() => _FoodLogFormScreenState();
@@ -57,6 +58,18 @@ class _FoodLogFormScreenState extends ConsumerState<FoodLogFormScreen> {
       _carbController.text = log.carbGrams?.toString() ?? '';
       _loggedAt = log.loggedAt;
       _imagePath = log.imagePath;
+    } else if (widget.template != null) {
+      final template = widget.template!;
+      _category = template.category;
+      _dishNameController.text = template.dishName;
+      _quantityController.text = template.quantity;
+      _componentsController.text = template.components ?? '';
+      _descriptionController.text = template.description ?? '';
+      _caloriesController.text = template.calories?.toString() ?? '';
+      _proteinController.text = template.proteinGrams?.toString() ?? '';
+      _fatController.text = template.fatGrams?.toString() ?? '';
+      _carbController.text = template.carbGrams?.toString() ?? '';
+      _loggedAt = DateTime.now();
     } else {
       _category = _foodCategories.first;
       _loggedAt = DateTime.now();

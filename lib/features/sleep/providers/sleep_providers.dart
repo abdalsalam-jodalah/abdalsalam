@@ -39,3 +39,14 @@ final sleepLogStatisticsProvider = FutureProvider<Map<String, dynamic>>((ref) as
   final result = await service.getStatistics();
   return result.data ?? {};
 });
+
+final sleepInsightsProvider = FutureProvider<Map<String, dynamic>>((ref) async {
+  final service = ref.watch(sleepLogServiceProvider);
+  final result = await service.getInsights();
+  return result.data ?? {};
+});
+
+final sleepGoalHoursProvider = FutureProvider<double>((ref) async {
+  final settings = await ref.watch(settingsServiceProvider).getSettings();
+  return (settings['sleepGoalHours'] as num?)?.toDouble() ?? 8.0;
+});

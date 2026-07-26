@@ -5,7 +5,7 @@ import '../../../data/models/food/food_log.dart';
 import '../providers/food_providers.dart';
 import 'food_log_form_screen.dart';
 
-class FoodHomeScreen extends ConsumerWidget {
+class FoodHomeScreen extends ConsumerStatefulWidget {
   static const routeName = '/food/home';
 
   /// When true, renders without its own [Scaffold]/[AppBar] for embedding
@@ -14,6 +14,11 @@ class FoodHomeScreen extends ConsumerWidget {
 
   const FoodHomeScreen({super.key, this.embedded = false});
 
+  @override
+  ConsumerState<FoodHomeScreen> createState() => _FoodHomeScreenState();
+}
+
+class _FoodHomeScreenState extends ConsumerState<FoodHomeScreen> {
   String _formatValue(dynamic value) {
     final number = (value as num?)?.toDouble() ?? 0;
     return number.toStringAsFixed(0);
@@ -31,15 +36,26 @@ class FoodHomeScreen extends ConsumerWidget {
     return groups;
   }
 
+  Future<void> _logAgain(FoodLog log) async {
+    final saved = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(builder: (context) => FoodLogFormScreen(template: log)),
+    );
+    if (saved == true) {
+      ref.invalidate(foodLogsProvider);
+      ref.invalidate(foodLogStatisticsProvider);
+    }
+  }
+
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final logs = ref.watch(foodLogsProvider);
     final stats = ref.watch(foodLogStatisticsProvider);
 
     final body = ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        if (embedded)
+        if (widget.embedded)
           Padding(
             padding: const EdgeInsets.only(bottom: 12),
             child: Text(
@@ -96,6 +112,10 @@ class FoodHomeScreen extends ConsumerWidget {
                           leading: const Icon(Icons.restaurant_outlined),
                           title: Text(log.dishName),
                           subtitle: Text(log.quantity),
+                          trailing: IconButton(
+                            icon: const Icon(Icons.repeat),
+                            onPressed: () => _logAgain(log),
+                          ),
                         ),
                       )),
                   const SizedBox(height: 8),
@@ -107,7 +127,7 @@ class FoodHomeScreen extends ConsumerWidget {
       ],
     );
 
-    if (embedded) {
+    if (widget.embedded) {
       return body;
     }
     return Scaffold(appBar: AppBar(title: const Text('Food Home')), body: body);

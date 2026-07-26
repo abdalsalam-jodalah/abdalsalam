@@ -14,6 +14,8 @@ enum ReminderModule {
   notes,
   calendar,
   security,
+  sleep,
+  food,
 }
 
 class ReminderPayload {
@@ -296,6 +298,33 @@ class ReminderService {
     );
   }
 
+  Future<void> scheduleSleepReminder({required DateTime time}) async {
+    await schedule(
+      ReminderPayload(
+        module: ReminderModule.sleep,
+        targetId: 'sleep_log_reminder',
+        title: 'Sleep reminder',
+        body: 'Time to log your sleep',
+        scheduledAt: time,
+      ),
+    );
+  }
+
+  Future<void> scheduleFoodReminder({
+    required DateTime time,
+    required String mealLabel,
+  }) async {
+    await schedule(
+      ReminderPayload(
+        module: ReminderModule.food,
+        targetId: 'food_log_reminder_$mealLabel',
+        title: 'Food reminder',
+        body: 'Time to log your $mealLabel',
+        scheduledAt: time,
+      ),
+    );
+  }
+
   Future<void> scheduleSnooze(
     ReminderPayload payload, {
     Duration duration = const Duration(minutes: 10),
@@ -382,6 +411,10 @@ class ReminderService {
         return '/calendar';
       case ReminderModule.security:
         return '/security';
+      case ReminderModule.sleep:
+        return '/sleep';
+      case ReminderModule.food:
+        return '/food';
     }
   }
 

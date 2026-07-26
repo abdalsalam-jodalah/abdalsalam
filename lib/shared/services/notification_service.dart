@@ -14,6 +14,8 @@ enum NotificationChannelType {
   notes,
   calendar,
   security,
+  sleep,
+  food,
 }
 
 class NotificationService {
@@ -74,6 +76,18 @@ class NotificationService {
       'Security',
       description: 'Vault and password expiry reminders',
       importance: Importance.high,
+    ),
+    NotificationChannelType.sleep: AndroidNotificationChannel(
+      'sleep_channel',
+      'Sleep',
+      description: 'Sleep logging reminders',
+      importance: Importance.defaultImportance,
+    ),
+    NotificationChannelType.food: AndroidNotificationChannel(
+      'food_channel',
+      'Food',
+      description: 'Meal logging reminders',
+      importance: Importance.defaultImportance,
     ),
   };
 

@@ -19,6 +19,7 @@ import 'shared/services/app_lifecycle_logger.dart';
 import 'shared/services/notification_service.dart';
 import 'shared/services/reminder_service.dart';
 import 'shared/services/settings_service.dart';
+import 'shared/services/wellness_reminder_rollover_service.dart';
 
 // ignore: unused_element
 AppLifecycleLogger? _appLifecycleLogger;
@@ -118,6 +119,11 @@ class _BootstrapAppState extends State<_BootstrapApp> {
       healthRepository: healthRepository,
       storage: StorageGateway.instance,
       logger: LoggerService.forModule('MedicationDailyRollover', moduleType: logic.ModuleType.service),
+    ).runIfNeeded();
+    await WellnessReminderRolloverService(
+      reminderService: reminderService,
+      storage: StorageGateway.instance,
+      logger: LoggerService.forModule('WellnessReminderRollover', moduleType: logic.ModuleType.service),
     ).runIfNeeded();
 
     _medicationMarkTakenSubscription = reminderService.markTakenStream.listen((payload) async {

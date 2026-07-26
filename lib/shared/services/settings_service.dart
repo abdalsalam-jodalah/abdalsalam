@@ -47,6 +47,7 @@ class SettingsService {
         'autoLockMinutes': 5,
         'backupReminderDays': 7,
         'autoBackupEnabled': false,
+        'sleepGoalHours': 8.0,
         'dashboardCardOrder': <String>[
           'religious',
           'financial',
