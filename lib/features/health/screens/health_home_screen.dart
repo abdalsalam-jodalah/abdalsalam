@@ -3,6 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../data/models/health/health_metric.dart';
 import '../../../shared/widgets/chart_widgets.dart';
+import '../../food/screens/food_home_screen.dart';
+import '../../food/screens/food_log_form_screen.dart';
+import '../../sleep/screens/sleep_home_screen.dart';
+import '../../sleep/screens/sleep_log_form_screen.dart';
 import '../providers/health_providers.dart';
 import 'medication_form_screen.dart';
 
@@ -26,6 +30,7 @@ class HealthHomeScreen extends ConsumerWidget {
     final bloodTestStats = ref.watch(bloodTestStatisticsProvider);
     final doctorVisitStats = ref.watch(doctorVisitStatisticsProvider);
     final activityFeed = ref.watch(healthActivityFeedProvider);
+    final healthSummary = ref.watch(healthSummaryProvider);
 
     final body = ListView(
       padding: const EdgeInsets.all(16),
@@ -121,6 +126,97 @@ class HealthHomeScreen extends ConsumerWidget {
               children: [
                 Text(primaryType, style: Theme.of(context).textTheme.bodySmall),
                 TrendLineChart(points: points),
+              ],
+            );
+          },
+        ),
+        const SizedBox(height: 16),
+        Text('Sleep & Food', style: Theme.of(context).textTheme.titleMedium),
+        const SizedBox(height: 8),
+        healthSummary.when(
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (error, _) => Text('Failed to load sleep/food summary: $error'),
+          data: (summary) {
+            final sleepMinutes = summary['sleepAverageDurationMinutesLast7Days'] as double?;
+            final sleepFeeling = summary['sleepAverageFeelingOnWakeup'] as double?;
+            final foodCalories = (summary['foodTodayCalories'] as num?)?.toDouble() ?? 0;
+            final foodProtein = (summary['foodTodayProteinGrams'] as num?)?.toDouble() ?? 0;
+            final foodFat = (summary['foodTodayFatGrams'] as num?)?.toDouble() ?? 0;
+            final foodCarb = (summary['foodTodayCarbGrams'] as num?)?.toDouble() ?? 0;
+
+            return Column(
+              children: [
+                Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Sleep', style: Theme.of(context).textTheme.titleSmall),
+                        const SizedBox(height: 4),
+                        Text(
+                          sleepMinutes == null
+                              ? 'No sleep logged in the last 7 days.'
+                              : 'Avg last 7 days: ${(sleepMinutes / 60).toStringAsFixed(1)}h'
+                                  '${sleepFeeling != null ? ' • wakeup feeling ${sleepFeeling.toStringAsFixed(1)}/5' : ''}',
+                        ),
+                        const SizedBox(height: 8),
+                        Row(
+                          children: [
+                            OutlinedButton.icon(
+                              onPressed: () =>
+                                  Navigator.of(context).pushNamed(SleepLogFormScreen.routeName),
+                              icon: const Icon(Icons.add),
+                              label: const Text('Log Sleep'),
+                            ),
+                            const SizedBox(width: 8),
+                            TextButton(
+                              onPressed: () =>
+                                  Navigator.of(context).pushNamed(SleepHomeScreen.routeName),
+                              child: const Text('View Sleep'),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Food', style: Theme.of(context).textTheme.titleSmall),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Today: ${foodCalories.toStringAsFixed(0)} kcal • '
+                          'P ${foodProtein.toStringAsFixed(0)}g • '
+                          'F ${foodFat.toStringAsFixed(0)}g • '
+                          'C ${foodCarb.toStringAsFixed(0)}g',
+                        ),
+                        const SizedBox(height: 8),
+                        Row(
+                          children: [
+                            OutlinedButton.icon(
+                              onPressed: () =>
+                                  Navigator.of(context).pushNamed(FoodLogFormScreen.routeName),
+                              icon: const Icon(Icons.add),
+                              label: const Text('Log Food'),
+                            ),
+                            const SizedBox(width: 8),
+                            TextButton(
+                              onPressed: () =>
+                                  Navigator.of(context).pushNamed(FoodHomeScreen.routeName),
+                              child: const Text('View Food'),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
               ],
             );
           },

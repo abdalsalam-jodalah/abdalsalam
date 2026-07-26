@@ -9,15 +9,18 @@ import '../infrastructure/logger_service.dart';
 /// records can reference a stable path instead of a picker-cache path that
 /// may be cleared by the OS.
 class AttachmentStorageService {
-  static const _attachmentsDirName = 'health_attachments';
+  final String subDirectory;
   final LoggerService logger;
   final _uuid = const Uuid();
 
-  AttachmentStorageService({required this.logger});
+  AttachmentStorageService({
+    required this.logger,
+    this.subDirectory = 'attachments',
+  });
 
   Future<String> saveAttachment(String sourcePath) async {
     final documentsDir = await getApplicationDocumentsDirectory();
-    final attachmentsDir = Directory('${documentsDir.path}/$_attachmentsDirName');
+    final attachmentsDir = Directory('${documentsDir.path}/$subDirectory');
     if (!await attachmentsDir.exists()) {
       await attachmentsDir.create(recursive: true);
     }

@@ -9,10 +9,12 @@ import '../../analytics/screens/analytics_screen.dart';
 import '../../calendar/screens/calendar_screen.dart';
 import '../../dashboard/screens/dashboard_screen.dart';
 import '../../financial/screens/financial_screen.dart';
+import '../../food/screens/food_screen.dart';
 import '../../habits/screens/habits_screen.dart';
 import '../../health/screens/health_screen.dart';
 import '../../health/screens/medication_list_screen.dart';
 import '../../notes/screens/notes_screen.dart';
+import '../../sleep/screens/sleep_screen.dart';
 import '../../planning/screens/day_planning_screen.dart';
 import '../../planning/screens/goals_screen.dart';
 import '../../planning/screens/planning_home_screen.dart';
@@ -55,6 +57,8 @@ class _AppShellScreenState extends ConsumerState<AppShellScreen> {
     _ShellDestination('day-planning', 'Day Planning', Icons.today_outlined, DayPlanningScreen()),
     _ShellDestination('sports', 'Sports', Icons.fitness_center, SportsScreen()),
     _ShellDestination('health', 'Health', Icons.health_and_safety_outlined, HealthScreen()),
+    _ShellDestination('sleep', 'Sleep', Icons.bedtime_outlined, SleepScreen()),
+    _ShellDestination('food', 'Food', Icons.restaurant_outlined, FoodScreen()),
     _ShellDestination('medications', 'Medications', Icons.medication_outlined, MedicationListScreen()),
     _ShellDestination('notes', 'Notes', Icons.sticky_note_2_outlined, NotesScreen()),
     _ShellDestination('calendar', 'Calendar', Icons.calendar_month_outlined, CalendarScreen()),

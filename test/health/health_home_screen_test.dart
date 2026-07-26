@@ -46,12 +46,13 @@ void main() {
       await tester.pump();
     }
 
-    await tester.drag(find.byType(ListView), const Offset(0, -2000));
-    await tester.pump();
-
     expect(find.text('Health Home'), findsOneWidget);
     expect(find.text('No medications scheduled today.'), findsOneWidget);
     expect(find.text('No metrics logged yet.'), findsOneWidget);
+
+    await tester.drag(find.byType(ListView), const Offset(0, -2000));
+    await tester.pump();
+
     expect(find.text('No recent activity yet.'), findsOneWidget);
   });
 

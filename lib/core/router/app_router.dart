@@ -30,6 +30,14 @@ import '../../features/health/screens/health_metric_form_screen.dart';
 import '../../features/health/screens/health_metrics_screen.dart';
 import '../../features/health/screens/medication_form_screen.dart';
 import '../../features/health/screens/medication_list_screen.dart';
+import '../../features/food/screens/food_home_screen.dart';
+import '../../features/food/screens/food_log_form_screen.dart';
+import '../../features/food/screens/food_logs_screen.dart';
+import '../../features/food/screens/food_screen.dart';
+import '../../features/sleep/screens/sleep_home_screen.dart';
+import '../../features/sleep/screens/sleep_log_form_screen.dart';
+import '../../features/sleep/screens/sleep_logs_screen.dart';
+import '../../features/sleep/screens/sleep_screen.dart';
 import '../../features/notes/screens/notes_screen.dart';
 import '../../features/planning/screens/achievements_screen.dart';
 import '../../features/planning/screens/day_planning_screen.dart';
@@ -269,6 +277,46 @@ class AppRouter {
       case DoctorVisitFormScreen.routeName:
         return MaterialPageRoute<void>(
           builder: (_) => const DoctorVisitFormScreen(),
+          settings: settings,
+        );
+      case SleepScreen.routeName:
+        return MaterialPageRoute<void>(
+          builder: (_) => const SleepScreen(),
+          settings: settings,
+        );
+      case SleepHomeScreen.routeName:
+        return MaterialPageRoute<void>(
+          builder: (_) => const SleepHomeScreen(),
+          settings: settings,
+        );
+      case SleepLogsScreen.routeName:
+        return MaterialPageRoute<void>(
+          builder: (_) => const SleepLogsScreen(),
+          settings: settings,
+        );
+      case SleepLogFormScreen.routeName:
+        return MaterialPageRoute<void>(
+          builder: (_) => const SleepLogFormScreen(),
+          settings: settings,
+        );
+      case FoodScreen.routeName:
+        return MaterialPageRoute<void>(
+          builder: (_) => const FoodScreen(),
+          settings: settings,
+        );
+      case FoodHomeScreen.routeName:
+        return MaterialPageRoute<void>(
+          builder: (_) => const FoodHomeScreen(),
+          settings: settings,
+        );
+      case FoodLogsScreen.routeName:
+        return MaterialPageRoute<void>(
+          builder: (_) => const FoodLogsScreen(),
+          settings: settings,
+        );
+      case FoodLogFormScreen.routeName:
+        return MaterialPageRoute<void>(
+          builder: (_) => const FoodLogFormScreen(),
           settings: settings,
         );
       case NotesScreen.routeName:

@@ -91,7 +91,17 @@ final reminderServiceProvider = Provider<ReminderService>((ref) {
 });
 
 final attachmentStorageServiceProvider = Provider<AttachmentStorageService>((ref) {
-  return AttachmentStorageService(logger: ref.watch(loggerProvider));
+  return AttachmentStorageService(
+    logger: ref.watch(loggerProvider),
+    subDirectory: 'health_attachments',
+  );
+});
+
+final foodAttachmentStorageServiceProvider = Provider<AttachmentStorageService>((ref) {
+  return AttachmentStorageService(
+    logger: ref.watch(loggerProvider),
+    subDirectory: 'food_attachments',
+  );
 });
 
 final notificationServiceProvider = Provider<NotificationService>((ref) {
@@ -180,6 +190,8 @@ final backupTablesProvider = Provider<List<String>>((ref) {
     'blood_tests',
     'health_metrics',
     'doctor_visits',
+    'sleep_logs',
+    'food_logs',
     'notes',
     'todos',
     'note_categories',

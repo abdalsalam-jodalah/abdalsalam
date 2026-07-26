@@ -13,6 +13,8 @@ import '../../../data/repositories/health/health_repository.dart';
 import '../../../data/repositories/health/medication_log_repository.dart';
 import '../../../providers/app_providers.dart';
 import '../../../shared/infrastructure/logger_service.dart';
+import '../../food/providers/food_providers.dart';
+import '../../sleep/providers/sleep_providers.dart';
 import '../services/blood_test_service.dart';
 import '../services/doctor_visit_service.dart';
 import '../services/health_metric_service.dart';
@@ -231,4 +233,18 @@ final healthActivityFeedProvider = FutureProvider<List<HealthActivityItem>>((ref
   ]..sort((a, b) => b.date.compareTo(a.date));
 
   return items.take(10).toList(growable: false);
+});
+
+final healthSummaryProvider = FutureProvider<Map<String, dynamic>>((ref) async {
+  final sleepStats = await ref.watch(sleepLogStatisticsProvider.future);
+  final foodStats = await ref.watch(foodLogStatisticsProvider.future);
+
+  return <String, dynamic>{
+    'sleepAverageDurationMinutesLast7Days': sleepStats['averageDurationMinutesLast7Days'],
+    'sleepAverageFeelingOnWakeup': sleepStats['averageFeelingOnWakeup'],
+    'foodTodayCalories': foodStats['todayCalories'],
+    'foodTodayProteinGrams': foodStats['todayProteinGrams'],
+    'foodTodayFatGrams': foodStats['todayFatGrams'],
+    'foodTodayCarbGrams': foodStats['todayCarbGrams'],
+  };
 });
