@@ -2,28 +2,6 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
-class WorkoutCard extends StatelessWidget {
-  final String title;
-  final String subtitle;
-
-  const WorkoutCard({
-    super.key,
-    required this.title,
-    required this.subtitle,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      child: ListTile(
-        leading: const Icon(Icons.fitness_center),
-        title: Text(title),
-        subtitle: Text(subtitle),
-      ),
-    );
-  }
-}
-
 class RestTimer extends StatefulWidget {
   final int seconds;
 
@@ -64,22 +42,6 @@ class _RestTimerState extends State<RestTimer> {
     return Chip(
       avatar: const Icon(Icons.timer_outlined),
       label: Text('Rest: ${_remaining}s'),
-    );
-  }
-}
-
-class ProgressChart extends StatelessWidget {
-  final List<double> points;
-
-  const ProgressChart({super.key, required this.points});
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Text('Progress points: ${points.length}'),
-      ),
     );
   }
 }

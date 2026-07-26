@@ -55,12 +55,12 @@ import '../../features/security/screens/credential_form_screen.dart';
 import '../../features/security/screens/credential_list_screen.dart';
 import '../../features/security/screens/password_generator_screen.dart';
 import '../../features/security/screens/security_categories_screen.dart';
-import '../../features/sports/screens/sports_screen.dart';
-import '../../features/sports/screens/active_workout_screen.dart';
+import '../../features/sports/screens/calendar_view_screen.dart';
+import '../../features/sports/screens/daily_log_screen.dart';
 import '../../features/sports/screens/exercise_library_screen.dart';
-import '../../features/sports/screens/progress_charts_screen.dart';
-import '../../features/sports/screens/sports_home_screen.dart';
-import '../../features/sports/screens/workout_list_screen.dart';
+import '../../features/sports/screens/sports_dashboard_screen.dart';
+import '../../features/sports/screens/sports_screen.dart';
+import '../../features/sports/screens/weekly_schedule_screen.dart';
 import '../../features/settings/screens/settings_screen.dart';
 import '../../features/settings/screens/backup_screen.dart';
 import '../../features/settings/screens/restore_screen.dart';
@@ -192,19 +192,14 @@ class AppRouter {
           builder: (_) => const SportsScreen(),
           settings: settings,
         );
-      case SportsHomeScreen.routeName:
+      case DailyLogScreen.routeName:
         return MaterialPageRoute<void>(
-          builder: (_) => const SportsHomeScreen(),
+          builder: (_) => const DailyLogScreen(),
           settings: settings,
         );
-      case WorkoutListScreen.routeName:
+      case WeeklyScheduleScreen.routeName:
         return MaterialPageRoute<void>(
-          builder: (_) => const WorkoutListScreen(),
-          settings: settings,
-        );
-      case ActiveWorkoutScreen.routeName:
-        return MaterialPageRoute<void>(
-          builder: (_) => const ActiveWorkoutScreen(),
+          builder: (_) => const WeeklyScheduleScreen(),
           settings: settings,
         );
       case ExerciseLibraryScreen.routeName:
@@ -212,9 +207,14 @@ class AppRouter {
           builder: (_) => const ExerciseLibraryScreen(),
           settings: settings,
         );
-      case ProgressChartsScreen.routeName:
+      case SportsDashboardScreen.routeName:
         return MaterialPageRoute<void>(
-          builder: (_) => const ProgressChartsScreen(),
+          builder: (_) => const SportsDashboardScreen(),
+          settings: settings,
+        );
+      case CalendarViewScreen.routeName:
+        return MaterialPageRoute<void>(
+          builder: (_) => const CalendarViewScreen(),
           settings: settings,
         );
       case HealthScreen.routeName:

@@ -8,6 +8,7 @@ priorties:
     - sport 
     - health 
     - medeication
+    - food
 - calender with concation to palning and all thing
 - habits 
 - securty
@@ -25,6 +26,7 @@ ai : anlytics, answer qs, make actionfor
 external concetion
 
 
+
 for the planing secation 
 se shoudl have mainly two parts 
 1- days plaining 
@@ -38,3 +40,26 @@ aslo i nca rlaedt certain task in dyas palming with item/s in lif palainag
 
 it shoudl be two sepatrede secationi n tshde i bar for the dayly task and keep thins in palaing to bet hlife palings 
 kepp other thinsg iexist nowin paling as side points in paling  
+
+
+----------
+❯ we shoudl have strong plan for the points below:
+  - health
+  - medeication
+
+these two secation are related to each otehr 
+1- for teh mdecation 
+- it s the reoepsl palce for al lmedcceisn and suplements i take 
+- it shoudl remdin me for each doges dauily 
+- ithonk teh stcur in it we have is good 
+-if u have nay points tp strned t it ask me 
+
+2- for teh health 
+teh idea is to build stomg health modul tthat deif my health history 
+- for eg cncteis ald medcis ni take as summary (inrnetrvls deges, ... all impometn points )
+- dfien all blod nalcyces i hvae did becpsu i make nlod test every 6 months and somtiems i did them by 3 monthes include doeuemenst, relsuets,....
+- deifn al dotceore vistss inlcude doeuemmst , mdecien , repoert 
+- maybe it includ teh sleep summary and teh food summary (when we create these modeles)
+- so inthsi page we see sumaries analyis and deahboreds and bars and chcarts 
+we see delatedil logs and history 
+We cna genaret rproert  to shwoe drs teh reult 
