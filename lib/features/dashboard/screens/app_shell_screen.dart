@@ -238,6 +238,7 @@ class _AppShellScreenState extends ConsumerState<AppShellScreen> {
     final selected = _destinations[_index];
     final sidebarWidth = _sidebarWidth;
     final isClosed = _sidebarMode == _SidebarMode.closed;
+    final isExpanded = _sidebarMode == _SidebarMode.expanded;
 
     return Scaffold(
       body: SafeArea(
@@ -246,129 +247,126 @@ class _AppShellScreenState extends ConsumerState<AppShellScreen> {
           onHorizontalDragStart: _handleHorizontalDragStart,
           onHorizontalDragUpdate: _handleHorizontalDragUpdate,
           onHorizontalDragEnd: _handleHorizontalDragEnd,
-          child: Row(
-            children: [
-              AnimatedContainer(
-                duration: const Duration(milliseconds: 150),
-                curve: Curves.easeOutQuart,
-                width: sidebarWidth,
-                decoration: BoxDecoration(
-                  color: sidebarWidth == 0
-                      ? Colors.transparent
-                      : Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.45),
-                  border: Border(
-                    right: BorderSide(
-                      color: sidebarWidth == 0
-                          ? Colors.transparent
-                          : Theme.of(context).colorScheme.outlineVariant,
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final minTop = 12.0;
+              final maxTop = (constraints.maxHeight - 76).clamp(minTop, double.infinity);
+              final handleTop = _openHandleTop.clamp(minTop, maxTop);
+
+              return Stack(
+                children: [
+                  // Content always fills the full body width so its layout
+                  // constraints never change when the sidebar opens/expands —
+                  // that width-push was the source of overflow exceptions in
+                  // child screens when the sidebar toggled.
+                  Positioned.fill(
+                    child: Semantics(
+                      label: '${selected.label} page',
+                      child: IndexedStack(
+                        index: _index,
+                        children: _destinations.map((item) => item.page).toList(growable: false),
+                      ),
                     ),
                   ),
-                ),
-                child: sidebarWidth == 0
-                    ? const SizedBox.shrink()
-                    : _Sidebar(
-                        mode: _sidebarMode,
-                        selectedIndex: _index,
-                        destinations: _destinations,
-                        onOpenStep: _stepOpen,
-                        onCloseStep: _stepClose,
-                        onCloseAll: () => _setMode(_SidebarMode.closed),
-                        onSelect: (value) => setState(() => _index = value),
-                        onReorder: _reorderDestinations,
+                  if (isExpanded)
+                    Positioned.fill(
+                      child: GestureDetector(
+                        onTap: () => _setMode(_SidebarMode.icons),
+                        child: Container(color: Colors.black.withValues(alpha: 0.25)),
                       ),
-              ),
-              Expanded(
-                child: LayoutBuilder(
-                  builder: (context, constraints) {
-                    final minTop = 12.0;
-                    final maxTop = (constraints.maxHeight - 76).clamp(minTop, double.infinity);
-                    final handleTop = _openHandleTop.clamp(minTop, maxTop);
-
-                    return Stack(
-                      children: [
-                        Semantics(
-                          label: '${selected.label} page',
-                          child: IndexedStack(
-                            index: _index,
-                            children: _destinations.map((item) => item.page).toList(growable: false),
+                    ),
+                  AnimatedPositioned(
+                    duration: const Duration(milliseconds: 150),
+                    curve: Curves.easeOutQuart,
+                    left: 0,
+                    top: 0,
+                    bottom: 0,
+                    width: sidebarWidth,
+                    child: Material(
+                      elevation: sidebarWidth == 0 ? 0 : 4,
+                      color: sidebarWidth == 0
+                          ? Colors.transparent
+                          : Theme.of(context).colorScheme.surfaceContainerHighest,
+                      shape: Border(
+                        right: BorderSide(
+                          color: sidebarWidth == 0
+                              ? Colors.transparent
+                              : Theme.of(context).colorScheme.outlineVariant,
+                        ),
+                      ),
+                      child: sidebarWidth == 0
+                          ? const SizedBox.shrink()
+                          : _Sidebar(
+                              mode: _sidebarMode,
+                              selectedIndex: _index,
+                              destinations: _destinations,
+                              onOpenStep: _stepOpen,
+                              onCloseStep: _stepClose,
+                              onCloseAll: () => _setMode(_SidebarMode.closed),
+                              onSelect: (value) => setState(() => _index = value),
+                              onReorder: _reorderDestinations,
+                            ),
+                    ),
+                  ),
+                  if (isClosed)
+                    Positioned(
+                      top: handleTop,
+                      left: 0,
+                      child: Semantics(
+                        button: true,
+                        label: 'Open sidebar',
+                        child: GestureDetector(
+                          onTap: _openIconsOnly,
+                          onDoubleTap: _stepOpen,
+                          onVerticalDragUpdate: (details) {
+                            setState(() {
+                              _openHandleTop =
+                                  (_openHandleTop + details.delta.dy).clamp(minTop, maxTop);
+                            });
+                          },
+                          child: Container(
+                            width: 20,
+                            height: 64,
+                            decoration: BoxDecoration(
+                              color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                              borderRadius: const BorderRadius.horizontal(right: Radius.circular(12)),
+                              border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
+                            ),
+                            child: const Center(
+                              child: Icon(Icons.chevron_right_rounded, size: 18),
+                            ),
                           ),
                         ),
-                        if (isClosed)
-                          Positioned(
-                            top: handleTop,
-                            left: 0,
-                            child: Semantics(
-                              button: true,
-                              label: 'Open sidebar',
-                              child: GestureDetector(
-                                onTap: _openIconsOnly,
-                                onDoubleTap: _stepOpen,
-                                onVerticalDragUpdate: (details) {
-                                  setState(() {
-                                    _openHandleTop =
-                                        (_openHandleTop + details.delta.dy).clamp(minTop, maxTop);
-                                  });
-                                },
-                                         onVerticalDragEnd: (_) {
-                                           // Open sidebar on drag end
-                                           _openIconsOnly();
-                                         },
-                                         onVerticalDragDown: (_) {
-                                           // Optionally open sidebar on drag start
-                                           // _openIconsOnly();
-                                         },
-                                         onPanEnd: (_) {
-                                           // Fallback: open sidebar on any pan end
-                                           //_openIconsOnly();
-                                          },
-                                child: Container(
-                                  width: 20,
-                                  height: 64,
-                                  decoration: BoxDecoration(
-                                    color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                                    borderRadius: const BorderRadius.horizontal(right: Radius.circular(12)),
-                                    border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
-                                  ),
-                                  child: const Center(
-                                    child: Icon(Icons.chevron_right_rounded, size: 18),
-                                  ),
-                                ),
-
-                                        
-                              ),
-                            ),
-                          ),
-                        if (_logWheelOpen)
-                          Positioned.fill(
-                            child: GestureDetector(
-                              behavior: HitTestBehavior.translucent,
-                              onTap: () => setState(() {
-                                _logWheelOpen = false;
-                                _logWheelIndex = 0;
-                                _logWheelTurnCarry = 0;
-                              }),
-                              child: const SizedBox.expand(),
-                            ),
-                          ),
-                        if (selected.key == 'dashboard')
-                          Positioned(
-                            right: 16,
-                            bottom: 16,
-                            child: _QuarterLogFab(
-                              isOpen: _logWheelOpen,
-                              actions: _logActions,
-                              startIndex: _logWheelIndex,
-                              onTurnDelta: _turnLogWheel,
-                              onToggle: _toggleLogWheel,
-                              onActionTap: _openLogRoute,
-                            ),
-                          ),
-                      ],
-                    );
-                  },
-                ),
-              ),
-            ],
+                      ),
+                    ),
+                  if (_logWheelOpen)
+                    Positioned.fill(
+                      child: GestureDetector(
+                        behavior: HitTestBehavior.translucent,
+                        onTap: () => setState(() {
+                          _logWheelOpen = false;
+                          _logWheelIndex = 0;
+                          _logWheelTurnCarry = 0;
+                        }),
+                        child: const SizedBox.expand(),
+                      ),
+                    ),
+                  if (selected.key == 'dashboard')
+                    Positioned(
+                      right: 16,
+                      bottom: 16,
+                      child: _QuarterLogFab(
+                        isOpen: _logWheelOpen,
+                        actions: _logActions,
+                        startIndex: _logWheelIndex,
+                        onTurnDelta: _turnLogWheel,
+                        onToggle: _toggleLogWheel,
+                        onActionTap: _openLogRoute,
+                      ),
+                    ),
+                ],
+              );
+            },
           ),
         ),
       ),
