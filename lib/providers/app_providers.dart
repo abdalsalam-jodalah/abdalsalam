@@ -22,6 +22,7 @@ import '../shared/services/settings_service.dart';
 import '../shared/services/state_aware_service.dart';
 import '../shared/services/sync_queue_service.dart';
 import '../shared/services/reminder_service.dart';
+import '../shared/services/attachment_storage_service.dart';
 
 final loggerProvider = Provider<LoggerService>((ref) {
   return LoggerService.forModule('App', moduleType: logic.ModuleType.service);
@@ -87,6 +88,10 @@ final reminderServiceProvider = Provider<ReminderService>((ref) {
     logger: ref.watch(loggerProvider),
     notifications: ref.watch(notificationServiceProvider),
   );
+});
+
+final attachmentStorageServiceProvider = Provider<AttachmentStorageService>((ref) {
+  return AttachmentStorageService(logger: ref.watch(loggerProvider));
 });
 
 final notificationServiceProvider = Provider<NotificationService>((ref) {
@@ -174,6 +179,7 @@ final backupTablesProvider = Provider<List<String>>((ref) {
     'medication_logs',
     'blood_tests',
     'health_metrics',
+    'doctor_visits',
     'notes',
     'todos',
     'note_categories',

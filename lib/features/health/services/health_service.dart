@@ -66,18 +66,54 @@ class HealthService extends BaseServiceImpl<Medication> {
   }
 
   Future<Result<void, AppError>> scheduleMedicationReminders(Medication medication) async {
-    for (final _ in medication.reminderTimes) {
+    if (medication.frequency == 'As Needed') {
+      return const Success(null);
+    }
+    for (final time in medication.reminderTimes) {
       await reminders.schedule(
         ReminderPayload(
           module: ReminderModule.health,
           targetId: medication.id,
           title: 'Medication reminder',
           body: 'Time to take ${medication.name} (${medication.dosage})',
-          scheduledAt: DateTime.now(),
+          scheduledAt: _nextOccurrence(time),
+          // Weekly meds only fire on selected weekdays, so they can't use a
+          // simple daily-recurring notification.
+          recurringDaily: medication.weekDays.isEmpty,
+          metadata: <String, dynamic>{'time': time},
         ),
       );
     }
     return const Success(null);
+  }
+
+  /// Cancels any existing reminders for a medication, then reschedules dose
+  /// and refill reminders based on its current active/frequency/refillDate state.
+  Future<Result<void, AppError>> refreshReminders(Medication medication) async {
+    await reminders.cancel(ReminderModule.health, medication.id);
+    if (!medication.isActive) {
+      return const Success(null);
+    }
+    await scheduleMedicationReminders(medication);
+    await scheduleRefillReminder(medication);
+    return const Success(null);
+  }
+
+  Future<Result<void, AppError>> cancelReminders(String medicationId) async {
+    await reminders.cancel(ReminderModule.health, medicationId);
+    return const Success(null);
+  }
+
+  DateTime _nextOccurrence(String reminderTime) {
+    final parts = reminderTime.split(':');
+    final hour = int.parse(parts[0]);
+    final minute = int.parse(parts[1]);
+    final now = DateTime.now();
+    var scheduled = DateTime(now.year, now.month, now.day, hour, minute);
+    if (scheduled.isBefore(now)) {
+      scheduled = scheduled.add(const Duration(days: 1));
+    }
+    return scheduled;
   }
 
   Future<Result<void, AppError>> scheduleRefillReminder(Medication medication) async {

@@ -21,8 +21,12 @@ import '../../features/habits/screens/habit_form_screen.dart';
 import '../../features/habits/screens/habits_home_screen.dart';
 import '../../features/habits/screens/mood_tracker_screen.dart';
 import '../../features/health/screens/health_screen.dart';
+import '../../features/health/screens/blood_test_form_screen.dart';
 import '../../features/health/screens/blood_tests_screen.dart';
+import '../../features/health/screens/doctor_visit_form_screen.dart';
+import '../../features/health/screens/doctor_visits_screen.dart';
 import '../../features/health/screens/health_home_screen.dart';
+import '../../features/health/screens/health_metric_form_screen.dart';
 import '../../features/health/screens/health_metrics_screen.dart';
 import '../../features/health/screens/medication_form_screen.dart';
 import '../../features/health/screens/medication_list_screen.dart';
@@ -242,9 +246,29 @@ class AppRouter {
           builder: (_) => const HealthMetricsScreen(),
           settings: settings,
         );
+      case HealthMetricFormScreen.routeName:
+        return MaterialPageRoute<void>(
+          builder: (_) => const HealthMetricFormScreen(),
+          settings: settings,
+        );
       case BloodTestsScreen.routeName:
         return MaterialPageRoute<void>(
           builder: (_) => const BloodTestsScreen(),
+          settings: settings,
+        );
+      case BloodTestFormScreen.routeName:
+        return MaterialPageRoute<void>(
+          builder: (_) => const BloodTestFormScreen(),
+          settings: settings,
+        );
+      case DoctorVisitsScreen.routeName:
+        return MaterialPageRoute<void>(
+          builder: (_) => const DoctorVisitsScreen(),
+          settings: settings,
+        );
+      case DoctorVisitFormScreen.routeName:
+        return MaterialPageRoute<void>(
+          builder: (_) => const DoctorVisitFormScreen(),
           settings: settings,
         );
       case NotesScreen.routeName:

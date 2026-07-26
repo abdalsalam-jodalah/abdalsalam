@@ -1,9 +1,16 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:abdalsalam_logic_flutter/abdalsalam_logic_flutter.dart' as logic;
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 import 'app.dart';
+import 'data/repositories/health/health_repository.dart';
+import 'data/repositories/health/medication_log_repository.dart';
+import 'features/health/services/health_service.dart';
+import 'features/health/services/medication_daily_rollover_service.dart';
+import 'features/health/services/medication_service.dart';
 import 'providers/app_providers.dart';
 import 'shared/infrastructure/database_schema_initializer.dart';
 import 'shared/infrastructure/logger_service.dart';
@@ -15,6 +22,8 @@ import 'shared/services/settings_service.dart';
 
 // ignore: unused_element
 AppLifecycleLogger? _appLifecycleLogger;
+// ignore: unused_element
+StreamSubscription<ReminderPayload>? _medicationMarkTakenSubscription;
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -84,6 +93,38 @@ class _BootstrapAppState extends State<_BootstrapApp> {
       onNotificationTap: reminderService.handleNotificationResponse,
     );
     await reminderService.rescheduleAll();
+
+    final healthRepository = HealthRepositoryImpl(
+      StorageGateway.instance,
+      LoggerService.forModule('HealthRepository', moduleType: logic.ModuleType.repository),
+    );
+    final medicationLogRepository = MedicationLogRepositoryImpl(
+      StorageGateway.instance,
+      LoggerService.forModule('MedicationLogRepository', moduleType: logic.ModuleType.repository),
+    );
+    final medicationService = MedicationService(
+      repository: healthRepository,
+      logger: LoggerService.forModule('MedicationService', moduleType: logic.ModuleType.service),
+      logRepository: medicationLogRepository,
+    );
+    final healthService = HealthService(
+      healthRepository,
+      LoggerService.forModule('HealthService', moduleType: logic.ModuleType.service),
+      reminders: reminderService,
+    );
+    await MedicationDailyRolloverService(
+      medicationService: medicationService,
+      healthService: healthService,
+      healthRepository: healthRepository,
+      storage: StorageGateway.instance,
+      logger: LoggerService.forModule('MedicationDailyRollover', moduleType: logic.ModuleType.service),
+    ).runIfNeeded();
+
+    _medicationMarkTakenSubscription = reminderService.markTakenStream.listen((payload) async {
+      final time = payload.metadata?['time'] as String?;
+      if (time == null) return;
+      await medicationService.markAsTaken(payload.targetId, DateTime.now(), time);
+    });
 
     _appLifecycleLogger = AppLifecycleLogger(
       appStateManager: appStateManager,

@@ -22,6 +22,8 @@ class _FakeNotificationService extends NotificationService {
     required NotificationChannelType channel,
     required DateTime scheduledAt,
     String? payload,
+    bool recurringDaily = false,
+    bool withMarkTakenAction = false,
   }) async {
     scheduledIds.add(id);
     scheduledTimes.add(scheduledAt);
@@ -34,6 +36,7 @@ class _FakeNotificationService extends NotificationService {
     required String body,
     required NotificationChannelType channel,
     String? payload,
+    bool withMarkTakenAction = false,
   }) async {
     shownNowIds.add(id);
   }

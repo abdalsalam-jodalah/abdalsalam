@@ -22,6 +22,9 @@ class NotificationService {
 
   NotificationService({required this.plugin, required this.logger});
 
+  static const markTakenActionId = 'mark_taken';
+  static const _medicationCategoryId = 'medication_actions';
+
   static const Map<NotificationChannelType, AndroidNotificationChannel>
       channels = <NotificationChannelType, AndroidNotificationChannel>{
     NotificationChannelType.religious: AndroidNotificationChannel(
@@ -75,7 +78,7 @@ class NotificationService {
   };
 
   Future<void> initialize({
-    void Function(String? payload)? onNotificationTap,
+    void Function(String? payload, {String? actionId})? onNotificationTap,
   }) async {
     tz_data.initializeTimeZones();
     try {
@@ -86,15 +89,24 @@ class NotificationService {
     }
 
     const androidInit = AndroidInitializationSettings('@mipmap/ic_launcher');
-    const iosInit = DarwinInitializationSettings();
-    const settings = InitializationSettings(
+    final iosInit = DarwinInitializationSettings(
+      notificationCategories: [
+        DarwinNotificationCategory(
+          _medicationCategoryId,
+          actions: [
+            DarwinNotificationAction.plain(markTakenActionId, 'Mark as taken'),
+          ],
+        ),
+      ],
+    );
+    final settings = InitializationSettings(
       android: androidInit,
       iOS: iosInit,
     );
     await plugin.initialize(
       settings,
       onDidReceiveNotificationResponse: (response) {
-        onNotificationTap?.call(response.payload);
+        onNotificationTap?.call(response.payload, actionId: response.actionId);
       },
     );
 
@@ -128,7 +140,7 @@ class NotificationService {
     );
   }
 
-  NotificationDetails _detailsFor(NotificationChannelType channel) {
+  NotificationDetails _detailsFor(NotificationChannelType channel, {bool withMarkTakenAction = false}) {
     final selectedChannel = channels[channel]!;
     return NotificationDetails(
       android: AndroidNotificationDetails(
@@ -137,8 +149,13 @@ class NotificationService {
         channelDescription: selectedChannel.description,
         importance: selectedChannel.importance,
         priority: Priority.high,
+        actions: withMarkTakenAction
+            ? const [AndroidNotificationAction(markTakenActionId, 'Mark as taken')]
+            : null,
       ),
-      iOS: const DarwinNotificationDetails(),
+      iOS: DarwinNotificationDetails(
+        categoryIdentifier: withMarkTakenAction ? _medicationCategoryId : null,
+      ),
     );
   }
 
@@ -148,12 +165,13 @@ class NotificationService {
     required String body,
     required NotificationChannelType channel,
     String? payload,
+    bool withMarkTakenAction = false,
   }) async {
     await plugin.show(
       id,
       title,
       body,
-      _detailsFor(channel),
+      _detailsFor(channel, withMarkTakenAction: withMarkTakenAction),
       payload: payload,
     );
   }
@@ -165,19 +183,25 @@ class NotificationService {
     required NotificationChannelType channel,
     required DateTime scheduledAt,
     String? payload,
+    bool recurringDaily = false,
+    bool withMarkTakenAction = false,
   }) async {
     await plugin.zonedSchedule(
       id,
       title,
       body,
       tz.TZDateTime.from(scheduledAt, tz.local),
-      _detailsFor(channel),
+      _detailsFor(channel, withMarkTakenAction: withMarkTakenAction),
       androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
       uiLocalNotificationDateInterpretation:
           UILocalNotificationDateInterpretation.absoluteTime,
+      matchDateTimeComponents: recurringDaily ? DateTimeComponents.time : null,
       payload: payload,
     );
-    logger.info('[NotificationService] scheduled id=$id at ${scheduledAt.toIso8601String()}');
+    logger.info(
+      '[NotificationService] scheduled id=$id at ${scheduledAt.toIso8601String()}'
+      '${recurringDaily ? ' (recurring daily)' : ''}',
+    );
   }
 
   Future<void> cancel(int id) async {

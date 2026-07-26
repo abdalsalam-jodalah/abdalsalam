@@ -25,6 +25,32 @@ class BloodTest extends BaseModel {
     required this.facility,
   });
 
+  BloodTest copyWith({
+    String? userId,
+    String? testType,
+    DateTime? scheduledDate,
+    DateTime? completedDate,
+    Map<String, dynamic>? results,
+    String? notes,
+    DateTime? nextTestDate,
+    String? facility,
+    DateTime? updatedAt,
+  }) =>
+      BloodTest(
+        id: id,
+        createdAt: createdAt,
+        updatedAt: updatedAt ?? this.updatedAt,
+        deletedAt: deletedAt,
+        userId: userId ?? this.userId,
+        testType: testType ?? this.testType,
+        scheduledDate: scheduledDate ?? this.scheduledDate,
+        completedDate: completedDate ?? this.completedDate,
+        results: results ?? this.results,
+        notes: notes ?? this.notes,
+        nextTestDate: nextTestDate ?? this.nextTestDate,
+        facility: facility ?? this.facility,
+      );
+
   factory BloodTest.fromJson(Map<String, dynamic> json) => BloodTest(
         id: json['id'] as String,
         createdAt: DateTime.parse(json['createdAt'] as String),

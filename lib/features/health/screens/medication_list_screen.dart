@@ -3,13 +3,18 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../data/models/health/medication.dart';
 import '../providers/health_providers.dart';
+import '../services/health_service.dart';
 import '../services/medication_service.dart';
 import 'medication_form_screen.dart';
 
 class MedicationListScreen extends ConsumerStatefulWidget {
   static const routeName = '/health/medications';
 
-  const MedicationListScreen({super.key});
+  /// When true, renders without its own [Scaffold]/[AppBar] for embedding
+  /// inside the tabbed [HealthScreen] shell.
+  final bool embedded;
+
+  const MedicationListScreen({super.key, this.embedded = false});
 
   @override
   ConsumerState<MedicationListScreen> createState() => _MedicationListScreenState();
@@ -18,6 +23,7 @@ class MedicationListScreen extends ConsumerStatefulWidget {
 class _MedicationListScreenState extends ConsumerState<MedicationListScreen> with SingleTickerProviderStateMixin {
   late final TabController _tabController;
   late final MedicationService _service;
+  late final HealthService _healthService;
   DateTime _selectedDate = DateTime.now();
   bool _isLoading = true;
   bool _hasLoadedOnce = false;
@@ -30,6 +36,7 @@ class _MedicationListScreenState extends ConsumerState<MedicationListScreen> wit
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
     _service = ref.read(medicationServiceProvider);
+    _healthService = ref.read(healthServiceProvider);
     _loadData();
   }
 
@@ -194,34 +201,52 @@ class _MedicationListScreenState extends ConsumerState<MedicationListScreen> wit
 
   @override
   Widget build(BuildContext context) {
+    final tabBar = TabBar(
+      controller: _tabController,
+      tabs: const [
+        Tab(text: 'Daily Checklist', icon: Icon(Icons.checklist)),
+        Tab(text: 'Manage', icon: Icon(Icons.medication_outlined)),
+      ],
+    );
+    final tabContent = _isLoading
+        ? const Center(child: CircularProgressIndicator())
+        : TabBarView(
+            controller: _tabController,
+            children: [
+              _buildDailyChecklistTab(),
+              _buildManageTab(),
+            ],
+          );
+    final fab = FloatingActionButton.extended(
+      onPressed: () async {
+        await Navigator.pushNamed(context, MedicationFormScreen.routeName);
+        _loadData();
+      },
+      icon: const Icon(Icons.add),
+      label: const Text('Add Medication'),
+    );
+
+    if (widget.embedded) {
+      return Stack(
+        children: [
+          Column(
+            children: [
+              Material(
+                color: Theme.of(context).colorScheme.surface,
+                child: tabBar,
+              ),
+              Expanded(child: tabContent),
+            ],
+          ),
+          Positioned(right: 16, bottom: 16, child: fab),
+        ],
+      );
+    }
+
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Medications'),
-        bottom: TabBar(
-          controller: _tabController,
-          tabs: const [
-            Tab(text: 'Daily Checklist', icon: Icon(Icons.checklist)),
-            Tab(text: 'Manage', icon: Icon(Icons.medication_outlined)),
-          ],
-        ),
-      ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : TabBarView(
-              controller: _tabController,
-              children: [
-                _buildDailyChecklistTab(),
-                _buildManageTab(),
-              ],
-            ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () async {
-          await Navigator.pushNamed(context, MedicationFormScreen.routeName);
-          _loadData();
-        },
-        icon: const Icon(Icons.add),
-        label: const Text('Add Medication'),
-      ),
+      appBar: AppBar(title: const Text('Medications'), bottom: tabBar),
+      body: tabContent,
+      floatingActionButton: fab,
     );
   }
 
@@ -435,7 +460,10 @@ class _MedicationListScreenState extends ConsumerState<MedicationListScreen> wit
                     child: _MedicationCard(
                       medication: med,
                       onToggleActive: () async {
-                        await _service.toggleActive(med.id);
+                        final result = await _service.toggleActive(med.id);
+                        if (result.isSuccess && result.data != null) {
+                          await _healthService.refreshReminders(result.data!);
+                        }
                         _loadData();
                       },
                       onEdit: () async {
@@ -449,6 +477,7 @@ class _MedicationListScreenState extends ConsumerState<MedicationListScreen> wit
                       },
                       onDelete: () async {
                         await _service.softDelete(med.id);
+                        await _healthService.cancelReminders(med.id);
                         _loadData();
                       },
                     ),

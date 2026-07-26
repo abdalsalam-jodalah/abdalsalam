@@ -4,6 +4,7 @@ import 'package:uuid/uuid.dart';
 
 import '../../../data/models/health/medication.dart';
 import '../providers/health_providers.dart';
+import '../services/health_service.dart';
 import '../services/medication_service.dart';
 
 class MedicationFormScreen extends ConsumerStatefulWidget {
@@ -31,12 +32,14 @@ class _MedicationFormScreenState extends ConsumerState<MedicationFormScreen> {
   late MedicationTiming _timing;
   late Set<WeekDay> _selectedWeekDays;
   late final MedicationService _service;
+  late final HealthService _healthService;
   final _uuid = const Uuid();
 
   @override
   void initState() {
     super.initState();
     _service = ref.read(medicationServiceProvider);
+    _healthService = ref.read(healthServiceProvider);
 
     if (widget.medication != null) {
       _nameController.text = widget.medication!.name;
@@ -112,6 +115,7 @@ class _MedicationFormScreenState extends ConsumerState<MedicationFormScreen> {
         : await _service.update(medication);
 
     if (result.isSuccess) {
+      await _healthService.refreshReminders(medication);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Medication ${widget.medication == null ? 'added' : 'updated'}')),

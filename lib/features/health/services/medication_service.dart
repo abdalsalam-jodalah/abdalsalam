@@ -117,7 +117,9 @@ class MedicationService extends BaseServiceImpl<Medication> {
         return Failure(medicationsResult.error!);
       }
 
-      final medications = medicationsResult.data!.where((m) => m.isActive).toList();
+      final medications = medicationsResult.data!
+          .where((m) => m.isActive && m.frequency != 'As Needed')
+          .toList();
       final logs = <MedicationLog>[];
 
       for (final medication in medications) {

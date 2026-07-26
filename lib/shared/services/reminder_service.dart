@@ -22,6 +22,8 @@ class ReminderPayload {
   final String title;
   final String body;
   final DateTime scheduledAt;
+  final bool recurringDaily;
+  final Map<String, dynamic>? metadata;
 
   const ReminderPayload({
     required this.module,
@@ -29,6 +31,8 @@ class ReminderPayload {
     required this.title,
     required this.body,
     required this.scheduledAt,
+    this.recurringDaily = false,
+    this.metadata,
   });
 
   int get notificationId =>
@@ -42,6 +46,8 @@ class ReminderPayload {
         'title': title,
         'body': body,
         'scheduledAt': scheduledAt.toIso8601String(),
+        'recurringDaily': recurringDaily,
+        'metadata': metadata,
       };
 
   factory ReminderPayload.fromJson(Map<String, dynamic> json) => ReminderPayload(
@@ -50,6 +56,8 @@ class ReminderPayload {
         title: json['title'] as String,
         body: json['body'] as String,
         scheduledAt: DateTime.parse(json['scheduledAt'] as String),
+        recurringDaily: json['recurringDaily'] as bool? ?? false,
+        metadata: (json['metadata'] as Map<String, dynamic>?),
       );
 }
 
@@ -63,6 +71,8 @@ class ReminderService {
   final NotificationService notifications;
   final StreamController<ReminderPayload> _tapController =
       StreamController<ReminderPayload>.broadcast();
+  final StreamController<ReminderPayload> _markTakenController =
+      StreamController<ReminderPayload>.broadcast();
 
   ReminderService({
     required this.storage,
@@ -71,6 +81,10 @@ class ReminderService {
   });
 
   Stream<ReminderPayload> get tapStream => _tapController.stream;
+
+  /// Fires when the user taps the "Mark as taken" notification action
+  /// instead of the notification body itself.
+  Stream<ReminderPayload> get markTakenStream => _markTakenController.stream;
 
   Future<void> schedule(ReminderPayload payload) async {
     final settings = await getModuleSettings();
@@ -92,6 +106,7 @@ class ReminderService {
   Future<void> _deliver(ReminderPayload payload) async {
     final channel = NotificationChannelType.values.byName(payload.module.name);
     final encodedPayload = jsonEncode(payload.toJson());
+    final withMarkTakenAction = payload.module == ReminderModule.health && payload.metadata?['time'] != null;
     if (payload.scheduledAt.isAfter(DateTime.now())) {
       await notifications.zonedSchedule(
         id: payload.notificationId,
@@ -100,6 +115,8 @@ class ReminderService {
         channel: channel,
         scheduledAt: payload.scheduledAt,
         payload: encodedPayload,
+        recurringDaily: payload.recurringDaily,
+        withMarkTakenAction: withMarkTakenAction,
       );
     } else {
       await notifications.showNow(
@@ -108,6 +125,7 @@ class ReminderService {
         body: payload.body,
         channel: channel,
         payload: encodedPayload,
+        withMarkTakenAction: withMarkTakenAction,
       );
     }
   }
@@ -155,13 +173,19 @@ class ReminderService {
     logger.info('[ReminderService] rescheduled ${upcoming.length} of ${existing.length} reminders');
   }
 
-  void handleNotificationResponse(String? rawPayload) {
+  void handleNotificationResponse(String? rawPayload, {String? actionId}) {
     if (rawPayload == null || rawPayload.isEmpty) {
       return;
     }
     try {
       final decoded = jsonDecode(rawPayload) as Map<String, dynamic>;
-      handleNotificationTap(ReminderPayload.fromJson(decoded));
+      final payload = ReminderPayload.fromJson(decoded);
+      if (actionId == NotificationService.markTakenActionId) {
+        logger.info('[ReminderService] mark-taken action ${payload.module.name}:${payload.targetId}');
+        _markTakenController.add(payload);
+      } else {
+        handleNotificationTap(payload);
+      }
     } catch (error) {
       logger.warning('[ReminderService] failed to parse notification payload: $error');
     }
@@ -368,5 +392,6 @@ class ReminderService {
 
   Future<void> dispose() async {
     await _tapController.close();
+    await _markTakenController.close();
   }
 }

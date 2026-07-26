@@ -28,6 +28,7 @@ class DatabaseSchemaInitializer {
     'medication_logs',
     'blood_tests',
     'health_metrics',
+    'doctor_visits',
     'notes',
     'todos',
     'note_categories',

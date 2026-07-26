@@ -21,6 +21,28 @@ class HealthMetric extends BaseModel {
     required this.notes,
   });
 
+  HealthMetric copyWith({
+    String? userId,
+    String? metricType,
+    double? value,
+    String? unit,
+    DateTime? measuredAt,
+    String? notes,
+    DateTime? updatedAt,
+  }) =>
+      HealthMetric(
+        id: id,
+        createdAt: createdAt,
+        updatedAt: updatedAt ?? this.updatedAt,
+        deletedAt: deletedAt,
+        userId: userId ?? this.userId,
+        metricType: metricType ?? this.metricType,
+        value: value ?? this.value,
+        unit: unit ?? this.unit,
+        measuredAt: measuredAt ?? this.measuredAt,
+        notes: notes ?? this.notes,
+      );
+
   factory HealthMetric.fromJson(Map<String, dynamic> json) => HealthMetric(
         id: json['id'] as String,
         createdAt: DateTime.parse(json['createdAt'] as String),
