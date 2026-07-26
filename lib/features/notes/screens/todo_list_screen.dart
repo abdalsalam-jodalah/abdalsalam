@@ -2,11 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../data/models/notes/todo.dart';
+import '../../habits/screens/habit_detail_screen.dart';
 import '../providers/notes_providers.dart';
 import '../widgets/notes_widgets.dart';
 import '../widgets/todo_dialog.dart';
 
-enum _TodoMenuAction { edit, delete }
+enum _TodoMenuAction { edit, delete, unlinkHabit }
 
 class TodoListScreen extends ConsumerWidget {
   static const routeName = '/notes/todos';
@@ -44,19 +45,40 @@ class TodoListScreen extends ConsumerWidget {
                   title: todo.title,
                   completed: todo.status == TodoStatus.done,
                   onChanged: (value) => _toggleTodo(ref, todo, value ?? false),
-                  trailing: PopupMenuButton<_TodoMenuAction>(
-                    icon: const Icon(Icons.more_vert),
-                    onSelected: (action) {
-                      switch (action) {
-                        case _TodoMenuAction.edit:
-                          _editTodo(context, ref, todo);
-                        case _TodoMenuAction.delete:
-                          _deleteTodo(ref, todo);
-                      }
-                    },
-                    itemBuilder: (context) => const [
-                      PopupMenuItem(value: _TodoMenuAction.edit, child: Text('Edit')),
-                      PopupMenuItem(value: _TodoMenuAction.delete, child: Text('Delete')),
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (todo.habitId != null)
+                        IconButton(
+                          icon: const Icon(Icons.link),
+                          tooltip: 'Open linked habit',
+                          onPressed: () => Navigator.of(context).pushNamed(
+                            HabitDetailScreen.routeName,
+                            arguments: todo.habitId,
+                          ),
+                        ),
+                      PopupMenuButton<_TodoMenuAction>(
+                        icon: const Icon(Icons.more_vert),
+                        onSelected: (action) {
+                          switch (action) {
+                            case _TodoMenuAction.edit:
+                              _editTodo(context, ref, todo);
+                            case _TodoMenuAction.delete:
+                              _deleteTodo(ref, todo);
+                            case _TodoMenuAction.unlinkHabit:
+                              _unlinkHabit(ref, todo);
+                          }
+                        },
+                        itemBuilder: (context) => [
+                          const PopupMenuItem(value: _TodoMenuAction.edit, child: Text('Edit')),
+                          const PopupMenuItem(value: _TodoMenuAction.delete, child: Text('Delete')),
+                          if (todo.habitId != null)
+                            const PopupMenuItem(
+                              value: _TodoMenuAction.unlinkHabit,
+                              child: Text('Unlink habit'),
+                            ),
+                        ],
+                      ),
                     ],
                   ),
                 ),
@@ -94,6 +116,12 @@ class TodoListScreen extends ConsumerWidget {
   Future<void> _deleteTodo(WidgetRef ref, Todo todo) async {
     final repo = ref.read(todoRepositoryProvider);
     await repo.softDelete(todo.id);
+    ref.invalidate(activeTodosProvider);
+  }
+
+  Future<void> _unlinkHabit(WidgetRef ref, Todo todo) async {
+    final repo = ref.read(todoRepositoryProvider);
+    await repo.update(todo.copyWith(clearHabitId: true, updatedAt: DateTime.now()));
     ref.invalidate(activeTodosProvider);
   }
 

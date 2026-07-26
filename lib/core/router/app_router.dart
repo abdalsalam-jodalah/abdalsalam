@@ -14,12 +14,11 @@ import '../../features/financial/screens/financial_activity_log_screen.dart';
 import '../../features/financial/screens/transactions_page.dart';
 import '../../features/financial/screens/transaction_form_screen.dart';
 import '../../data/models/financial/transaction_model.dart';
+import '../../data/models/habits/habit.dart';
 import '../../features/habits/screens/habits_screen.dart';
-import '../../features/habits/screens/daily_events_screen.dart';
 import '../../features/habits/screens/habit_detail_screen.dart';
 import '../../features/habits/screens/habit_form_screen.dart';
 import '../../features/habits/screens/habits_home_screen.dart';
-import '../../features/habits/screens/mood_tracker_screen.dart';
 import '../../features/health/screens/health_screen.dart';
 import '../../features/health/screens/blood_test_form_screen.dart';
 import '../../features/health/screens/blood_tests_screen.dart';
@@ -181,22 +180,17 @@ class AppRouter {
         );
       case HabitDetailScreen.routeName:
         return MaterialPageRoute<void>(
-          builder: (_) => const HabitDetailScreen(),
+          builder: (_) => HabitDetailScreen(habitId: settings.arguments as String),
           settings: settings,
         );
       case HabitFormScreen.routeName:
-        return MaterialPageRoute<void>(
-          builder: (_) => const HabitFormScreen(),
-          settings: settings,
-        );
-      case DailyEventsScreen.routeName:
-        return MaterialPageRoute<void>(
-          builder: (_) => const DailyEventsScreen(),
-          settings: settings,
-        );
-      case MoodTrackerScreen.routeName:
-        return MaterialPageRoute<void>(
-          builder: (_) => const MoodTrackerScreen(),
+        final args = settings.arguments as HabitFormArgs?;
+        return MaterialPageRoute<Habit?>(
+          builder: (_) => HabitFormScreen(
+            existing: args?.existing,
+            prefillTitle: args?.prefillTitle,
+            prefillDescription: args?.prefillDescription,
+          ),
           settings: settings,
         );
       case SportsScreen.routeName:

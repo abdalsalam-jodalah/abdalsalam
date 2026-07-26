@@ -41,3 +41,9 @@ final activeTodosProvider = FutureProvider<List<Todo>>((ref) async {
   final todos = [...(result.data ?? <Todo>[])]..sort((a, b) => a.order.compareTo(b.order));
   return todos;
 });
+
+final todosForHabitProvider = FutureProvider.family<List<Todo>, String>((ref, habitId) async {
+  final repo = ref.watch(todoRepositoryProvider);
+  final result = await repo.query(<String, dynamic>{'habitId': habitId});
+  return result.data ?? [];
+});

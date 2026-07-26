@@ -15,6 +15,7 @@ class Todo extends BaseModel {
   final DateTime? reminderAt;
   final String? parentTodoId;
   final int order;
+  final String? habitId;
 
   const Todo({
     required super.id,
@@ -32,6 +33,7 @@ class Todo extends BaseModel {
     required this.reminderAt,
     required this.parentTodoId,
     required this.order,
+    this.habitId,
   });
 
   factory Todo.fromJson(Map<String, dynamic> json) => Todo(
@@ -50,6 +52,7 @@ class Todo extends BaseModel {
         reminderAt: json['reminderAt'] == null ? null : DateTime.parse(json['reminderAt'] as String),
         parentTodoId: json['parentTodoId'] as String?,
         order: json['order'] as int? ?? 0,
+        habitId: json['habitId'] as String?,
       );
 
   Todo copyWith({
@@ -63,6 +66,8 @@ class Todo extends BaseModel {
     List<String>? tags,
     DateTime? reminderAt,
     int? order,
+    String? habitId,
+    bool clearHabitId = false,
   }) =>
       Todo(
         id: id,
@@ -80,6 +85,7 @@ class Todo extends BaseModel {
         reminderAt: reminderAt ?? this.reminderAt,
         parentTodoId: parentTodoId,
         order: order ?? this.order,
+        habitId: clearHabitId ? null : (habitId ?? this.habitId),
       );
 
   @override
@@ -99,5 +105,6 @@ class Todo extends BaseModel {
         'reminderAt': reminderAt?.toIso8601String(),
         'parentTodoId': parentTodoId,
         'order': order,
+        'habitId': habitId,
       };
 }

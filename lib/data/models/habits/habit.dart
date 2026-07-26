@@ -16,6 +16,8 @@ class Habit extends BaseModel {
   final String category;
   final BadHabitCategory? badHabitCategory;
   final String? customBadHabitCategoryName;
+  final bool isGoodHabit;
+  final List<int>? customWeekdays;
 
   const Habit({
     required super.id,
@@ -33,6 +35,8 @@ class Habit extends BaseModel {
     required this.category,
     this.badHabitCategory,
     this.customBadHabitCategoryName,
+    required this.isGoodHabit,
+    this.customWeekdays,
   });
 
   factory Habit.fromJson(Map<String, dynamic> json) {
@@ -54,8 +58,51 @@ class Habit extends BaseModel {
           ? null
           : BadHabitCategory.values.byName(json['badHabitCategory'] as String),
       customBadHabitCategoryName: json['customBadHabitCategoryName'] as String?,
+      isGoodHabit: json['isGoodHabit'] as bool? ?? true,
+      customWeekdays: (json['customWeekdays'] as List<dynamic>?)?.cast<int>(),
     );
   }
+
+  Habit copyWith({
+    DateTime? updatedAt,
+    String? name,
+    String? description,
+    HabitFrequency? frequency,
+    int? targetCount,
+    String? reminderTime,
+    bool clearReminderTime = false,
+    String? icon,
+    String? color,
+    String? category,
+    BadHabitCategory? badHabitCategory,
+    bool clearBadHabitCategory = false,
+    String? customBadHabitCategoryName,
+    bool clearCustomBadHabitCategoryName = false,
+    bool? isGoodHabit,
+    List<int>? customWeekdays,
+    bool clearCustomWeekdays = false,
+  }) =>
+      Habit(
+        id: id,
+        createdAt: createdAt,
+        updatedAt: updatedAt ?? this.updatedAt,
+        deletedAt: deletedAt,
+        userId: userId,
+        name: name ?? this.name,
+        description: description ?? this.description,
+        frequency: frequency ?? this.frequency,
+        targetCount: targetCount ?? this.targetCount,
+        reminderTime: clearReminderTime ? null : (reminderTime ?? this.reminderTime),
+        icon: icon ?? this.icon,
+        color: color ?? this.color,
+        category: category ?? this.category,
+        badHabitCategory: clearBadHabitCategory ? null : (badHabitCategory ?? this.badHabitCategory),
+        customBadHabitCategoryName: clearCustomBadHabitCategoryName
+            ? null
+            : (customBadHabitCategoryName ?? this.customBadHabitCategoryName),
+        isGoodHabit: isGoodHabit ?? this.isGoodHabit,
+        customWeekdays: clearCustomWeekdays ? null : (customWeekdays ?? this.customWeekdays),
+      );
 
   @override
   Map<String, dynamic> toJson() => <String, dynamic>{
@@ -74,5 +121,7 @@ class Habit extends BaseModel {
         'category': category,
         'badHabitCategory': badHabitCategory?.name,
         'customBadHabitCategoryName': customBadHabitCategoryName,
+        'isGoodHabit': isGoodHabit,
+        'customWeekdays': customWeekdays,
       };
 }

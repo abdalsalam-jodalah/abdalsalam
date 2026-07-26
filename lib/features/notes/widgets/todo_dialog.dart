@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../../data/models/habits/habit.dart';
 import '../../../data/models/notes/todo.dart';
+import '../../habits/screens/habit_form_screen.dart';
 import '../providers/notes_providers.dart';
 
 const _uuid = Uuid();
@@ -17,43 +19,69 @@ Future<bool> showTodoDialog(
   final formKey = GlobalKey<FormState>();
   final titleController = TextEditingController(text: existing?.title ?? '');
   final descriptionController = TextEditingController(text: existing?.description ?? '');
+  String? linkedHabitId = existing?.habitId;
 
   final saved = await showDialog<bool>(
     context: context,
-    builder: (dialogContext) => AlertDialog(
-      title: Text(existing == null ? 'New Todo' : 'Edit Todo'),
-      content: SingleChildScrollView(
-        child: Form(
-          key: formKey,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextFormField(
-                controller: titleController,
-                decoration: const InputDecoration(labelText: 'Label', border: OutlineInputBorder()),
-                validator: (value) => (value == null || value.trim().isEmpty) ? 'Label is required' : null,
-              ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: descriptionController,
-                maxLines: 4,
-                decoration: const InputDecoration(labelText: 'Body (optional)', border: OutlineInputBorder()),
-              ),
-            ],
+    builder: (dialogContext) => StatefulBuilder(
+      builder: (dialogContext, setDialogState) => AlertDialog(
+        title: Text(existing == null ? 'New Todo' : 'Edit Todo'),
+        content: SingleChildScrollView(
+          child: Form(
+            key: formKey,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextFormField(
+                  controller: titleController,
+                  decoration: const InputDecoration(labelText: 'Label', border: OutlineInputBorder()),
+                  validator: (value) => (value == null || value.trim().isEmpty) ? 'Label is required' : null,
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: descriptionController,
+                  maxLines: 4,
+                  decoration: const InputDecoration(labelText: 'Body (optional)', border: OutlineInputBorder()),
+                ),
+                const SizedBox(height: 12),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: TextButton.icon(
+                    onPressed: linkedHabitId != null
+                        ? null
+                        : () async {
+                            final habit = await Navigator.of(dialogContext).push<Habit?>(
+                              MaterialPageRoute(
+                                builder: (_) => HabitFormScreen(
+                                  prefillTitle: titleController.text.trim(),
+                                  prefillDescription: descriptionController.text.trim(),
+                                ),
+                              ),
+                            );
+                            if (habit != null) {
+                              setDialogState(() => linkedHabitId = habit.id);
+                            }
+                          },
+                    icon: Icon(linkedHabitId != null ? Icons.link : Icons.link_outlined),
+                    label: Text(linkedHabitId != null ? 'Linked to habit' : 'Mark as habit'),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Cancel')),
+          FilledButton(
+            onPressed: () {
+              if (formKey.currentState?.validate() ?? false) {
+                Navigator.pop(dialogContext, true);
+              }
+            },
+            child: Text(existing == null ? 'Create' : 'Save'),
+          ),
+        ],
       ),
-      actions: [
-        TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Cancel')),
-        FilledButton(
-          onPressed: () {
-            if (formKey.currentState?.validate() ?? false) {
-              Navigator.pop(dialogContext, true);
-            }
-          },
-          child: Text(existing == null ? 'Create' : 'Save'),
-        ),
-      ],
     ),
   );
 
@@ -88,6 +116,7 @@ Future<bool> showTodoDialog(
             reminderAt: null,
             parentTodoId: null,
             order: order,
+            habitId: linkedHabitId,
           ),
         )
       : await repo.update(
@@ -95,6 +124,7 @@ Future<bool> showTodoDialog(
             title: title,
             description: description.isEmpty ? null : description,
             updatedAt: now,
+            habitId: linkedHabitId,
           ),
         );
 
