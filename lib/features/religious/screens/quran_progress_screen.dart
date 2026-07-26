@@ -90,87 +90,99 @@ class QuranProgressScreen extends ConsumerWidget {
   }
 
   Future<void> _showAddDialog(BuildContext context, WidgetRef ref) async {
-    final pagesController = TextEditingController();
-    final minutesController = TextEditingController();
-
-    final shouldSave = await showDialog<bool>(
+    final result = await showDialog<_QuranProgressResult>(
       context: context,
-      builder: (context) {
-        String? pagesError;
-        String? minutesError;
-
-        return StatefulBuilder(
-          builder: (context, setState) => AlertDialog(
-            title: const Text('Add Quran Progress'),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
-                  controller: pagesController,
-                  keyboardType: TextInputType.number,
-                  decoration: InputDecoration(
-                    labelText: 'Pages read',
-                    errorText: pagesError,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: minutesController,
-                  keyboardType: TextInputType.number,
-                  decoration: InputDecoration(
-                    labelText: 'Minutes spent',
-                    errorText: minutesError,
-                  ),
-                ),
-              ],
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(false),
-                child: const Text('Cancel'),
-              ),
-              FilledButton(
-                onPressed: () {
-                  final pages = int.tryParse(pagesController.text.trim()) ?? 0;
-                  final minutes = int.tryParse(minutesController.text.trim()) ?? 0;
-                  setState(() {
-                    pagesError = pages <= 0 ? 'Pages must be greater than 0' : null;
-                    minutesError =
-                        minutes <= 0 ? 'Minutes must be greater than 0' : null;
-                  });
-                  if (pagesError == null && minutesError == null) {
-                    Navigator.of(context).pop(true);
-                  }
-                },
-                child: const Text('Save'),
-              ),
-            ],
-          ),
-        );
-      },
+      builder: (_) => const _QuranProgressDialogContent(),
     );
 
-    if (shouldSave != true || !context.mounted) {
-      pagesController.dispose();
-      minutesController.dispose();
-      return;
-    }
-
-    final pages = int.tryParse(pagesController.text.trim()) ?? 0;
-    final minutes = int.tryParse(minutesController.text.trim()) ?? 0;
+    if (result == null) return;
 
     final message = await ref.read(quranProgressControllerProvider.notifier).addProgress(
-          pagesRead: pages,
-          minutesSpent: minutes,
+          pagesRead: result.pages,
+          minutesSpent: result.minutes,
         );
-
-    pagesController.dispose();
-    minutesController.dispose();
 
     if (message != null && context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(message)),
       );
     }
+  }
+}
+
+class _QuranProgressResult {
+  _QuranProgressResult(this.pages, this.minutes);
+
+  final int pages;
+  final int minutes;
+}
+
+class _QuranProgressDialogContent extends StatefulWidget {
+  const _QuranProgressDialogContent();
+
+  @override
+  State<_QuranProgressDialogContent> createState() => _QuranProgressDialogContentState();
+}
+
+class _QuranProgressDialogContentState extends State<_QuranProgressDialogContent> {
+  final pagesController = TextEditingController();
+  final minutesController = TextEditingController();
+  String? pagesError;
+  String? minutesError;
+
+  @override
+  void dispose() {
+    pagesController.dispose();
+    minutesController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Add Quran Progress'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          TextField(
+            controller: pagesController,
+            keyboardType: TextInputType.number,
+            decoration: InputDecoration(
+              labelText: 'Pages read',
+              errorText: pagesError,
+            ),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: minutesController,
+            keyboardType: TextInputType.number,
+            decoration: InputDecoration(
+              labelText: 'Minutes spent',
+              errorText: minutesError,
+            ),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          onPressed: () {
+            final pages = int.tryParse(pagesController.text.trim()) ?? 0;
+            final minutes = int.tryParse(minutesController.text.trim()) ?? 0;
+            setState(() {
+              pagesError = pages <= 0 ? 'Pages must be greater than 0' : null;
+              minutesError = minutes <= 0 ? 'Minutes must be greater than 0' : null;
+            });
+            if (pagesError == null && minutesError == null) {
+              Navigator.of(context).pop(_QuranProgressResult(pages, minutes));
+            }
+          },
+          child: const Text('Save'),
+        ),
+      ],
+    );
   }
 }

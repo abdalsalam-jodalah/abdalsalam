@@ -164,150 +164,27 @@ class ReligiousHomeScreen extends ConsumerWidget {
     required ReligiousEntryType type,
     required String defaultTitle,
   }) async {
-    final titleController = TextEditingController(text: defaultTitle);
-    final detailsController = TextEditingController();
-    final countController = TextEditingController(text: '1');
-    String prayerName = 'fajr';
-    bool reminderEnabled = false;
-    DateTime reminderAt = DateTime.now().add(const Duration(hours: 1));
-
-    final save = await showDialog<bool>(
+    final result = await showDialog<_ReligiousEntryResult>(
       context: context,
-      builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setState) {
-            final scheme = Theme.of(context).colorScheme;
-            final color = _colorForType(context, type);
-            return AlertDialog(
-              title: Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: color.withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Icon(_iconForType(type), color: color, size: 20),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(child: Text('Log ${_typeLabel(type)}')),
-                ],
-              ),
-              content: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    TextField(
-                      controller: titleController,
-                      decoration: const InputDecoration(labelText: 'Title'),
-                    ),
-                    const SizedBox(height: 10),
-                    if (type == ReligiousEntryType.prayer) ...[
-                      DropdownButtonFormField<String>(
-                        initialValue: prayerName,
-                        items: const ['fajr', 'dhuhr', 'asr', 'maghrib', 'isha']
-                            .map((name) => DropdownMenuItem(value: name, child: Text(name.toUpperCase())))
-                            .toList(growable: false),
-                        onChanged: (value) {
-                          if (value != null) {
-                            setState(() => prayerName = value);
-                          }
-                        },
-                        decoration: const InputDecoration(labelText: 'Prayer name'),
-                      ),
-                      const SizedBox(height: 10),
-                    ],
-                    TextField(
-                      controller: countController,
-                      keyboardType: TextInputType.number,
-                      decoration: const InputDecoration(labelText: 'Count / Number'),
-                    ),
-                    const SizedBox(height: 10),
-                    TextField(
-                      controller: detailsController,
-                      maxLines: 3,
-                      decoration: const InputDecoration(labelText: 'Details (optional)'),
-                    ),
-                    const SizedBox(height: 8),
-                    Divider(color: scheme.outlineVariant),
-                    SwitchListTile(
-                      contentPadding: EdgeInsets.zero,
-                      title: const Text('Add reminder'),
-                      value: reminderEnabled,
-                      onChanged: (value) => setState(() => reminderEnabled = value),
-                    ),
-                    if (reminderEnabled)
-                      OutlinedButton.icon(
-                        onPressed: () async {
-                          final pickedDate = await showDatePicker(
-                            context: context,
-                            firstDate: DateTime.now(),
-                            lastDate: DateTime.now().add(const Duration(days: 365)),
-                            initialDate: reminderAt,
-                          );
-                          if (pickedDate == null || !context.mounted) {
-                            return;
-                          }
-                          final pickedTime = await showTimePicker(
-                            context: context,
-                            initialTime: TimeOfDay.fromDateTime(reminderAt),
-                          );
-                          if (pickedTime == null) {
-                            return;
-                          }
-                          setState(() {
-                            reminderAt = DateTime(
-                              pickedDate.year,
-                              pickedDate.month,
-                              pickedDate.day,
-                              pickedTime.hour,
-                              pickedTime.minute,
-                            );
-                          });
-                        },
-                        icon: const Icon(Icons.schedule),
-                        label: Text('Reminder: ${DateFormat('yyyy-MM-dd hh:mm a').format(reminderAt)}'),
-                      ),
-                  ],
-                ),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.of(context).pop(false),
-                  child: const Text('Cancel'),
-                ),
-                FilledButton(
-                  onPressed: () => Navigator.of(context).pop(true),
-                  child: const Text('Save'),
-                ),
-              ],
-            );
-          },
-        );
-      },
+      builder: (_) => _ReligiousEntryDialogContent(
+        type: type,
+        defaultTitle: defaultTitle,
+        iconForType: _iconForType,
+        colorForType: _colorForType,
+        typeLabel: _typeLabel,
+      ),
     );
 
-    if (save != true || !context.mounted) {
-      titleController.dispose();
-      detailsController.dispose();
-      countController.dispose();
-      return;
-    }
-
-    final count = int.tryParse(countController.text.trim()) ?? 1;
+    if (result == null) return;
 
     final error = await ref.read(religiousLogsControllerProvider.notifier).addEntry(
           type: type,
-          title: titleController.text.trim().isEmpty ? defaultTitle : titleController.text.trim(),
-          count: count <= 0 ? 1 : count,
-          details: detailsController.text.trim().isEmpty ? null : detailsController.text.trim(),
-          prayerName: type == ReligiousEntryType.prayer ? prayerName : null,
-          reminderAt: reminderEnabled ? reminderAt : null,
+          title: result.title.isEmpty ? defaultTitle : result.title,
+          count: result.count <= 0 ? 1 : result.count,
+          details: result.details,
+          prayerName: type == ReligiousEntryType.prayer ? result.prayerName : null,
+          reminderAt: result.reminderEnabled ? result.reminderAt : null,
         );
-
-    titleController.dispose();
-    detailsController.dispose();
-    countController.dispose();
 
     if (!context.mounted) {
       return;
@@ -686,6 +563,188 @@ class _PrayerTimesSection extends StatelessWidget {
         ),
         error: (error, _) => Text('Could not load prayer times: $error'),
       ),
+    );
+  }
+}
+
+class _ReligiousEntryResult {
+  _ReligiousEntryResult({
+    required this.title,
+    required this.count,
+    required this.details,
+    required this.prayerName,
+    required this.reminderEnabled,
+    required this.reminderAt,
+  });
+
+  final String title;
+  final int count;
+  final String? details;
+  final String prayerName;
+  final bool reminderEnabled;
+  final DateTime reminderAt;
+}
+
+class _ReligiousEntryDialogContent extends StatefulWidget {
+  const _ReligiousEntryDialogContent({
+    required this.type,
+    required this.defaultTitle,
+    required this.iconForType,
+    required this.colorForType,
+    required this.typeLabel,
+  });
+
+  final ReligiousEntryType type;
+  final String defaultTitle;
+  final IconData Function(ReligiousEntryType type) iconForType;
+  final Color Function(BuildContext context, ReligiousEntryType type) colorForType;
+  final String Function(ReligiousEntryType type) typeLabel;
+
+  @override
+  State<_ReligiousEntryDialogContent> createState() => _ReligiousEntryDialogContentState();
+}
+
+class _ReligiousEntryDialogContentState extends State<_ReligiousEntryDialogContent> {
+  late final TextEditingController titleController;
+  final detailsController = TextEditingController();
+  final countController = TextEditingController(text: '1');
+  String prayerName = 'fajr';
+  bool reminderEnabled = false;
+  DateTime reminderAt = DateTime.now().add(const Duration(hours: 1));
+
+  @override
+  void initState() {
+    super.initState();
+    titleController = TextEditingController(text: widget.defaultTitle);
+  }
+
+  @override
+  void dispose() {
+    titleController.dispose();
+    detailsController.dispose();
+    countController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final color = widget.colorForType(context, widget.type);
+    return AlertDialog(
+      title: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(widget.iconForType(widget.type), color: color, size: 20),
+          ),
+          const SizedBox(width: 12),
+          Expanded(child: Text('Log ${widget.typeLabel(widget.type)}')),
+        ],
+      ),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: titleController,
+              decoration: const InputDecoration(labelText: 'Title'),
+            ),
+            const SizedBox(height: 10),
+            if (widget.type == ReligiousEntryType.prayer) ...[
+              DropdownButtonFormField<String>(
+                initialValue: prayerName,
+                items: const ['fajr', 'dhuhr', 'asr', 'maghrib', 'isha']
+                    .map((name) => DropdownMenuItem(value: name, child: Text(name.toUpperCase())))
+                    .toList(growable: false),
+                onChanged: (value) {
+                  if (value != null) {
+                    setState(() => prayerName = value);
+                  }
+                },
+                decoration: const InputDecoration(labelText: 'Prayer name'),
+              ),
+              const SizedBox(height: 10),
+            ],
+            TextField(
+              controller: countController,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(labelText: 'Count / Number'),
+            ),
+            const SizedBox(height: 10),
+            TextField(
+              controller: detailsController,
+              maxLines: 3,
+              decoration: const InputDecoration(labelText: 'Details (optional)'),
+            ),
+            const SizedBox(height: 8),
+            Divider(color: scheme.outlineVariant),
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Add reminder'),
+              value: reminderEnabled,
+              onChanged: (value) => setState(() => reminderEnabled = value),
+            ),
+            if (reminderEnabled)
+              OutlinedButton.icon(
+                onPressed: () async {
+                  final pickedDate = await showDatePicker(
+                    context: context,
+                    firstDate: DateTime.now(),
+                    lastDate: DateTime.now().add(const Duration(days: 365)),
+                    initialDate: reminderAt,
+                  );
+                  if (pickedDate == null || !context.mounted) {
+                    return;
+                  }
+                  final pickedTime = await showTimePicker(
+                    context: context,
+                    initialTime: TimeOfDay.fromDateTime(reminderAt),
+                  );
+                  if (pickedTime == null) {
+                    return;
+                  }
+                  setState(() {
+                    reminderAt = DateTime(
+                      pickedDate.year,
+                      pickedDate.month,
+                      pickedDate.day,
+                      pickedTime.hour,
+                      pickedTime.minute,
+                    );
+                  });
+                },
+                icon: const Icon(Icons.schedule),
+                label: Text('Reminder: ${DateFormat('yyyy-MM-dd hh:mm a').format(reminderAt)}'),
+              ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          onPressed: () {
+            final count = int.tryParse(countController.text.trim()) ?? 1;
+            Navigator.of(context).pop(
+              _ReligiousEntryResult(
+                title: titleController.text.trim(),
+                count: count,
+                details: detailsController.text.trim().isEmpty ? null : detailsController.text.trim(),
+                prayerName: prayerName,
+                reminderEnabled: reminderEnabled,
+                reminderAt: reminderAt,
+              ),
+            );
+          },
+          child: const Text('Save'),
+        ),
+      ],
     );
   }
 }

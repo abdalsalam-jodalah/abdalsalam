@@ -158,134 +158,176 @@ class BadPracticeScreen extends ConsumerWidget {
   }
 
   Future<void> _showAddDialog(BuildContext context, WidgetRef ref) async {
-    final titleController = TextEditingController();
-    final feelingBeforeController = TextEditingController();
-    final feelingAfterController = TextEditingController();
-    final consequencesController = TextEditingController();
-    final notesController = TextEditingController();
-    DateTime occurredAt = DateTime.now();
-
-    final shouldSave = await showDialog<bool>(
+    final result = await showDialog<_BadPracticeResult>(
       context: context,
-      builder: (context) {
-        String? titleError;
-
-        return StatefulBuilder(
-          builder: (context, setState) => AlertDialog(
-            title: const Text('Log Bad Practice'),
-            content: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  TextField(
-                    controller: titleController,
-                    decoration: InputDecoration(
-                      labelText: 'What happened',
-                      errorText: titleError,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  OutlinedButton.icon(
-                    onPressed: () async {
-                      final pickedDate = await showDatePicker(
-                        context: context,
-                        firstDate: DateTime.now().subtract(const Duration(days: 365)),
-                        lastDate: DateTime.now(),
-                        initialDate: occurredAt,
-                      );
-                      if (pickedDate == null || !context.mounted) {
-                        return;
-                      }
-                      final pickedTime = await showTimePicker(
-                        context: context,
-                        initialTime: TimeOfDay.fromDateTime(occurredAt),
-                      );
-                      if (pickedTime == null) {
-                        return;
-                      }
-                      setState(() {
-                        occurredAt = DateTime(
-                          pickedDate.year,
-                          pickedDate.month,
-                          pickedDate.day,
-                          pickedTime.hour,
-                          pickedTime.minute,
-                        );
-                      });
-                    },
-                    icon: const Icon(Icons.schedule),
-                    label: Text(DateFormat('MMM d, yyyy hh:mm a').format(occurredAt)),
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: feelingBeforeController,
-                    decoration: const InputDecoration(labelText: 'Feeling before (optional)'),
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: feelingAfterController,
-                    decoration: const InputDecoration(labelText: 'Feeling after (optional)'),
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: consequencesController,
-                    maxLines: 2,
-                    decoration: const InputDecoration(labelText: 'Consequences (optional)'),
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: notesController,
-                    maxLines: 2,
-                    decoration: const InputDecoration(labelText: 'Notes (optional)'),
-                  ),
-                ],
-              ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(false),
-                child: const Text('Cancel'),
-              ),
-              FilledButton(
-                onPressed: () {
-                  setState(() {
-                    titleError = titleController.text.trim().isEmpty
-                        ? 'This field is required'
-                        : null;
-                  });
-                  if (titleError == null) {
-                    Navigator.of(context).pop(true);
-                  }
-                },
-                child: const Text('Save'),
-              ),
-            ],
-          ),
-        );
-      },
+      builder: (_) => const _BadPracticeDialogContent(),
     );
 
-    if (shouldSave != true || !context.mounted) {
-      return;
-    }
+    if (result == null) return;
 
     final message = await ref.read(badPracticeLogControllerProvider.notifier).logEvent(
-          title: titleController.text.trim(),
-          occurredAt: occurredAt,
-          feelingBefore: feelingBeforeController.text.trim().isEmpty
-              ? null
-              : feelingBeforeController.text.trim(),
-          feelingAfter: feelingAfterController.text.trim().isEmpty
-              ? null
-              : feelingAfterController.text.trim(),
-          consequences: consequencesController.text.trim().isEmpty
-              ? null
-              : consequencesController.text.trim(),
-          notes: notesController.text.trim().isEmpty ? null : notesController.text.trim(),
+          title: result.title,
+          occurredAt: result.occurredAt,
+          feelingBefore: result.feelingBefore,
+          feelingAfter: result.feelingAfter,
+          consequences: result.consequences,
+          notes: result.notes,
         );
 
     if (message != null && context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
     }
+  }
+}
+
+class _BadPracticeResult {
+  _BadPracticeResult({
+    required this.title,
+    required this.occurredAt,
+    required this.feelingBefore,
+    required this.feelingAfter,
+    required this.consequences,
+    required this.notes,
+  });
+
+  final String title;
+  final DateTime occurredAt;
+  final String? feelingBefore;
+  final String? feelingAfter;
+  final String? consequences;
+  final String? notes;
+}
+
+class _BadPracticeDialogContent extends StatefulWidget {
+  const _BadPracticeDialogContent();
+
+  @override
+  State<_BadPracticeDialogContent> createState() => _BadPracticeDialogContentState();
+}
+
+class _BadPracticeDialogContentState extends State<_BadPracticeDialogContent> {
+  final titleController = TextEditingController();
+  final feelingBeforeController = TextEditingController();
+  final feelingAfterController = TextEditingController();
+  final consequencesController = TextEditingController();
+  final notesController = TextEditingController();
+  DateTime occurredAt = DateTime.now();
+  String? titleError;
+
+  @override
+  void dispose() {
+    titleController.dispose();
+    feelingBeforeController.dispose();
+    feelingAfterController.dispose();
+    consequencesController.dispose();
+    notesController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Log Bad Practice'),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: titleController,
+              decoration: InputDecoration(
+                labelText: 'What happened',
+                errorText: titleError,
+              ),
+            ),
+            const SizedBox(height: 12),
+            OutlinedButton.icon(
+              onPressed: () async {
+                final pickedDate = await showDatePicker(
+                  context: context,
+                  firstDate: DateTime.now().subtract(const Duration(days: 365)),
+                  lastDate: DateTime.now(),
+                  initialDate: occurredAt,
+                );
+                if (pickedDate == null || !context.mounted) {
+                  return;
+                }
+                final pickedTime = await showTimePicker(
+                  context: context,
+                  initialTime: TimeOfDay.fromDateTime(occurredAt),
+                );
+                if (pickedTime == null) {
+                  return;
+                }
+                setState(() {
+                  occurredAt = DateTime(
+                    pickedDate.year,
+                    pickedDate.month,
+                    pickedDate.day,
+                    pickedTime.hour,
+                    pickedTime.minute,
+                  );
+                });
+              },
+              icon: const Icon(Icons.schedule),
+              label: Text(DateFormat('MMM d, yyyy hh:mm a').format(occurredAt)),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: feelingBeforeController,
+              decoration: const InputDecoration(labelText: 'Feeling before (optional)'),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: feelingAfterController,
+              decoration: const InputDecoration(labelText: 'Feeling after (optional)'),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: consequencesController,
+              maxLines: 2,
+              decoration: const InputDecoration(labelText: 'Consequences (optional)'),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: notesController,
+              maxLines: 2,
+              decoration: const InputDecoration(labelText: 'Notes (optional)'),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          onPressed: () {
+            setState(() {
+              titleError = titleController.text.trim().isEmpty ? 'This field is required' : null;
+            });
+            if (titleError == null) {
+              Navigator.of(context).pop(
+                _BadPracticeResult(
+                  title: titleController.text.trim(),
+                  occurredAt: occurredAt,
+                  feelingBefore: feelingBeforeController.text.trim().isEmpty
+                      ? null
+                      : feelingBeforeController.text.trim(),
+                  feelingAfter: feelingAfterController.text.trim().isEmpty
+                      ? null
+                      : feelingAfterController.text.trim(),
+                  consequences: consequencesController.text.trim().isEmpty
+                      ? null
+                      : consequencesController.text.trim(),
+                  notes: notesController.text.trim().isEmpty ? null : notesController.text.trim(),
+                ),
+              );
+            }
+          },
+          child: const Text('Save'),
+        ),
+      ],
+    );
   }
 }

@@ -420,156 +420,31 @@ class _BudgetsPageState extends ConsumerState<BudgetsPage> {
       return;
     }
 
-    final formKey = GlobalKey<FormState>();
-    final amountController = TextEditingController(
-      text: budget?.amount.toStringAsFixed(2) ?? '',
-    );
-    String? selectedCategoryId = budget?.categoryId ?? categories.first.id;
-    BudgetPeriod selectedPeriod = budget?.period ?? _selectedPeriod;
-    DateTimeRange customRange = DateTimeRange(
-      start: budget?.startDate ?? DateTime.now(),
-      end: budget?.endDate ?? DateTime.now().add(const Duration(days: 30)),
-    );
-
-    final saved = await showDialog<bool>(
+    final result = await showDialog<_BudgetDialogResult>(
       context: context,
-      builder: (dialogContext) => StatefulBuilder(
-        builder: (dialogContext, setDialogState) => AlertDialog(
-          title: Text(budget == null ? 'Create Budget' : 'Edit Budget'),
-          content: SingleChildScrollView(
-            child: Form(
-              key: formKey,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  DropdownButtonFormField<String>(
-                    decoration: const InputDecoration(
-                      labelText: 'Category',
-                      border: OutlineInputBorder(),
-                    ),
-                    initialValue: selectedCategoryId,
-                    items: categories
-                        .map((category) => DropdownMenuItem(
-                              value: category.id,
-                              child: Text(category.name),
-                            ))
-                        .toList(),
-                    onChanged: (value) =>
-                        setDialogState(() => selectedCategoryId = value),
-                  ),
-                  const SizedBox(height: 16),
-                  TextFormField(
-                    controller: amountController,
-                    decoration: const InputDecoration(
-                      labelText: 'Amount',
-                      border: OutlineInputBorder(),
-                      prefixText: '₪',
-                    ),
-                    keyboardType: TextInputType.number,
-                    validator: (value) {
-                      final parsed = double.tryParse(value ?? '');
-                      if (parsed == null || parsed <= 0) {
-                        return 'Enter a valid amount';
-                      }
-                      return null;
-                    },
-                  ),
-                  const SizedBox(height: 16),
-                  DropdownButtonFormField<BudgetPeriod>(
-                    decoration: const InputDecoration(
-                      labelText: 'Period',
-                      border: OutlineInputBorder(),
-                    ),
-                    initialValue: selectedPeriod,
-                    items: const [
-                      DropdownMenuItem(
-                        value: BudgetPeriod.daily,
-                        child: Text('Daily'),
-                      ),
-                      DropdownMenuItem(
-                        value: BudgetPeriod.weekly,
-                        child: Text('Weekly'),
-                      ),
-                      DropdownMenuItem(
-                        value: BudgetPeriod.monthly,
-                        child: Text('Monthly'),
-                      ),
-                      DropdownMenuItem(
-                        value: BudgetPeriod.yearly,
-                        child: Text('Yearly'),
-                      ),
-                      DropdownMenuItem(
-                        value: BudgetPeriod.custom,
-                        child: Text('Custom range'),
-                      ),
-                    ],
-                    onChanged: (value) => setDialogState(
-                        () => selectedPeriod = value ?? selectedPeriod),
-                  ),
-                  if (selectedPeriod == BudgetPeriod.custom) ...[
-                    const SizedBox(height: 16),
-                    OutlinedButton.icon(
-                      icon: const Icon(Icons.date_range),
-                      label: Text(
-                        '${DateFormat('MMM d, yyyy').format(customRange.start)} – '
-                        '${DateFormat('MMM d, yyyy').format(customRange.end)}',
-                      ),
-                      onPressed: () async {
-                        final picked = await showDateRangePicker(
-                          context: dialogContext,
-                          firstDate: DateTime(2020),
-                          lastDate: DateTime(2100),
-                          initialDateRange: customRange,
-                        );
-                        if (picked != null) {
-                          setDialogState(() => customRange = picked);
-                        }
-                      },
-                    ),
-                  ],
-                ],
-              ),
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(dialogContext, false),
-              child: const Text('Cancel'),
-            ),
-            FilledButton(
-              onPressed: () {
-                if (formKey.currentState?.validate() ?? false) {
-                  Navigator.pop(dialogContext, true);
-                }
-              },
-              child: Text(budget == null ? 'Create' : 'Save'),
-            ),
-          ],
-        ),
+      builder: (_) => _BudgetDialogContent(
+        budget: budget,
+        categories: categories,
+        initialPeriod: budget?.period ?? _selectedPeriod,
       ),
     );
 
-    if (saved != true || selectedCategoryId == null) {
-      amountController.dispose();
-      return;
-    }
+    if (result == null) return;
 
-    final amount = double.parse(amountController.text);
-    amountController.dispose();
     final service = ref.read(financialServiceProvider);
     final now = DateTime.now();
-    final range = selectedPeriod == BudgetPeriod.custom
-        ? (start: customRange.start, end: customRange.end)
-        : _rangeForPeriod(selectedPeriod);
+    final range = result.period == BudgetPeriod.custom
+        ? (start: result.customRange.start, end: result.customRange.end)
+        : _rangeForPeriod(result.period);
 
     if (budget == null) {
-      final result = await service.createBudget(
+      final saveResult = await service.createBudget(
         BudgetModel(
           id: _uuid.v4(),
           userId: _defaultUserId,
-          categoryId: selectedCategoryId!,
-          amount: amount,
-          period: selectedPeriod,
+          categoryId: result.categoryId,
+          amount: result.amount,
+          period: result.period,
           startDate: range.start,
           endDate: range.end,
           alertThreshold: defaultAlertThreshold,
@@ -579,16 +454,16 @@ class _BudgetsPageState extends ConsumerState<BudgetsPage> {
       );
       if (!mounted) return;
       _showResultSnackBar(
-        isSuccess: result.isSuccess,
+        isSuccess: saveResult.isSuccess,
         successMessage: 'Budget created successfully',
         successColor: Colors.green,
       );
     } else {
-      final result = await service.updateBudget(
+      final saveResult = await service.updateBudget(
         budget.copyWith(
-          categoryId: selectedCategoryId,
-          amount: amount,
-          period: selectedPeriod,
+          categoryId: result.categoryId,
+          amount: result.amount,
+          period: result.period,
           startDate: range.start,
           endDate: range.end,
           updatedAt: now,
@@ -596,7 +471,7 @@ class _BudgetsPageState extends ConsumerState<BudgetsPage> {
       );
       if (!mounted) return;
       _showResultSnackBar(
-        isSuccess: result.isSuccess,
+        isSuccess: saveResult.isSuccess,
         successMessage: 'Budget updated',
         successColor: Colors.green,
       );
@@ -649,6 +524,167 @@ class _BudgetsPageState extends ConsumerState<BudgetsPage> {
         content: Text(isSuccess ? successMessage : 'Something went wrong'),
         backgroundColor: isSuccess ? successColor : Colors.red,
       ),
+    );
+  }
+}
+
+class _BudgetDialogResult {
+  _BudgetDialogResult({
+    required this.categoryId,
+    required this.amount,
+    required this.period,
+    required this.customRange,
+  });
+
+  final String categoryId;
+  final double amount;
+  final BudgetPeriod period;
+  final DateTimeRange customRange;
+}
+
+class _BudgetDialogContent extends StatefulWidget {
+  const _BudgetDialogContent({
+    required this.budget,
+    required this.categories,
+    required this.initialPeriod,
+  });
+
+  final BudgetModel? budget;
+  final List<CategoryModel> categories;
+  final BudgetPeriod initialPeriod;
+
+  @override
+  State<_BudgetDialogContent> createState() => _BudgetDialogContentState();
+}
+
+class _BudgetDialogContentState extends State<_BudgetDialogContent> {
+  final formKey = GlobalKey<FormState>();
+  late final TextEditingController amountController;
+  String? selectedCategoryId;
+  late BudgetPeriod selectedPeriod;
+  late DateTimeRange customRange;
+
+  @override
+  void initState() {
+    super.initState();
+    final budget = widget.budget;
+    amountController = TextEditingController(text: budget?.amount.toStringAsFixed(2) ?? '');
+    selectedCategoryId = budget?.categoryId ?? widget.categories.first.id;
+    selectedPeriod = widget.initialPeriod;
+    customRange = DateTimeRange(
+      start: budget?.startDate ?? DateTime.now(),
+      end: budget?.endDate ?? DateTime.now().add(const Duration(days: 30)),
+    );
+  }
+
+  @override
+  void dispose() {
+    amountController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final budget = widget.budget;
+    return AlertDialog(
+      title: Text(budget == null ? 'Create Budget' : 'Edit Budget'),
+      content: SingleChildScrollView(
+        child: Form(
+          key: formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              DropdownButtonFormField<String>(
+                decoration: const InputDecoration(
+                  labelText: 'Category',
+                  border: OutlineInputBorder(),
+                ),
+                initialValue: selectedCategoryId,
+                items: widget.categories
+                    .map((category) => DropdownMenuItem(value: category.id, child: Text(category.name)))
+                    .toList(),
+                onChanged: (value) => setState(() => selectedCategoryId = value),
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: amountController,
+                decoration: const InputDecoration(
+                  labelText: 'Amount',
+                  border: OutlineInputBorder(),
+                  prefixText: '₪',
+                ),
+                keyboardType: TextInputType.number,
+                validator: (value) {
+                  final parsed = double.tryParse(value ?? '');
+                  if (parsed == null || parsed <= 0) {
+                    return 'Enter a valid amount';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 16),
+              DropdownButtonFormField<BudgetPeriod>(
+                decoration: const InputDecoration(
+                  labelText: 'Period',
+                  border: OutlineInputBorder(),
+                ),
+                initialValue: selectedPeriod,
+                items: const [
+                  DropdownMenuItem(value: BudgetPeriod.daily, child: Text('Daily')),
+                  DropdownMenuItem(value: BudgetPeriod.weekly, child: Text('Weekly')),
+                  DropdownMenuItem(value: BudgetPeriod.monthly, child: Text('Monthly')),
+                  DropdownMenuItem(value: BudgetPeriod.yearly, child: Text('Yearly')),
+                  DropdownMenuItem(value: BudgetPeriod.custom, child: Text('Custom range')),
+                ],
+                onChanged: (value) => setState(() => selectedPeriod = value ?? selectedPeriod),
+              ),
+              if (selectedPeriod == BudgetPeriod.custom) ...[
+                const SizedBox(height: 16),
+                OutlinedButton.icon(
+                  icon: const Icon(Icons.date_range),
+                  label: Text(
+                    '${DateFormat('MMM d, yyyy').format(customRange.start)} – '
+                    '${DateFormat('MMM d, yyyy').format(customRange.end)}',
+                  ),
+                  onPressed: () async {
+                    final picked = await showDateRangePicker(
+                      context: context,
+                      firstDate: DateTime(2020),
+                      lastDate: DateTime(2100),
+                      initialDateRange: customRange,
+                    );
+                    if (picked != null) {
+                      setState(() => customRange = picked);
+                    }
+                  },
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          onPressed: () {
+            if ((formKey.currentState?.validate() ?? false) && selectedCategoryId != null) {
+              Navigator.pop(
+                context,
+                _BudgetDialogResult(
+                  categoryId: selectedCategoryId!,
+                  amount: double.parse(amountController.text),
+                  period: selectedPeriod,
+                  customRange: customRange,
+                ),
+              );
+            }
+          },
+          child: Text(budget == null ? 'Create' : 'Save'),
+        ),
+      ],
     );
   }
 }

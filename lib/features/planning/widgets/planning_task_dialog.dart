@@ -27,93 +27,26 @@ Future<bool> showPlanningTaskDialog(
   List<Goal> linkableGoals = const <Goal>[],
   int order = 0,
 }) async {
-  final allowGoalLink = linkableGoals.isNotEmpty;
-  final allGoals = linkableGoals;
-  final formKey = GlobalKey<FormState>();
-  final titleController = TextEditingController(text: existing?.title ?? '');
-  final descriptionController = TextEditingController(text: existing?.description ?? '');
-  String? selectedGoalId =
-      allGoals.any((goal) => goal.id == existing?.goalId) ? existing?.goalId : null;
-
-  final saved = await showDialog<bool>(
+  final result = await showDialog<_PlanningTaskResult>(
     context: context,
-    builder: (dialogContext) => StatefulBuilder(
-      builder: (dialogContext, setDialogState) => AlertDialog(
-        title: Text(existing == null ? 'New Task' : 'Edit Task'),
-        content: SingleChildScrollView(
-          child: Form(
-            key: formKey,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextFormField(
-                  controller: titleController,
-                  decoration: const InputDecoration(labelText: 'Title', border: OutlineInputBorder()),
-                  validator: (value) => (value == null || value.trim().isEmpty) ? 'Title is required' : null,
-                ),
-                const SizedBox(height: 12),
-                TextFormField(
-                  controller: descriptionController,
-                  maxLines: 2,
-                  decoration: const InputDecoration(labelText: 'Description (optional)', border: OutlineInputBorder()),
-                ),
-                if (allowGoalLink) ...[
-                  const SizedBox(height: 12),
-                  DropdownButtonFormField<String?>(
-                    initialValue: selectedGoalId,
-                    items: [
-                      const DropdownMenuItem<String?>(value: null, child: Text('Not linked to a goal')),
-                      for (final goal in allGoals)
-                        DropdownMenuItem<String?>(value: goal.id, child: Text(goal.title)),
-                    ],
-                    onChanged: (value) => setDialogState(() => selectedGoalId = value),
-                    decoration:
-                        const InputDecoration(labelText: 'Link to goal (optional)', border: OutlineInputBorder()),
-                  ),
-                ],
-              ],
-            ),
-          ),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Cancel')),
-          FilledButton(
-            onPressed: () {
-              if (formKey.currentState?.validate() ?? false) {
-                Navigator.pop(dialogContext, true);
-              }
-            },
-            child: Text(existing == null ? 'Create' : 'Save'),
-          ),
-        ],
-      ),
-    ),
+    builder: (_) => _PlanningTaskDialogContent(existing: existing, linkableGoals: linkableGoals),
   );
 
-  if (saved != true) {
-    titleController.dispose();
-    descriptionController.dispose();
-    return false;
-  }
-
-  final title = titleController.text.trim();
-  final description = descriptionController.text.trim();
-  titleController.dispose();
-  descriptionController.dispose();
+  if (result == null) return false;
 
   final repo = ref.read(planningTaskRepositoryProvider);
   final now = DateTime.now();
-  final resolvedGoalId = fixedGoalId ?? selectedGoalId;
+  final resolvedGoalId = fixedGoalId ?? result.selectedGoalId;
 
-  final result = existing == null
+  final saveResult = existing == null
       ? await repo.create(
           PlanningTask(
             id: _uuid.v4(),
             createdAt: now,
             updatedAt: now,
             userId: planningUserId,
-            title: title,
-            description: description.isEmpty ? null : description,
+            title: result.title,
+            description: result.description.isEmpty ? null : result.description,
             date: date,
             goalId: resolvedGoalId,
             order: order,
@@ -121,8 +54,8 @@ Future<bool> showPlanningTaskDialog(
         )
       : await repo.update(
           existing.copyWith(
-            title: title,
-            description: description.isEmpty ? null : description,
+            title: result.title,
+            description: result.description.isEmpty ? null : result.description,
             goalId: resolvedGoalId,
             clearGoalId: resolvedGoalId == null,
             updatedAt: now,
@@ -132,8 +65,10 @@ Future<bool> showPlanningTaskDialog(
   if (context.mounted) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(result.isSuccess ? (existing == null ? 'Task created' : 'Task updated') : 'Something went wrong'),
-        backgroundColor: result.isSuccess ? Colors.green : Colors.red,
+        content: Text(
+          saveResult.isSuccess ? (existing == null ? 'Task created' : 'Task updated') : 'Something went wrong',
+        ),
+        backgroundColor: saveResult.isSuccess ? Colors.green : Colors.red,
       ),
     );
   }
@@ -141,10 +76,109 @@ Future<bool> showPlanningTaskDialog(
   if (date != null) {
     ref.invalidate(tasksForDateProvider(date));
   }
-  final goalIdForInvalidate = fixedGoalId ?? existing?.goalId ?? selectedGoalId;
+  final goalIdForInvalidate = fixedGoalId ?? existing?.goalId ?? result.selectedGoalId;
   if (goalIdForInvalidate != null) {
     ref.invalidate(tasksForGoalProvider(goalIdForInvalidate));
   }
 
-  return result.isSuccess;
+  return saveResult.isSuccess;
+}
+
+class _PlanningTaskResult {
+  _PlanningTaskResult(this.title, this.description, this.selectedGoalId);
+
+  final String title;
+  final String description;
+  final String? selectedGoalId;
+}
+
+class _PlanningTaskDialogContent extends StatefulWidget {
+  const _PlanningTaskDialogContent({required this.existing, required this.linkableGoals});
+
+  final PlanningTask? existing;
+  final List<Goal> linkableGoals;
+
+  @override
+  State<_PlanningTaskDialogContent> createState() => _PlanningTaskDialogContentState();
+}
+
+class _PlanningTaskDialogContentState extends State<_PlanningTaskDialogContent> {
+  final formKey = GlobalKey<FormState>();
+  late final TextEditingController titleController;
+  late final TextEditingController descriptionController;
+  String? selectedGoalId;
+
+  bool get allowGoalLink => widget.linkableGoals.isNotEmpty;
+
+  @override
+  void initState() {
+    super.initState();
+    titleController = TextEditingController(text: widget.existing?.title ?? '');
+    descriptionController = TextEditingController(text: widget.existing?.description ?? '');
+    selectedGoalId = widget.linkableGoals.any((goal) => goal.id == widget.existing?.goalId)
+        ? widget.existing?.goalId
+        : null;
+  }
+
+  @override
+  void dispose() {
+    titleController.dispose();
+    descriptionController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text(widget.existing == null ? 'New Task' : 'Edit Task'),
+      content: SingleChildScrollView(
+        child: Form(
+          key: formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextFormField(
+                controller: titleController,
+                decoration: const InputDecoration(labelText: 'Title', border: OutlineInputBorder()),
+                validator: (value) => (value == null || value.trim().isEmpty) ? 'Title is required' : null,
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: descriptionController,
+                maxLines: 2,
+                decoration: const InputDecoration(labelText: 'Description (optional)', border: OutlineInputBorder()),
+              ),
+              if (allowGoalLink) ...[
+                const SizedBox(height: 12),
+                DropdownButtonFormField<String?>(
+                  initialValue: selectedGoalId,
+                  items: [
+                    const DropdownMenuItem<String?>(value: null, child: Text('Not linked to a goal')),
+                    for (final goal in widget.linkableGoals)
+                      DropdownMenuItem<String?>(value: goal.id, child: Text(goal.title)),
+                  ],
+                  onChanged: (value) => setState(() => selectedGoalId = value),
+                  decoration: const InputDecoration(labelText: 'Link to goal (optional)', border: OutlineInputBorder()),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+        FilledButton(
+          onPressed: () {
+            if (formKey.currentState?.validate() ?? false) {
+              Navigator.pop(
+                context,
+                _PlanningTaskResult(titleController.text.trim(), descriptionController.text.trim(), selectedGoalId),
+              );
+            }
+          },
+          child: Text(widget.existing == null ? 'Create' : 'Save'),
+        ),
+      ],
+    );
+  }
 }

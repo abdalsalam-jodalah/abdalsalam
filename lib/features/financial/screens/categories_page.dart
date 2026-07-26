@@ -454,172 +454,53 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage> {
   }
 
   Future<void> _showCategoryDialog({CategoryModel? category}) async {
-    final formKey = GlobalKey<FormState>();
-    final nameController = TextEditingController(text: category?.name ?? '');
-    CategoryType selectedType = category?.type ?? _selectedType;
-    IconData selectedIcon = category?.icon ?? _iconOptions.first;
-    Color selectedColor = category?.color ?? _colorOptions.first;
-
-    final saved = await showDialog<bool>(
+    final result = await showDialog<_CategoryDialogResult>(
       context: context,
-      builder: (dialogContext) => StatefulBuilder(
-        builder: (dialogContext, setDialogState) => AlertDialog(
-          title: Text(category == null ? 'Create Category' : 'Edit Category'),
-          content: SingleChildScrollView(
-            child: Form(
-              key: formKey,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  TextFormField(
-                    controller: nameController,
-                    decoration: const InputDecoration(
-                      labelText: 'Category Name',
-                      border: OutlineInputBorder(),
-                    ),
-                    validator: (value) =>
-                        (value == null || value.trim().isEmpty) ? 'Required' : null,
-                  ),
-                  const SizedBox(height: 16),
-                  DropdownButtonFormField<CategoryType>(
-                    decoration: const InputDecoration(
-                      labelText: 'Type',
-                      border: OutlineInputBorder(),
-                    ),
-                    initialValue: selectedType,
-                    items: const [
-                      DropdownMenuItem(
-                        value: CategoryType.expense,
-                        child: Text('Expense'),
-                      ),
-                      DropdownMenuItem(
-                        value: CategoryType.income,
-                        child: Text('Income'),
-                      ),
-                    ],
-                    onChanged: (value) =>
-                        setDialogState(() => selectedType = value ?? selectedType),
-                  ),
-                  const SizedBox(height: 16),
-                  const Text('Select Icon'),
-                  const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: _iconOptions
-                        .map((icon) => InkWell(
-                              onTap: () => setDialogState(() => selectedIcon = icon),
-                              borderRadius: BorderRadius.circular(8),
-                              child: Container(
-                                padding: const EdgeInsets.all(12),
-                                decoration: BoxDecoration(
-                                  color: icon == selectedIcon
-                                      ? selectedColor.withValues(alpha: 0.2)
-                                      : null,
-                                  border: Border.all(
-                                    color: icon == selectedIcon
-                                        ? selectedColor
-                                        : Colors.grey.withValues(alpha: 0.3),
-                                  ),
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: Icon(icon),
-                              ),
-                            ))
-                        .toList(),
-                  ),
-                  const SizedBox(height: 16),
-                  const Text('Select Color'),
-                  const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: _colorOptions
-                        .map((color) => InkWell(
-                              onTap: () => setDialogState(() => selectedColor = color),
-                              borderRadius: BorderRadius.circular(20),
-                              child: Container(
-                                width: 36,
-                                height: 36,
-                                decoration: BoxDecoration(
-                                  color: color,
-                                  shape: BoxShape.circle,
-                                  border: Border.all(
-                                    color: color == selectedColor
-                                        ? Colors.black
-                                        : Colors.transparent,
-                                    width: 2,
-                                  ),
-                                ),
-                              ),
-                            ))
-                        .toList(),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(dialogContext, false),
-              child: const Text('Cancel'),
-            ),
-            FilledButton(
-              onPressed: () {
-                if (formKey.currentState?.validate() ?? false) {
-                  Navigator.pop(dialogContext, true);
-                }
-              },
-              child: Text(category == null ? 'Create' : 'Save'),
-            ),
-          ],
-        ),
+      builder: (_) => _CategoryDialogContent(
+        category: category,
+        initialType: category?.type ?? _selectedType,
+        iconOptions: _iconOptions,
+        colorOptions: _colorOptions,
       ),
     );
 
-    if (saved != true) {
-      nameController.dispose();
-      return;
-    }
+    if (result == null) return;
 
-    final name = nameController.text.trim();
-    nameController.dispose();
     final service = ref.read(financialServiceProvider);
     final now = DateTime.now();
 
     if (category == null) {
-      final result = await service.createCategory(
+      final saveResult = await service.createCategory(
         CategoryModel(
           id: _uuid.v4(),
           userId: _defaultUserId,
-          name: name,
-          type: selectedType,
-          icon: selectedIcon,
-          color: selectedColor,
+          name: result.name,
+          type: result.type,
+          icon: result.icon,
+          color: result.color,
           createdAt: now,
           updatedAt: now,
         ),
       );
       if (!mounted) return;
       _showResultSnackBar(
-        isSuccess: result.isSuccess,
+        isSuccess: saveResult.isSuccess,
         successMessage: 'Category created successfully',
         successColor: Colors.green,
       );
     } else {
-      final result = await service.updateCategory(
+      final saveResult = await service.updateCategory(
         category.copyWith(
-          name: name,
-          type: selectedType,
-          icon: selectedIcon,
-          color: selectedColor,
+          name: result.name,
+          type: result.type,
+          icon: result.icon,
+          color: result.color,
           updatedAt: now,
         ),
       );
       if (!mounted) return;
       _showResultSnackBar(
-        isSuccess: result.isSuccess,
+        isSuccess: saveResult.isSuccess,
         successMessage: 'Category updated',
         successColor: Colors.green,
       );
@@ -674,6 +555,172 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage> {
         content: Text(isSuccess ? successMessage : 'Something went wrong'),
         backgroundColor: isSuccess ? successColor : Colors.red,
       ),
+    );
+  }
+}
+
+class _CategoryDialogResult {
+  _CategoryDialogResult({
+    required this.name,
+    required this.type,
+    required this.icon,
+    required this.color,
+  });
+
+  final String name;
+  final CategoryType type;
+  final IconData icon;
+  final Color color;
+}
+
+class _CategoryDialogContent extends StatefulWidget {
+  const _CategoryDialogContent({
+    required this.category,
+    required this.initialType,
+    required this.iconOptions,
+    required this.colorOptions,
+  });
+
+  final CategoryModel? category;
+  final CategoryType initialType;
+  final List<IconData> iconOptions;
+  final List<Color> colorOptions;
+
+  @override
+  State<_CategoryDialogContent> createState() => _CategoryDialogContentState();
+}
+
+class _CategoryDialogContentState extends State<_CategoryDialogContent> {
+  final formKey = GlobalKey<FormState>();
+  late final TextEditingController nameController;
+  late CategoryType selectedType;
+  late IconData selectedIcon;
+  late Color selectedColor;
+
+  @override
+  void initState() {
+    super.initState();
+    final category = widget.category;
+    nameController = TextEditingController(text: category?.name ?? '');
+    selectedType = category?.type ?? widget.initialType;
+    selectedIcon = category?.icon ?? widget.iconOptions.first;
+    selectedColor = category?.color ?? widget.colorOptions.first;
+  }
+
+  @override
+  void dispose() {
+    nameController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final category = widget.category;
+    return AlertDialog(
+      title: Text(category == null ? 'Create Category' : 'Edit Category'),
+      content: SingleChildScrollView(
+        child: Form(
+          key: formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              TextFormField(
+                controller: nameController,
+                decoration: const InputDecoration(
+                  labelText: 'Category Name',
+                  border: OutlineInputBorder(),
+                ),
+                validator: (value) => (value == null || value.trim().isEmpty) ? 'Required' : null,
+              ),
+              const SizedBox(height: 16),
+              DropdownButtonFormField<CategoryType>(
+                decoration: const InputDecoration(
+                  labelText: 'Type',
+                  border: OutlineInputBorder(),
+                ),
+                initialValue: selectedType,
+                items: const [
+                  DropdownMenuItem(value: CategoryType.expense, child: Text('Expense')),
+                  DropdownMenuItem(value: CategoryType.income, child: Text('Income')),
+                ],
+                onChanged: (value) => setState(() => selectedType = value ?? selectedType),
+              ),
+              const SizedBox(height: 16),
+              const Text('Select Icon'),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: widget.iconOptions
+                    .map((icon) => InkWell(
+                          onTap: () => setState(() => selectedIcon = icon),
+                          borderRadius: BorderRadius.circular(8),
+                          child: Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: icon == selectedIcon ? selectedColor.withValues(alpha: 0.2) : null,
+                              border: Border.all(
+                                color: icon == selectedIcon ? selectedColor : Colors.grey.withValues(alpha: 0.3),
+                              ),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Icon(icon),
+                          ),
+                        ))
+                    .toList(),
+              ),
+              const SizedBox(height: 16),
+              const Text('Select Color'),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: widget.colorOptions
+                    .map((color) => InkWell(
+                          onTap: () => setState(() => selectedColor = color),
+                          borderRadius: BorderRadius.circular(20),
+                          child: Container(
+                            width: 36,
+                            height: 36,
+                            decoration: BoxDecoration(
+                              color: color,
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: color == selectedColor ? Colors.black : Colors.transparent,
+                                width: 2,
+                              ),
+                            ),
+                          ),
+                        ))
+                    .toList(),
+              ),
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          onPressed: () {
+            if (formKey.currentState?.validate() ?? false) {
+              Navigator.pop(
+                context,
+                _CategoryDialogResult(
+                  name: nameController.text.trim(),
+                  type: selectedType,
+                  icon: selectedIcon,
+                  color: selectedColor,
+                ),
+              );
+            }
+          },
+          child: Text(category == null ? 'Create' : 'Save'),
+        ),
+      ],
     );
   }
 }

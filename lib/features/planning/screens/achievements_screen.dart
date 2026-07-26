@@ -70,97 +70,18 @@ class _AchievementsScreenState extends ConsumerState<AchievementsScreen> {
 
   Future<void> _showAchievementDialog() async {
     final allGoals = ref.read(activeGoalsProvider).maybeWhen(data: (list) => list, orElse: () => const <Goal>[]);
-    final formKey = GlobalKey<FormState>();
-    final titleController = TextEditingController();
-    final descriptionController = TextEditingController();
-    DateTime achievedAt = DateTime.now();
-    String? selectedGoalId;
 
-    final saved = await showDialog<bool>(
+    final result = await showDialog<_AchievementDialogResult>(
       context: context,
-      builder: (dialogContext) => StatefulBuilder(
-        builder: (dialogContext, setDialogState) => AlertDialog(
-          title: const Text('Log Achievement'),
-          content: SingleChildScrollView(
-            child: Form(
-              key: formKey,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  TextFormField(
-                    controller: titleController,
-                    decoration: const InputDecoration(labelText: 'Title', border: OutlineInputBorder()),
-                    validator: (value) => (value == null || value.trim().isEmpty) ? 'Title is required' : null,
-                  ),
-                  const SizedBox(height: 12),
-                  TextFormField(
-                    controller: descriptionController,
-                    maxLines: 2,
-                    decoration: const InputDecoration(labelText: 'Description (optional)', border: OutlineInputBorder()),
-                  ),
-                  const SizedBox(height: 12),
-                  DropdownButtonFormField<String?>(
-                    initialValue: selectedGoalId,
-                    items: [
-                      const DropdownMenuItem<String?>(value: null, child: Text('Not linked to a goal')),
-                      for (final goal in allGoals)
-                        DropdownMenuItem<String?>(value: goal.id, child: Text(goal.title)),
-                    ],
-                    onChanged: (value) => setDialogState(() => selectedGoalId = value),
-                    decoration: const InputDecoration(labelText: 'Related goal (optional)', border: OutlineInputBorder()),
-                  ),
-                  const SizedBox(height: 12),
-                  ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    title: const Text('Achieved on'),
-                    subtitle: Text(_formatDate(achievedAt)),
-                    trailing: const Icon(Icons.calendar_today_outlined),
-                    onTap: () async {
-                      final picked = await showDatePicker(
-                        context: dialogContext,
-                        initialDate: achievedAt,
-                        firstDate: DateTime(2020),
-                        lastDate: DateTime(2100),
-                      );
-                      if (picked != null) {
-                        setDialogState(() => achievedAt = picked);
-                      }
-                    },
-                  ),
-                ],
-              ),
-            ),
-          ),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Cancel')),
-            FilledButton(
-              onPressed: () {
-                if (formKey.currentState?.validate() ?? false) {
-                  Navigator.pop(dialogContext, true);
-                }
-              },
-              child: const Text('Save'),
-            ),
-          ],
-        ),
-      ),
+      builder: (_) => _AchievementDialogContent(allGoals: allGoals, formatDate: _formatDate),
     );
 
-    if (saved != true) {
-      titleController.dispose();
-      descriptionController.dispose();
-      return;
-    }
-
-    final title = titleController.text.trim();
-    final description = descriptionController.text.trim();
-    titleController.dispose();
-    descriptionController.dispose();
+    if (result == null) return;
 
     GoalScope? scope;
-    if (selectedGoalId != null) {
+    if (result.selectedGoalId != null) {
       for (final goal in allGoals) {
-        if (goal.id == selectedGoalId) {
+        if (goal.id == result.selectedGoalId) {
           scope = goal.scope;
           break;
         }
@@ -169,16 +90,16 @@ class _AchievementsScreenState extends ConsumerState<AchievementsScreen> {
 
     final repo = ref.read(achievementRepositoryProvider);
     final now = DateTime.now();
-    final result = await repo.create(
+    final saveResult = await repo.create(
       Achievement(
         id: _uuid.v4(),
         createdAt: now,
         updatedAt: now,
         userId: planningUserId,
-        goalId: selectedGoalId,
-        title: title,
-        description: description.isEmpty ? null : description,
-        achievedAt: achievedAt,
+        goalId: result.selectedGoalId,
+        title: result.title,
+        description: result.description.isEmpty ? null : result.description,
+        achievedAt: result.achievedAt,
         scope: scope,
       ),
     );
@@ -186,10 +107,125 @@ class _AchievementsScreenState extends ConsumerState<AchievementsScreen> {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(result.isSuccess ? 'Achievement logged' : 'Something went wrong'),
-        backgroundColor: result.isSuccess ? Colors.green : Colors.red,
+        content: Text(saveResult.isSuccess ? 'Achievement logged' : 'Something went wrong'),
+        backgroundColor: saveResult.isSuccess ? Colors.green : Colors.red,
       ),
     );
     ref.invalidate(achievementsProvider);
+  }
+}
+
+class _AchievementDialogResult {
+  _AchievementDialogResult({
+    required this.title,
+    required this.description,
+    required this.achievedAt,
+    required this.selectedGoalId,
+  });
+
+  final String title;
+  final String description;
+  final DateTime achievedAt;
+  final String? selectedGoalId;
+}
+
+class _AchievementDialogContent extends StatefulWidget {
+  const _AchievementDialogContent({required this.allGoals, required this.formatDate});
+
+  final List<Goal> allGoals;
+  final String Function(DateTime date) formatDate;
+
+  @override
+  State<_AchievementDialogContent> createState() => _AchievementDialogContentState();
+}
+
+class _AchievementDialogContentState extends State<_AchievementDialogContent> {
+  final formKey = GlobalKey<FormState>();
+  final titleController = TextEditingController();
+  final descriptionController = TextEditingController();
+  DateTime achievedAt = DateTime.now();
+  String? selectedGoalId;
+
+  @override
+  void dispose() {
+    titleController.dispose();
+    descriptionController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Log Achievement'),
+      content: SingleChildScrollView(
+        child: Form(
+          key: formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextFormField(
+                controller: titleController,
+                decoration: const InputDecoration(labelText: 'Title', border: OutlineInputBorder()),
+                validator: (value) => (value == null || value.trim().isEmpty) ? 'Title is required' : null,
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: descriptionController,
+                maxLines: 2,
+                decoration: const InputDecoration(labelText: 'Description (optional)', border: OutlineInputBorder()),
+              ),
+              const SizedBox(height: 12),
+              DropdownButtonFormField<String?>(
+                initialValue: selectedGoalId,
+                items: [
+                  const DropdownMenuItem<String?>(value: null, child: Text('Not linked to a goal')),
+                  for (final goal in widget.allGoals)
+                    DropdownMenuItem<String?>(value: goal.id, child: Text(goal.title)),
+                ],
+                onChanged: (value) => setState(() => selectedGoalId = value),
+                decoration: const InputDecoration(labelText: 'Related goal (optional)', border: OutlineInputBorder()),
+              ),
+              const SizedBox(height: 12),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                title: const Text('Achieved on'),
+                subtitle: Text(widget.formatDate(achievedAt)),
+                trailing: const Icon(Icons.calendar_today_outlined),
+                onTap: () async {
+                  final picked = await showDatePicker(
+                    context: context,
+                    initialDate: achievedAt,
+                    firstDate: DateTime(2020),
+                    lastDate: DateTime(2100),
+                  );
+                  if (picked != null) {
+                    setState(() => achievedAt = picked);
+                  }
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+        FilledButton(
+          onPressed: () {
+            if (formKey.currentState?.validate() ?? false) {
+              Navigator.pop(
+                context,
+                _AchievementDialogResult(
+                  title: titleController.text.trim(),
+                  description: descriptionController.text.trim(),
+                  achievedAt: achievedAt,
+                  selectedGoalId: selectedGoalId,
+                ),
+              );
+            }
+          },
+          child: const Text('Save'),
+        ),
+      ],
+    );
   }
 }

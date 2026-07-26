@@ -85,42 +85,13 @@ class _ExerciseLibraryScreenState extends ConsumerState<ExerciseLibraryScreen> {
   }
 
   Future<void> _showCategoryDialog({ExerciseCategory? category}) async {
-    final formKey = GlobalKey<FormState>();
-    final nameController = TextEditingController(text: category?.name ?? '');
-
-    final saved = await showDialog<bool>(
+    final name = await showDialog<String>(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: Text(category == null ? 'New Category' : 'Edit Category'),
-        content: Form(
-          key: formKey,
-          child: TextFormField(
-            controller: nameController,
-            decoration: const InputDecoration(labelText: 'Name', border: OutlineInputBorder()),
-            validator: (value) => (value == null || value.trim().isEmpty) ? 'Required' : null,
-          ),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Cancel')),
-          FilledButton(
-            onPressed: () {
-              if (formKey.currentState?.validate() ?? false) {
-                Navigator.pop(dialogContext, true);
-              }
-            },
-            child: Text(category == null ? 'Create' : 'Save'),
-          ),
-        ],
-      ),
+      builder: (_) => _CategoryNameDialogContent(category: category),
     );
 
-    if (saved != true) {
-      nameController.dispose();
-      return;
-    }
+    if (name == null) return;
 
-    final name = nameController.text.trim();
-    nameController.dispose();
     if (!mounted) {
       return;
     }
@@ -149,6 +120,58 @@ class _ExerciseLibraryScreenState extends ConsumerState<ExerciseLibraryScreen> {
       return;
     }
     ref.invalidate(exerciseCategoriesProvider);
+  }
+}
+
+class _CategoryNameDialogContent extends StatefulWidget {
+  const _CategoryNameDialogContent({required this.category});
+
+  final ExerciseCategory? category;
+
+  @override
+  State<_CategoryNameDialogContent> createState() => _CategoryNameDialogContentState();
+}
+
+class _CategoryNameDialogContentState extends State<_CategoryNameDialogContent> {
+  final formKey = GlobalKey<FormState>();
+  late final TextEditingController nameController;
+
+  @override
+  void initState() {
+    super.initState();
+    nameController = TextEditingController(text: widget.category?.name ?? '');
+  }
+
+  @override
+  void dispose() {
+    nameController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text(widget.category == null ? 'New Category' : 'Edit Category'),
+      content: Form(
+        key: formKey,
+        child: TextFormField(
+          controller: nameController,
+          decoration: const InputDecoration(labelText: 'Name', border: OutlineInputBorder()),
+          validator: (value) => (value == null || value.trim().isEmpty) ? 'Required' : null,
+        ),
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+        FilledButton(
+          onPressed: () {
+            if (formKey.currentState?.validate() ?? false) {
+              Navigator.pop(context, nameController.text.trim());
+            }
+          },
+          child: Text(widget.category == null ? 'Create' : 'Save'),
+        ),
+      ],
+    );
   }
 }
 
@@ -272,137 +295,12 @@ class _CategorySectionState extends ConsumerState<_CategorySection> {
   }
 
   Future<void> _showExerciseDialog({Exercise? exercise}) async {
-    final formKey = GlobalKey<FormState>();
-    final nameController = TextEditingController(text: exercise?.name ?? '');
-    final instructionsController = TextEditingController(text: exercise?.instructions ?? '');
-    final equipmentController = TextEditingController(text: exercise?.equipment ?? '');
-    final setsController = TextEditingController(text: exercise?.defaultSets?.toString() ?? '');
-    final repsController = TextEditingController(text: exercise?.defaultReps?.toString() ?? '');
-    final weightController = TextEditingController(text: exercise?.defaultWeightKg?.toString() ?? '');
-    ExerciseTrackingType selectedType = exercise?.trackingType ?? ExerciseTrackingType.reps;
-    ExerciseDifficulty selectedDifficulty = exercise?.difficulty ?? ExerciseDifficulty.intermediate;
-
-    final saved = await showDialog<bool>(
+    final result = await showDialog<_ExerciseDialogResult>(
       context: context,
-      builder: (dialogContext) => StatefulBuilder(
-        builder: (dialogContext, setDialogState) => AlertDialog(
-          title: Text(exercise == null ? 'New Exercise' : 'Edit Exercise'),
-          content: SingleChildScrollView(
-            child: Form(
-              key: formKey,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  TextFormField(
-                    controller: nameController,
-                    decoration: const InputDecoration(labelText: 'Name', border: OutlineInputBorder()),
-                    validator: (value) => (value == null || value.trim().isEmpty) ? 'Required' : null,
-                  ),
-                  const SizedBox(height: 12),
-                  DropdownButtonFormField<ExerciseTrackingType>(
-                    decoration: const InputDecoration(labelText: 'Tracking', border: OutlineInputBorder()),
-                    initialValue: selectedType,
-                    items: const [
-                      DropdownMenuItem(value: ExerciseTrackingType.reps, child: Text('Sets / Reps / Weight')),
-                      DropdownMenuItem(
-                        value: ExerciseTrackingType.cardio,
-                        child: Text('Cardio (steps/duration/distance)'),
-                      ),
-                    ],
-                    onChanged: (value) => setDialogState(() => selectedType = value ?? selectedType),
-                  ),
-                  const SizedBox(height: 12),
-                  DropdownButtonFormField<ExerciseDifficulty>(
-                    decoration: const InputDecoration(labelText: 'Difficulty', border: OutlineInputBorder()),
-                    initialValue: selectedDifficulty,
-                    items: const [
-                      DropdownMenuItem(value: ExerciseDifficulty.beginner, child: Text('Beginner')),
-                      DropdownMenuItem(value: ExerciseDifficulty.intermediate, child: Text('Intermediate')),
-                      DropdownMenuItem(value: ExerciseDifficulty.advanced, child: Text('Advanced')),
-                    ],
-                    onChanged: (value) => setDialogState(() => selectedDifficulty = value ?? selectedDifficulty),
-                  ),
-                  const SizedBox(height: 12),
-                  TextFormField(
-                    controller: equipmentController,
-                    decoration: const InputDecoration(labelText: 'Equipment (optional)', border: OutlineInputBorder()),
-                  ),
-                  if (selectedType == ExerciseTrackingType.reps) ...[
-                    const SizedBox(height: 12),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: TextFormField(
-                            controller: setsController,
-                            keyboardType: TextInputType.number,
-                            decoration: const InputDecoration(labelText: 'Default sets', border: OutlineInputBorder()),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: TextFormField(
-                            controller: repsController,
-                            keyboardType: TextInputType.number,
-                            decoration: const InputDecoration(labelText: 'Default reps', border: OutlineInputBorder()),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    TextFormField(
-                      controller: weightController,
-                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                      decoration:
-                          const InputDecoration(labelText: 'Default weight (kg, optional)', border: OutlineInputBorder()),
-                    ),
-                  ],
-                  const SizedBox(height: 12),
-                  TextFormField(
-                    controller: instructionsController,
-                    maxLines: 2,
-                    decoration: const InputDecoration(labelText: 'Instructions (optional)', border: OutlineInputBorder()),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Cancel')),
-            FilledButton(
-              onPressed: () {
-                if (formKey.currentState?.validate() ?? false) {
-                  Navigator.pop(dialogContext, true);
-                }
-              },
-              child: Text(exercise == null ? 'Create' : 'Save'),
-            ),
-          ],
-        ),
-      ),
+      builder: (_) => _ExerciseDialogContent(exercise: exercise),
     );
 
-    if (saved != true) {
-      nameController.dispose();
-      instructionsController.dispose();
-      equipmentController.dispose();
-      setsController.dispose();
-      repsController.dispose();
-      weightController.dispose();
-      return;
-    }
-
-    final name = nameController.text.trim();
-    final instructions = instructionsController.text.trim();
-    final equipment = equipmentController.text.trim();
-    final defaultSets = int.tryParse(setsController.text);
-    final defaultReps = int.tryParse(repsController.text);
-    final defaultWeight = double.tryParse(weightController.text);
-    nameController.dispose();
-    instructionsController.dispose();
-    equipmentController.dispose();
-    setsController.dispose();
-    repsController.dispose();
-    weightController.dispose();
+    if (result == null) return;
 
     if (!mounted) {
       return;
@@ -421,29 +319,29 @@ class _CategorySectionState extends ConsumerState<_CategorySection> {
           createdAt: now,
           updatedAt: now,
           userId: sportUserId,
-          name: name,
+          name: result.name,
           categoryId: widget.category.id,
-          trackingType: selectedType,
-          difficulty: selectedDifficulty,
-          equipment: equipment.isEmpty ? null : equipment,
-          defaultSets: defaultSets,
-          defaultReps: defaultReps,
-          defaultWeightKg: defaultWeight,
-          instructions: instructions.isEmpty ? null : instructions,
+          trackingType: result.trackingType,
+          difficulty: result.difficulty,
+          equipment: result.equipment.isEmpty ? null : result.equipment,
+          defaultSets: result.defaultSets,
+          defaultReps: result.defaultReps,
+          defaultWeightKg: result.defaultWeight,
+          instructions: result.instructions.isEmpty ? null : result.instructions,
           order: existing.length,
         ),
       );
     } else {
       await repo.update(
         exercise.copyWith(
-          name: name,
-          trackingType: selectedType,
-          difficulty: selectedDifficulty,
-          equipment: equipment.isEmpty ? null : equipment,
-          defaultSets: defaultSets,
-          defaultReps: defaultReps,
-          defaultWeightKg: defaultWeight,
-          instructions: instructions.isEmpty ? null : instructions,
+          name: result.name,
+          trackingType: result.trackingType,
+          difficulty: result.difficulty,
+          equipment: result.equipment.isEmpty ? null : result.equipment,
+          defaultSets: result.defaultSets,
+          defaultReps: result.defaultReps,
+          defaultWeightKg: result.defaultWeight,
+          instructions: result.instructions.isEmpty ? null : result.instructions,
           updatedAt: now,
         ),
       );
@@ -454,5 +352,183 @@ class _CategorySectionState extends ConsumerState<_CategorySection> {
     }
     ref.invalidate(exercisesByCategoryProvider(widget.category.id));
     ref.invalidate(allActiveExercisesProvider);
+  }
+}
+
+class _ExerciseDialogResult {
+  _ExerciseDialogResult({
+    required this.name,
+    required this.instructions,
+    required this.equipment,
+    required this.defaultSets,
+    required this.defaultReps,
+    required this.defaultWeight,
+    required this.trackingType,
+    required this.difficulty,
+  });
+
+  final String name;
+  final String instructions;
+  final String equipment;
+  final int? defaultSets;
+  final int? defaultReps;
+  final double? defaultWeight;
+  final ExerciseTrackingType trackingType;
+  final ExerciseDifficulty difficulty;
+}
+
+class _ExerciseDialogContent extends StatefulWidget {
+  const _ExerciseDialogContent({required this.exercise});
+
+  final Exercise? exercise;
+
+  @override
+  State<_ExerciseDialogContent> createState() => _ExerciseDialogContentState();
+}
+
+class _ExerciseDialogContentState extends State<_ExerciseDialogContent> {
+  final formKey = GlobalKey<FormState>();
+  late final TextEditingController nameController;
+  late final TextEditingController instructionsController;
+  late final TextEditingController equipmentController;
+  late final TextEditingController setsController;
+  late final TextEditingController repsController;
+  late final TextEditingController weightController;
+  late ExerciseTrackingType selectedType;
+  late ExerciseDifficulty selectedDifficulty;
+
+  @override
+  void initState() {
+    super.initState();
+    final exercise = widget.exercise;
+    nameController = TextEditingController(text: exercise?.name ?? '');
+    instructionsController = TextEditingController(text: exercise?.instructions ?? '');
+    equipmentController = TextEditingController(text: exercise?.equipment ?? '');
+    setsController = TextEditingController(text: exercise?.defaultSets?.toString() ?? '');
+    repsController = TextEditingController(text: exercise?.defaultReps?.toString() ?? '');
+    weightController = TextEditingController(text: exercise?.defaultWeightKg?.toString() ?? '');
+    selectedType = exercise?.trackingType ?? ExerciseTrackingType.reps;
+    selectedDifficulty = exercise?.difficulty ?? ExerciseDifficulty.intermediate;
+  }
+
+  @override
+  void dispose() {
+    nameController.dispose();
+    instructionsController.dispose();
+    equipmentController.dispose();
+    setsController.dispose();
+    repsController.dispose();
+    weightController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final exercise = widget.exercise;
+    return AlertDialog(
+      title: Text(exercise == null ? 'New Exercise' : 'Edit Exercise'),
+      content: SingleChildScrollView(
+        child: Form(
+          key: formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextFormField(
+                controller: nameController,
+                decoration: const InputDecoration(labelText: 'Name', border: OutlineInputBorder()),
+                validator: (value) => (value == null || value.trim().isEmpty) ? 'Required' : null,
+              ),
+              const SizedBox(height: 12),
+              DropdownButtonFormField<ExerciseTrackingType>(
+                decoration: const InputDecoration(labelText: 'Tracking', border: OutlineInputBorder()),
+                initialValue: selectedType,
+                items: const [
+                  DropdownMenuItem(value: ExerciseTrackingType.reps, child: Text('Sets / Reps / Weight')),
+                  DropdownMenuItem(
+                    value: ExerciseTrackingType.cardio,
+                    child: Text('Cardio (steps/duration/distance)'),
+                  ),
+                ],
+                onChanged: (value) => setState(() => selectedType = value ?? selectedType),
+              ),
+              const SizedBox(height: 12),
+              DropdownButtonFormField<ExerciseDifficulty>(
+                decoration: const InputDecoration(labelText: 'Difficulty', border: OutlineInputBorder()),
+                initialValue: selectedDifficulty,
+                items: const [
+                  DropdownMenuItem(value: ExerciseDifficulty.beginner, child: Text('Beginner')),
+                  DropdownMenuItem(value: ExerciseDifficulty.intermediate, child: Text('Intermediate')),
+                  DropdownMenuItem(value: ExerciseDifficulty.advanced, child: Text('Advanced')),
+                ],
+                onChanged: (value) => setState(() => selectedDifficulty = value ?? selectedDifficulty),
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: equipmentController,
+                decoration: const InputDecoration(labelText: 'Equipment (optional)', border: OutlineInputBorder()),
+              ),
+              if (selectedType == ExerciseTrackingType.reps) ...[
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextFormField(
+                        controller: setsController,
+                        keyboardType: TextInputType.number,
+                        decoration: const InputDecoration(labelText: 'Default sets', border: OutlineInputBorder()),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: TextFormField(
+                        controller: repsController,
+                        keyboardType: TextInputType.number,
+                        decoration: const InputDecoration(labelText: 'Default reps', border: OutlineInputBorder()),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: weightController,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  decoration:
+                      const InputDecoration(labelText: 'Default weight (kg, optional)', border: OutlineInputBorder()),
+                ),
+              ],
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: instructionsController,
+                maxLines: 2,
+                decoration: const InputDecoration(labelText: 'Instructions (optional)', border: OutlineInputBorder()),
+              ),
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+        FilledButton(
+          onPressed: () {
+            if (formKey.currentState?.validate() ?? false) {
+              Navigator.pop(
+                context,
+                _ExerciseDialogResult(
+                  name: nameController.text.trim(),
+                  instructions: instructionsController.text.trim(),
+                  equipment: equipmentController.text.trim(),
+                  defaultSets: int.tryParse(setsController.text),
+                  defaultReps: int.tryParse(repsController.text),
+                  defaultWeight: double.tryParse(weightController.text),
+                  trackingType: selectedType,
+                  difficulty: selectedDifficulty,
+                ),
+              );
+            }
+          },
+          child: Text(exercise == null ? 'Create' : 'Save'),
+        ),
+      ],
+    );
   }
 }

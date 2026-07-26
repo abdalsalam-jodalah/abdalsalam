@@ -56,14 +56,81 @@ Future<void> _showTopicDialog(
   required String? parentTopicId,
   PlanTopic? existing,
 }) async {
-  final formKey = GlobalKey<FormState>();
-  final titleController = TextEditingController(text: existing?.title ?? '');
-  final descriptionController = TextEditingController(text: existing?.description ?? '');
-
-  final saved = await showDialog<bool>(
+  final result = await showDialog<_TopicDialogResult>(
     context: context,
-    builder: (dialogContext) => AlertDialog(
-      title: Text(existing == null ? (parentTopicId == null ? 'New Topic' : 'New Sub-topic') : 'Edit'),
+    builder: (_) => _TopicDialogContent(existing: existing, parentTopicId: parentTopicId),
+  );
+
+  if (result == null) return;
+
+  final repo = ref.read(planTopicRepositoryProvider);
+  final now = DateTime.now();
+
+  if (existing == null) {
+    await repo.create(
+      PlanTopic(
+        id: _uuid.v4(),
+        createdAt: now,
+        updatedAt: now,
+        userId: planningUserId,
+        title: result.title,
+        description: result.description.isEmpty ? null : result.description,
+        parentTopicId: parentTopicId,
+      ),
+    );
+  } else {
+    await repo.update(
+      existing.copyWith(title: result.title, description: result.description.isEmpty ? null : result.description, updatedAt: now),
+    );
+  }
+
+  if (parentTopicId == null) {
+    ref.invalidate(rootTopicsProvider);
+  } else {
+    ref.invalidate(subTopicsProvider(parentTopicId));
+  }
+}
+
+class _TopicDialogResult {
+  _TopicDialogResult(this.title, this.description);
+
+  final String title;
+  final String description;
+}
+
+class _TopicDialogContent extends StatefulWidget {
+  const _TopicDialogContent({required this.existing, required this.parentTopicId});
+
+  final PlanTopic? existing;
+  final String? parentTopicId;
+
+  @override
+  State<_TopicDialogContent> createState() => _TopicDialogContentState();
+}
+
+class _TopicDialogContentState extends State<_TopicDialogContent> {
+  final formKey = GlobalKey<FormState>();
+  late final TextEditingController titleController;
+  late final TextEditingController descriptionController;
+
+  @override
+  void initState() {
+    super.initState();
+    titleController = TextEditingController(text: widget.existing?.title ?? '');
+    descriptionController = TextEditingController(text: widget.existing?.description ?? '');
+  }
+
+  @override
+  void dispose() {
+    titleController.dispose();
+    descriptionController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text(widget.existing == null ? (widget.parentTopicId == null ? 'New Topic' : 'New Sub-topic') : 'Edit'),
       content: Form(
         key: formKey,
         child: Column(
@@ -84,53 +151,20 @@ Future<void> _showTopicDialog(
         ),
       ),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Cancel')),
+        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
         FilledButton(
           onPressed: () {
             if (formKey.currentState?.validate() ?? false) {
-              Navigator.pop(dialogContext, true);
+              Navigator.pop(
+                context,
+                _TopicDialogResult(titleController.text.trim(), descriptionController.text.trim()),
+              );
             }
           },
-          child: Text(existing == null ? 'Create' : 'Save'),
+          child: Text(widget.existing == null ? 'Create' : 'Save'),
         ),
       ],
-    ),
-  );
-
-  if (saved != true) {
-    titleController.dispose();
-    descriptionController.dispose();
-    return;
-  }
-
-  final title = titleController.text.trim();
-  final description = descriptionController.text.trim();
-  titleController.dispose();
-  descriptionController.dispose();
-
-  final repo = ref.read(planTopicRepositoryProvider);
-  final now = DateTime.now();
-
-  if (existing == null) {
-    await repo.create(
-      PlanTopic(
-        id: _uuid.v4(),
-        createdAt: now,
-        updatedAt: now,
-        userId: planningUserId,
-        title: title,
-        description: description.isEmpty ? null : description,
-        parentTopicId: parentTopicId,
-      ),
     );
-  } else {
-    await repo.update(existing.copyWith(title: title, description: description.isEmpty ? null : description, updatedAt: now));
-  }
-
-  if (parentTopicId == null) {
-    ref.invalidate(rootTopicsProvider);
-  } else {
-    ref.invalidate(subTopicsProvider(parentTopicId));
   }
 }
 

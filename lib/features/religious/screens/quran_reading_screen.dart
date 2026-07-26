@@ -199,137 +199,185 @@ class QuranReadingScreen extends ConsumerWidget {
   }
 
   Future<void> _showAddDialog(BuildContext context, WidgetRef ref) async {
-    final surahController = TextEditingController();
-    final ayahFromController = TextEditingController();
-    final ayahToController = TextEditingController();
-    final durationController = TextEditingController();
-    final pagesController = TextEditingController();
-    final placeController = TextEditingController();
-    var memorized = false;
-
-    final shouldSave = await showDialog<bool>(
+    final result = await showDialog<_QuranReadingResult>(
       context: context,
-      builder: (context) {
-        String? error;
-
-        return StatefulBuilder(
-          builder: (context, setState) => AlertDialog(
-            title: const Text('Add Quran Reading'),
-            content: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  TextField(
-                    controller: surahController,
-                    keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(labelText: 'Surah number (1-114)'),
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: TextField(
-                          controller: ayahFromController,
-                          keyboardType: TextInputType.number,
-                          decoration: const InputDecoration(labelText: 'Ayah from'),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: TextField(
-                          controller: ayahToController,
-                          keyboardType: TextInputType.number,
-                          decoration: const InputDecoration(labelText: 'Ayah to'),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: pagesController,
-                    keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(labelText: 'Pages read'),
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: durationController,
-                    keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(labelText: 'Minutes spent'),
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: placeController,
-                    decoration: const InputDecoration(labelText: 'Place (optional)'),
-                  ),
-                  const SizedBox(height: 8),
-                  SwitchListTile(
-                    contentPadding: EdgeInsets.zero,
-                    title: const Text('Memorized this range'),
-                    value: memorized,
-                    onChanged: (value) => setState(() => memorized = value),
-                  ),
-                  if (error != null)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 8),
-                      child: Text(error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
-                    ),
-                ],
-              ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(false),
-                child: const Text('Cancel'),
-              ),
-              FilledButton(
-                onPressed: () {
-                  final surah = int.tryParse(surahController.text.trim()) ?? 0;
-                  final ayahFrom = int.tryParse(ayahFromController.text.trim()) ?? 0;
-                  final ayahTo = int.tryParse(ayahToController.text.trim()) ?? 0;
-                  final pages = int.tryParse(pagesController.text.trim()) ?? 0;
-                  final minutes = int.tryParse(durationController.text.trim()) ?? 0;
-                  setState(() {
-                    if (surah < 1 || surah > 114) {
-                      error = 'Surah number must be between 1 and 114';
-                    } else if (ayahTo < ayahFrom) {
-                      error = 'Ayah to must be >= ayah from';
-                    } else if (minutes <= 0) {
-                      error = 'Minutes must be greater than 0';
-                    } else if (pages < 0) {
-                      error = 'Pages cannot be negative';
-                    } else {
-                      error = null;
-                    }
-                  });
-                  if (error == null) {
-                    Navigator.of(context).pop(true);
-                  }
-                },
-                child: const Text('Save'),
-              ),
-            ],
-          ),
-        );
-      },
+      builder: (_) => const _QuranReadingDialogContent(),
     );
 
-    if (shouldSave != true || !context.mounted) {
-      return;
-    }
+    if (result == null) return;
 
     final message = await ref.read(quranReadingControllerProvider.notifier).addReading(
-          surahNumber: int.tryParse(surahController.text.trim()) ?? 0,
-          ayahFrom: int.tryParse(ayahFromController.text.trim()) ?? 0,
-          ayahTo: int.tryParse(ayahToController.text.trim()) ?? 0,
-          durationMinutes: int.tryParse(durationController.text.trim()) ?? 0,
-          pagesRead: int.tryParse(pagesController.text.trim()) ?? 0,
-          memorized: memorized,
-          place: placeController.text.trim().isEmpty ? null : placeController.text.trim(),
+          surahNumber: result.surah,
+          ayahFrom: result.ayahFrom,
+          ayahTo: result.ayahTo,
+          durationMinutes: result.minutes,
+          pagesRead: result.pages,
+          memorized: result.memorized,
+          place: result.place,
         );
 
     if (message != null && context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
     }
+  }
+}
+
+class _QuranReadingResult {
+  _QuranReadingResult({
+    required this.surah,
+    required this.ayahFrom,
+    required this.ayahTo,
+    required this.pages,
+    required this.minutes,
+    required this.memorized,
+    required this.place,
+  });
+
+  final int surah;
+  final int ayahFrom;
+  final int ayahTo;
+  final int pages;
+  final int minutes;
+  final bool memorized;
+  final String? place;
+}
+
+class _QuranReadingDialogContent extends StatefulWidget {
+  const _QuranReadingDialogContent();
+
+  @override
+  State<_QuranReadingDialogContent> createState() => _QuranReadingDialogContentState();
+}
+
+class _QuranReadingDialogContentState extends State<_QuranReadingDialogContent> {
+  final surahController = TextEditingController();
+  final ayahFromController = TextEditingController();
+  final ayahToController = TextEditingController();
+  final durationController = TextEditingController();
+  final pagesController = TextEditingController();
+  final placeController = TextEditingController();
+  var memorized = false;
+  String? error;
+
+  @override
+  void dispose() {
+    surahController.dispose();
+    ayahFromController.dispose();
+    ayahToController.dispose();
+    durationController.dispose();
+    pagesController.dispose();
+    placeController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Add Quran Reading'),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: surahController,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(labelText: 'Surah number (1-114)'),
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: ayahFromController,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(labelText: 'Ayah from'),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: TextField(
+                    controller: ayahToController,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(labelText: 'Ayah to'),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: pagesController,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(labelText: 'Pages read'),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: durationController,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(labelText: 'Minutes spent'),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: placeController,
+              decoration: const InputDecoration(labelText: 'Place (optional)'),
+            ),
+            const SizedBox(height: 8),
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Memorized this range'),
+              value: memorized,
+              onChanged: (value) => setState(() => memorized = value),
+            ),
+            if (error != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Text(error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
+              ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          onPressed: () {
+            final surah = int.tryParse(surahController.text.trim()) ?? 0;
+            final ayahFrom = int.tryParse(ayahFromController.text.trim()) ?? 0;
+            final ayahTo = int.tryParse(ayahToController.text.trim()) ?? 0;
+            final pages = int.tryParse(pagesController.text.trim()) ?? 0;
+            final minutes = int.tryParse(durationController.text.trim()) ?? 0;
+            setState(() {
+              if (surah < 1 || surah > 114) {
+                error = 'Surah number must be between 1 and 114';
+              } else if (ayahTo < ayahFrom) {
+                error = 'Ayah to must be >= ayah from';
+              } else if (minutes <= 0) {
+                error = 'Minutes must be greater than 0';
+              } else if (pages < 0) {
+                error = 'Pages cannot be negative';
+              } else {
+                error = null;
+              }
+            });
+            if (error == null) {
+              Navigator.of(context).pop(
+                _QuranReadingResult(
+                  surah: surah,
+                  ayahFrom: ayahFrom,
+                  ayahTo: ayahTo,
+                  pages: pages,
+                  minutes: minutes,
+                  memorized: memorized,
+                  place: placeController.text.trim().isEmpty ? null : placeController.text.trim(),
+                ),
+              );
+            }
+          },
+          child: const Text('Save'),
+        ),
+      ],
+    );
   }
 }
 

@@ -175,164 +175,207 @@ class PrayerLogsScreen extends ConsumerWidget {
   }
 
   Future<void> _showAddDialog(BuildContext context, WidgetRef ref) async {
-    PrayerName selectedPrayer = PrayerName.fajr;
-    DateTime prayedAt = DateTime.now();
-    bool overrideOnTime = false;
-    bool manualOnTime = true;
-    final notesController = TextEditingController();
-
     DateTime? scheduledAt;
     try {
       final snapshot = await ref.read(todayPrayerTimesProvider.future);
-      scheduledAt = scheduledTimeForPrayer(selectedPrayer, snapshot);
+      scheduledAt = scheduledTimeForPrayer(PrayerName.fajr, snapshot);
     } catch (_) {
       scheduledAt = null;
     }
 
     if (!context.mounted) {
-      notesController.dispose();
       return;
     }
 
-    final shouldSave = await showDialog<bool>(
+    final result = await showDialog<_PrayerLogResult>(
       context: context,
-      builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setState) {
-            final delta = scheduledAt == null ? null : prayedAt.difference(scheduledAt!);
-
-            Future<void> refreshScheduled(PrayerName prayer) async {
-              try {
-                final snapshot = await ref.read(todayPrayerTimesProvider.future);
-                setState(() => scheduledAt = scheduledTimeForPrayer(prayer, snapshot));
-              } catch (_) {
-                setState(() => scheduledAt = null);
-              }
-            }
-
-            return AlertDialog(
-              title: const Text('Add Prayer Log'),
-              content: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    DropdownButtonFormField<PrayerName>(
-                      initialValue: selectedPrayer,
-                      items: PrayerName.values
-                          .map(
-                            (prayer) => DropdownMenuItem(
-                              value: prayer,
-                              child: Text(prayer.name.toUpperCase()),
-                            ),
-                          )
-                          .toList(growable: false),
-                      onChanged: (value) {
-                        if (value != null) {
-                          setState(() => selectedPrayer = value);
-                          refreshScheduled(value);
-                        }
-                      },
-                      decoration: const InputDecoration(labelText: 'Prayer'),
-                    ),
-                    const SizedBox(height: 12),
-                    if (scheduledAt != null)
-                      Text('Scheduled: ${DateFormat('hh:mm a').format(scheduledAt!)}'),
-                    const SizedBox(height: 8),
-                    OutlinedButton.icon(
-                      onPressed: () async {
-                        final pickedTime = await showTimePicker(
-                          context: context,
-                          initialTime: TimeOfDay.fromDateTime(prayedAt),
-                        );
-                        if (pickedTime == null) {
-                          return;
-                        }
-                        setState(() {
-                          prayedAt = DateTime(
-                            prayedAt.year,
-                            prayedAt.month,
-                            prayedAt.day,
-                            pickedTime.hour,
-                            pickedTime.minute,
-                          );
-                        });
-                      },
-                      icon: const Icon(Icons.schedule),
-                      label: Text('Prayed at: ${DateFormat('hh:mm a').format(prayedAt)}'),
-                    ),
-                    if (delta != null) ...[
-                      const SizedBox(height: 8),
-                      Text(
-                        delta.inMinutes.abs() < 1
-                            ? 'On time'
-                            : delta.isNegative
-                                ? '${delta.inMinutes.abs()} min before adhan'
-                                : '${delta.inMinutes.abs()} min after adhan',
-                        style: Theme.of(context).textTheme.bodyMedium,
-                      ),
-                    ],
-                    const SizedBox(height: 12),
-                    SwitchListTile(
-                      contentPadding: EdgeInsets.zero,
-                      title: const Text('Manually override on-time status'),
-                      value: overrideOnTime,
-                      onChanged: (value) => setState(() => overrideOnTime = value),
-                    ),
-                    if (overrideOnTime)
-                      SwitchListTile(
-                        contentPadding: EdgeInsets.zero,
-                        title: const Text('On time'),
-                        value: manualOnTime,
-                        onChanged: (value) => setState(() => manualOnTime = value),
-                      ),
-                    TextField(
-                      controller: notesController,
-                      maxLines: 2,
-                      decoration: const InputDecoration(
-                        labelText: 'Notes (optional)',
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.of(context).pop(false),
-                  child: const Text('Cancel'),
-                ),
-                FilledButton(
-                  onPressed: () => Navigator.of(context).pop(true),
-                  child: const Text('Save'),
-                ),
-              ],
-            );
-          },
-        );
-      },
+      builder: (_) => _PrayerLogDialogContent(ref: ref, initialScheduledAt: scheduledAt),
     );
 
-    if (shouldSave != true || !context.mounted) {
-      notesController.dispose();
-      return;
-    }
+    if (result == null) return;
 
     final message = await ref.read(prayerLogsControllerProvider.notifier).addPrayer(
-          prayer: selectedPrayer,
-          onTimeOverride: overrideOnTime ? manualOnTime : null,
-          prayedAt: prayedAt,
-          notes: notesController.text.trim().isEmpty
-              ? null
-              : notesController.text.trim(),
+          prayer: result.prayer,
+          onTimeOverride: result.overrideOnTime ? result.manualOnTime : null,
+          prayedAt: result.prayedAt,
+          notes: result.notes,
         );
-
-    notesController.dispose();
 
     if (message != null && context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(message)),
       );
     }
+  }
+}
+
+class _PrayerLogResult {
+  _PrayerLogResult({
+    required this.prayer,
+    required this.prayedAt,
+    required this.overrideOnTime,
+    required this.manualOnTime,
+    required this.notes,
+  });
+
+  final PrayerName prayer;
+  final DateTime prayedAt;
+  final bool overrideOnTime;
+  final bool manualOnTime;
+  final String? notes;
+}
+
+class _PrayerLogDialogContent extends StatefulWidget {
+  const _PrayerLogDialogContent({required this.ref, required this.initialScheduledAt});
+
+  final WidgetRef ref;
+  final DateTime? initialScheduledAt;
+
+  @override
+  State<_PrayerLogDialogContent> createState() => _PrayerLogDialogContentState();
+}
+
+class _PrayerLogDialogContentState extends State<_PrayerLogDialogContent> {
+  PrayerName selectedPrayer = PrayerName.fajr;
+  DateTime prayedAt = DateTime.now();
+  bool overrideOnTime = false;
+  bool manualOnTime = true;
+  final notesController = TextEditingController();
+  DateTime? scheduledAt;
+
+  @override
+  void initState() {
+    super.initState();
+    scheduledAt = widget.initialScheduledAt;
+  }
+
+  @override
+  void dispose() {
+    notesController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _refreshScheduled(PrayerName prayer) async {
+    try {
+      final snapshot = await widget.ref.read(todayPrayerTimesProvider.future);
+      if (!mounted) return;
+      setState(() => scheduledAt = scheduledTimeForPrayer(prayer, snapshot));
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => scheduledAt = null);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final delta = scheduledAt == null ? null : prayedAt.difference(scheduledAt!);
+
+    return AlertDialog(
+      title: const Text('Add Prayer Log'),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            DropdownButtonFormField<PrayerName>(
+              initialValue: selectedPrayer,
+              items: PrayerName.values
+                  .map(
+                    (prayer) => DropdownMenuItem(
+                      value: prayer,
+                      child: Text(prayer.name.toUpperCase()),
+                    ),
+                  )
+                  .toList(growable: false),
+              onChanged: (value) {
+                if (value != null) {
+                  setState(() => selectedPrayer = value);
+                  _refreshScheduled(value);
+                }
+              },
+              decoration: const InputDecoration(labelText: 'Prayer'),
+            ),
+            const SizedBox(height: 12),
+            if (scheduledAt != null) Text('Scheduled: ${DateFormat('hh:mm a').format(scheduledAt!)}'),
+            const SizedBox(height: 8),
+            OutlinedButton.icon(
+              onPressed: () async {
+                final pickedTime = await showTimePicker(
+                  context: context,
+                  initialTime: TimeOfDay.fromDateTime(prayedAt),
+                );
+                if (pickedTime == null) {
+                  return;
+                }
+                setState(() {
+                  prayedAt = DateTime(
+                    prayedAt.year,
+                    prayedAt.month,
+                    prayedAt.day,
+                    pickedTime.hour,
+                    pickedTime.minute,
+                  );
+                });
+              },
+              icon: const Icon(Icons.schedule),
+              label: Text('Prayed at: ${DateFormat('hh:mm a').format(prayedAt)}'),
+            ),
+            if (delta != null) ...[
+              const SizedBox(height: 8),
+              Text(
+                delta.inMinutes.abs() < 1
+                    ? 'On time'
+                    : delta.isNegative
+                        ? '${delta.inMinutes.abs()} min before adhan'
+                        : '${delta.inMinutes.abs()} min after adhan',
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
+            ],
+            const SizedBox(height: 12),
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Manually override on-time status'),
+              value: overrideOnTime,
+              onChanged: (value) => setState(() => overrideOnTime = value),
+            ),
+            if (overrideOnTime)
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                title: const Text('On time'),
+                value: manualOnTime,
+                onChanged: (value) => setState(() => manualOnTime = value),
+              ),
+            TextField(
+              controller: notesController,
+              maxLines: 2,
+              decoration: const InputDecoration(
+                labelText: 'Notes (optional)',
+              ),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          onPressed: () {
+            Navigator.of(context).pop(
+              _PrayerLogResult(
+                prayer: selectedPrayer,
+                prayedAt: prayedAt,
+                overrideOnTime: overrideOnTime,
+                manualOnTime: manualOnTime,
+                notes: notesController.text.trim().isEmpty ? null : notesController.text.trim(),
+              ),
+            );
+          },
+          child: const Text('Save'),
+        ),
+      ],
+    );
   }
 }
 

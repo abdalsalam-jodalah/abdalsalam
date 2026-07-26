@@ -103,108 +103,145 @@ class _AthkarScreenState extends ConsumerState<AthkarScreen>
   }
 
   Future<void> _showAddCustomDialog(BuildContext context, WidgetRef ref) async {
-    final arabicController = TextEditingController();
-    final transliterationController = TextEditingController();
-    final translationController = TextEditingController();
-    final targetCountController = TextEditingController(text: '1');
-    var selectedCategory = AthkarCategory.custom;
-
-    final shouldSave = await showDialog<bool>(
+    final result = await showDialog<_CustomAthkarResult>(
       context: context,
-      builder: (context) {
-        String? arabicError;
-
-        return StatefulBuilder(
-          builder: (context, setState) => AlertDialog(
-            title: const Text('Add Custom Athkar'),
-            content: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  TextField(
-                    controller: arabicController,
-                    textDirection: TextDirection.rtl,
-                    decoration: InputDecoration(
-                      labelText: 'Arabic text',
-                      errorText: arabicError,
-                    ),
-                    maxLines: 3,
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: transliterationController,
-                    decoration: const InputDecoration(labelText: 'Transliteration (optional)'),
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: translationController,
-                    decoration: const InputDecoration(labelText: 'Translation (optional)'),
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: targetCountController,
-                    keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(labelText: 'Target count'),
-                  ),
-                  const SizedBox(height: 12),
-                  DropdownButtonFormField<AthkarCategory>(
-                    initialValue: selectedCategory,
-                    decoration: const InputDecoration(labelText: 'Category'),
-                    items: _categories
-                        .map((c) => DropdownMenuItem(value: c, child: Text(athkarCategoryLabel(c))))
-                        .toList(),
-                    onChanged: (value) {
-                      if (value != null) {
-                        setState(() => selectedCategory = value);
-                      }
-                    },
-                  ),
-                ],
-              ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(false),
-                child: const Text('Cancel'),
-              ),
-              FilledButton(
-                onPressed: () {
-                  setState(() {
-                    arabicError =
-                        arabicController.text.trim().isEmpty ? 'Arabic text is required' : null;
-                  });
-                  if (arabicError == null) {
-                    Navigator.of(context).pop(true);
-                  }
-                },
-                child: const Text('Save'),
-              ),
-            ],
-          ),
-        );
-      },
+      builder: (_) => const _CustomAthkarDialogContent(),
     );
 
-    if (shouldSave != true || !context.mounted) {
-      return;
-    }
+    if (result == null) return;
 
-    final targetCount = int.tryParse(targetCountController.text.trim()) ?? 1;
     final message = await ref.read(athkarLogsControllerProvider.notifier).addCustomAthkar(
-          arabicText: arabicController.text.trim(),
-          transliteration: transliterationController.text.trim().isEmpty
-              ? null
-              : transliterationController.text.trim(),
-          translation: translationController.text.trim().isEmpty
-              ? null
-              : translationController.text.trim(),
-          category: selectedCategory,
-          targetCount: targetCount,
+          arabicText: result.arabicText,
+          transliteration: result.transliteration,
+          translation: result.translation,
+          category: result.category,
+          targetCount: result.targetCount,
         );
 
     if (message != null && context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
     }
+  }
+}
+
+class _CustomAthkarResult {
+  _CustomAthkarResult({
+    required this.arabicText,
+    required this.transliteration,
+    required this.translation,
+    required this.category,
+    required this.targetCount,
+  });
+
+  final String arabicText;
+  final String? transliteration;
+  final String? translation;
+  final AthkarCategory category;
+  final int targetCount;
+}
+
+class _CustomAthkarDialogContent extends StatefulWidget {
+  const _CustomAthkarDialogContent();
+
+  @override
+  State<_CustomAthkarDialogContent> createState() => _CustomAthkarDialogContentState();
+}
+
+class _CustomAthkarDialogContentState extends State<_CustomAthkarDialogContent> {
+  final arabicController = TextEditingController();
+  final transliterationController = TextEditingController();
+  final translationController = TextEditingController();
+  final targetCountController = TextEditingController(text: '1');
+  var selectedCategory = AthkarCategory.custom;
+  String? arabicError;
+
+  static const _categories = AthkarCategory.values;
+
+  @override
+  void dispose() {
+    arabicController.dispose();
+    transliterationController.dispose();
+    translationController.dispose();
+    targetCountController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Add Custom Athkar'),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: arabicController,
+              textDirection: TextDirection.rtl,
+              decoration: InputDecoration(
+                labelText: 'Arabic text',
+                errorText: arabicError,
+              ),
+              maxLines: 3,
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: transliterationController,
+              decoration: const InputDecoration(labelText: 'Transliteration (optional)'),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: translationController,
+              decoration: const InputDecoration(labelText: 'Translation (optional)'),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: targetCountController,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(labelText: 'Target count'),
+            ),
+            const SizedBox(height: 12),
+            DropdownButtonFormField<AthkarCategory>(
+              initialValue: selectedCategory,
+              decoration: const InputDecoration(labelText: 'Category'),
+              items: _categories.map((c) => DropdownMenuItem(value: c, child: Text(athkarCategoryLabel(c)))).toList(),
+              onChanged: (value) {
+                if (value != null) {
+                  setState(() => selectedCategory = value);
+                }
+              },
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          onPressed: () {
+            setState(() {
+              arabicError = arabicController.text.trim().isEmpty ? 'Arabic text is required' : null;
+            });
+            if (arabicError == null) {
+              Navigator.of(context).pop(
+                _CustomAthkarResult(
+                  arabicText: arabicController.text.trim(),
+                  transliteration: transliterationController.text.trim().isEmpty
+                      ? null
+                      : transliterationController.text.trim(),
+                  translation:
+                      translationController.text.trim().isEmpty ? null : translationController.text.trim(),
+                  category: selectedCategory,
+                  targetCount: int.tryParse(targetCountController.text.trim()) ?? 1,
+                ),
+              );
+            }
+          },
+          child: const Text('Save'),
+        ),
+      ],
+    );
   }
 }
 

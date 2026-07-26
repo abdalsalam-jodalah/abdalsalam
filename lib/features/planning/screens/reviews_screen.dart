@@ -141,130 +141,173 @@ class _ReviewsScreenState extends ConsumerState<ReviewsScreen> {
       '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
 
   Future<void> _showReviewDialog() async {
-    final formKey = GlobalKey<FormState>();
-    final winsController = TextEditingController();
-    final challengesController = TextEditingController();
-    final lessonsController = TextEditingController();
-    final nextFocusController = TextEditingController();
-    ReviewPeriod selectedPeriod = _selectedPeriod;
-    int? rating = 3;
-
-    final saved = await showDialog<bool>(
+    final result = await showDialog<_ReviewDialogResult>(
       context: context,
-      builder: (dialogContext) => StatefulBuilder(
-        builder: (dialogContext, setDialogState) => AlertDialog(
-          title: const Text('New Review'),
-          content: SingleChildScrollView(
-            child: Form(
-              key: formKey,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  DropdownButtonFormField<ReviewPeriod>(
-                    initialValue: selectedPeriod,
-                    items: ReviewPeriod.values
-                        .map((period) => DropdownMenuItem(value: period, child: Text(_periodLabel(period))))
-                        .toList(),
-                    onChanged: (value) => setDialogState(() => selectedPeriod = value ?? selectedPeriod),
-                    decoration: const InputDecoration(labelText: 'Period', border: OutlineInputBorder()),
-                  ),
-                  const SizedBox(height: 12),
-                  TextFormField(
-                    controller: winsController,
-                    maxLines: 2,
-                    decoration: const InputDecoration(labelText: 'Wins', border: OutlineInputBorder()),
-                  ),
-                  const SizedBox(height: 12),
-                  TextFormField(
-                    controller: challengesController,
-                    maxLines: 2,
-                    decoration: const InputDecoration(labelText: 'Challenges', border: OutlineInputBorder()),
-                  ),
-                  const SizedBox(height: 12),
-                  TextFormField(
-                    controller: lessonsController,
-                    maxLines: 2,
-                    decoration: const InputDecoration(labelText: 'Lessons learned', border: OutlineInputBorder()),
-                  ),
-                  const SizedBox(height: 12),
-                  TextFormField(
-                    controller: nextFocusController,
-                    maxLines: 2,
-                    decoration: const InputDecoration(labelText: 'Next focus', border: OutlineInputBorder()),
-                  ),
-                  const SizedBox(height: 12),
-                  DropdownButtonFormField<int>(
-                    initialValue: rating,
-                    items: [1, 2, 3, 4, 5]
-                        .map((value) => DropdownMenuItem(value: value, child: Text('$value / 5')))
-                        .toList(),
-                    onChanged: (value) => setDialogState(() => rating = value),
-                    decoration: const InputDecoration(labelText: 'Self rating', border: OutlineInputBorder()),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Cancel')),
-            FilledButton(
-              onPressed: () {
-                if (formKey.currentState?.validate() ?? false) {
-                  Navigator.pop(dialogContext, true);
-                }
-              },
-              child: const Text('Save'),
-            ),
-          ],
-        ),
-      ),
+      builder: (_) => _ReviewDialogContent(initialPeriod: _selectedPeriod, periodLabel: _periodLabel),
     );
 
-    if (saved != true) {
-      winsController.dispose();
-      challengesController.dispose();
-      lessonsController.dispose();
-      nextFocusController.dispose();
-      return;
-    }
+    if (result == null) return;
 
-    final wins = winsController.text.trim();
-    final challenges = challengesController.text.trim();
-    final lessons = lessonsController.text.trim();
-    final nextFocus = nextFocusController.text.trim();
-    winsController.dispose();
-    challengesController.dispose();
-    lessonsController.dispose();
-    nextFocusController.dispose();
-
-    final range = _rangeForPeriod(selectedPeriod);
+    final range = _rangeForPeriod(result.period);
     final repo = ref.read(reviewRepositoryProvider);
     final now = DateTime.now();
 
-    final result = await repo.create(
+    final saveResult = await repo.create(
       Review(
         id: _uuid.v4(),
         createdAt: now,
         updatedAt: now,
         userId: planningUserId,
-        period: selectedPeriod,
+        period: result.period,
         periodStart: range.start,
         periodEnd: range.end,
-        wins: wins.isEmpty ? null : wins,
-        challenges: challenges.isEmpty ? null : challenges,
-        lessonsLearned: lessons.isEmpty ? null : lessons,
-        nextFocus: nextFocus.isEmpty ? null : nextFocus,
-        rating: rating,
+        wins: result.wins.isEmpty ? null : result.wins,
+        challenges: result.challenges.isEmpty ? null : result.challenges,
+        lessonsLearned: result.lessons.isEmpty ? null : result.lessons,
+        nextFocus: result.nextFocus.isEmpty ? null : result.nextFocus,
+        rating: result.rating,
       ),
     );
 
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(result.isSuccess ? 'Review saved' : 'Something went wrong'),
-        backgroundColor: result.isSuccess ? Colors.green : Colors.red,
+        content: Text(saveResult.isSuccess ? 'Review saved' : 'Something went wrong'),
+        backgroundColor: saveResult.isSuccess ? Colors.green : Colors.red,
       ),
     );
-    ref.invalidate(reviewsByPeriodProvider(selectedPeriod));
+    ref.invalidate(reviewsByPeriodProvider(result.period));
+  }
+}
+
+class _ReviewDialogResult {
+  _ReviewDialogResult({
+    required this.period,
+    required this.wins,
+    required this.challenges,
+    required this.lessons,
+    required this.nextFocus,
+    required this.rating,
+  });
+
+  final ReviewPeriod period;
+  final String wins;
+  final String challenges;
+  final String lessons;
+  final String nextFocus;
+  final int? rating;
+}
+
+class _ReviewDialogContent extends StatefulWidget {
+  const _ReviewDialogContent({required this.initialPeriod, required this.periodLabel});
+
+  final ReviewPeriod initialPeriod;
+  final String Function(ReviewPeriod period) periodLabel;
+
+  @override
+  State<_ReviewDialogContent> createState() => _ReviewDialogContentState();
+}
+
+class _ReviewDialogContentState extends State<_ReviewDialogContent> {
+  final formKey = GlobalKey<FormState>();
+  final winsController = TextEditingController();
+  final challengesController = TextEditingController();
+  final lessonsController = TextEditingController();
+  final nextFocusController = TextEditingController();
+  late ReviewPeriod selectedPeriod;
+  int? rating = 3;
+
+  @override
+  void initState() {
+    super.initState();
+    selectedPeriod = widget.initialPeriod;
+  }
+
+  @override
+  void dispose() {
+    winsController.dispose();
+    challengesController.dispose();
+    lessonsController.dispose();
+    nextFocusController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('New Review'),
+      content: SingleChildScrollView(
+        child: Form(
+          key: formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              DropdownButtonFormField<ReviewPeriod>(
+                initialValue: selectedPeriod,
+                items: ReviewPeriod.values
+                    .map((period) => DropdownMenuItem(value: period, child: Text(widget.periodLabel(period))))
+                    .toList(),
+                onChanged: (value) => setState(() => selectedPeriod = value ?? selectedPeriod),
+                decoration: const InputDecoration(labelText: 'Period', border: OutlineInputBorder()),
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: winsController,
+                maxLines: 2,
+                decoration: const InputDecoration(labelText: 'Wins', border: OutlineInputBorder()),
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: challengesController,
+                maxLines: 2,
+                decoration: const InputDecoration(labelText: 'Challenges', border: OutlineInputBorder()),
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: lessonsController,
+                maxLines: 2,
+                decoration: const InputDecoration(labelText: 'Lessons learned', border: OutlineInputBorder()),
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: nextFocusController,
+                maxLines: 2,
+                decoration: const InputDecoration(labelText: 'Next focus', border: OutlineInputBorder()),
+              ),
+              const SizedBox(height: 12),
+              DropdownButtonFormField<int>(
+                initialValue: rating,
+                items: [1, 2, 3, 4, 5]
+                    .map((value) => DropdownMenuItem(value: value, child: Text('$value / 5')))
+                    .toList(),
+                onChanged: (value) => setState(() => rating = value),
+                decoration: const InputDecoration(labelText: 'Self rating', border: OutlineInputBorder()),
+              ),
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+        FilledButton(
+          onPressed: () {
+            if (formKey.currentState?.validate() ?? false) {
+              Navigator.pop(
+                context,
+                _ReviewDialogResult(
+                  period: selectedPeriod,
+                  wins: winsController.text.trim(),
+                  challenges: challengesController.text.trim(),
+                  lessons: lessonsController.text.trim(),
+                  nextFocus: nextFocusController.text.trim(),
+                  rating: rating,
+                ),
+              );
+            }
+          },
+          child: const Text('Save'),
+        ),
+      ],
+    );
   }
 }

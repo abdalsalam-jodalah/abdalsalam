@@ -174,172 +174,52 @@ class _AccountsPageState extends ConsumerState<AccountsPage> {
   }
 
   Future<void> _showAccountDialog({AccountModel? account}) async {
-    final formKey = GlobalKey<FormState>();
-    final nameController = TextEditingController(text: account?.name ?? '');
-    final initialBalanceController = TextEditingController(
-      text: account?.initialBalance.toStringAsFixed(2) ?? '0.00',
-    );
-    AccountType selectedType = account?.type ?? AccountType.cash;
-    String selectedCurrency = account?.currency ?? _currencyOptions.first;
-    IconData selectedIcon = account != null ? account.icon : _iconOptions.first;
-    Color selectedColor = account != null ? Color(account.colorValue) : _colorOptions.first;
-
-    final saved = await showDialog<bool>(
+    final result = await showDialog<_AccountDialogResult>(
       context: context,
-      builder: (dialogContext) => StatefulBuilder(
-        builder: (dialogContext, setDialogState) => AlertDialog(
-          title: Text(account == null ? 'Add Account' : 'Edit Account'),
-          content: SingleChildScrollView(
-            child: Form(
-              key: formKey,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  TextFormField(
-                    controller: nameController,
-                    decoration: const InputDecoration(
-                      labelText: 'Name',
-                      border: OutlineInputBorder(),
-                    ),
-                    validator: (value) =>
-                        (value == null || value.trim().isEmpty) ? 'Enter a name' : null,
-                  ),
-                  const SizedBox(height: 16),
-                  DropdownButtonFormField<AccountType>(
-                    decoration: const InputDecoration(
-                      labelText: 'Type',
-                      border: OutlineInputBorder(),
-                    ),
-                    initialValue: selectedType,
-                    items: AccountType.values
-                        .map((type) => DropdownMenuItem(
-                              value: type,
-                              child: Text(type.name),
-                            ))
-                        .toList(),
-                    onChanged: (value) =>
-                        setDialogState(() => selectedType = value ?? selectedType),
-                  ),
-                  const SizedBox(height: 16),
-                  DropdownButtonFormField<String>(
-                    decoration: const InputDecoration(
-                      labelText: 'Currency',
-                      border: OutlineInputBorder(),
-                    ),
-                    initialValue: selectedCurrency,
-                    items: _currencyOptions
-                        .map((code) => DropdownMenuItem(value: code, child: Text(code)))
-                        .toList(),
-                    onChanged: (value) =>
-                        setDialogState(() => selectedCurrency = value ?? selectedCurrency),
-                  ),
-                  const SizedBox(height: 16),
-                  TextFormField(
-                    controller: initialBalanceController,
-                    decoration: const InputDecoration(
-                      labelText: 'Initial Balance',
-                      border: OutlineInputBorder(),
-                    ),
-                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                    validator: (value) =>
-                        double.tryParse(value ?? '') == null ? 'Enter a valid amount' : null,
-                  ),
-                  const SizedBox(height: 16),
-                  Wrap(
-                    spacing: 8,
-                    children: _iconOptions
-                        .map((icon) => InkWell(
-                              onTap: () => setDialogState(() => selectedIcon = icon),
-                              child: CircleAvatar(
-                                backgroundColor: icon == selectedIcon
-                                    ? Theme.of(context).colorScheme.primaryContainer
-                                    : Colors.grey.withValues(alpha: 0.1),
-                                child: Icon(icon),
-                              ),
-                            ))
-                        .toList(),
-                  ),
-                  const SizedBox(height: 12),
-                  Wrap(
-                    spacing: 8,
-                    children: _colorOptions
-                        .map((color) => InkWell(
-                              onTap: () => setDialogState(() => selectedColor = color),
-                              child: CircleAvatar(
-                                backgroundColor: color,
-                                child: color == selectedColor
-                                    ? const Icon(Icons.check, color: Colors.white)
-                                    : null,
-                              ),
-                            ))
-                        .toList(),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(dialogContext, false),
-              child: const Text('Cancel'),
-            ),
-            FilledButton(
-              onPressed: () {
-                if (formKey.currentState?.validate() ?? false) {
-                  Navigator.pop(dialogContext, true);
-                }
-              },
-              child: Text(account == null ? 'Create' : 'Save'),
-            ),
-          ],
-        ),
+      builder: (_) => _AccountDialogContent(
+        account: account,
+        iconOptions: _iconOptions,
+        colorOptions: _colorOptions,
+        currencyOptions: _currencyOptions,
       ),
     );
 
-    if (saved != true) {
-      nameController.dispose();
-      initialBalanceController.dispose();
-      return;
-    }
+    if (result == null) return;
 
-    final name = nameController.text.trim();
-    final initialBalance = double.parse(initialBalanceController.text);
-    nameController.dispose();
-    initialBalanceController.dispose();
     final service = ref.read(financialServiceProvider);
     final now = DateTime.now();
 
     if (account == null) {
-      final result = await service.createAccount(
+      final saveResult = await service.createAccount(
         AccountModel(
           id: _uuid.v4(),
           userId: _defaultUserId,
-          name: name,
-          type: selectedType,
-          currency: selectedCurrency,
-          initialBalance: initialBalance,
-          iconKey: financialIconKeyFor(selectedIcon),
-          colorValue: selectedColor.toARGB32(),
+          name: result.name,
+          type: result.type,
+          currency: result.currency,
+          initialBalance: result.initialBalance,
+          iconKey: financialIconKeyFor(result.icon),
+          colorValue: result.color.toARGB32(),
           createdAt: now,
           updatedAt: now,
         ),
       );
       if (!mounted) return;
-      _showResultSnackBar(result.isSuccess, 'Account created successfully');
+      _showResultSnackBar(saveResult.isSuccess, 'Account created successfully');
     } else {
-      final result = await service.updateAccount(
+      final saveResult = await service.updateAccount(
         account.copyWith(
-          name: name,
-          type: selectedType,
-          currency: selectedCurrency,
-          initialBalance: initialBalance,
-          iconKey: financialIconKeyFor(selectedIcon),
-          colorValue: selectedColor.toARGB32(),
+          name: result.name,
+          type: result.type,
+          currency: result.currency,
+          initialBalance: result.initialBalance,
+          iconKey: financialIconKeyFor(result.icon),
+          colorValue: result.color.toARGB32(),
           updatedAt: now,
         ),
       );
       if (!mounted) return;
-      _showResultSnackBar(result.isSuccess, 'Account updated');
+      _showResultSnackBar(saveResult.isSuccess, 'Account updated');
     }
 
     ref.invalidate(allAccountsProvider);
@@ -380,6 +260,182 @@ class _AccountsPageState extends ConsumerState<AccountsPage> {
         content: Text(isSuccess ? successMessage : 'Something went wrong'),
         backgroundColor: isSuccess ? Colors.green : Colors.red,
       ),
+    );
+  }
+}
+
+class _AccountDialogResult {
+  _AccountDialogResult({
+    required this.name,
+    required this.type,
+    required this.currency,
+    required this.initialBalance,
+    required this.icon,
+    required this.color,
+  });
+
+  final String name;
+  final AccountType type;
+  final String currency;
+  final double initialBalance;
+  final IconData icon;
+  final Color color;
+}
+
+class _AccountDialogContent extends StatefulWidget {
+  const _AccountDialogContent({
+    required this.account,
+    required this.iconOptions,
+    required this.colorOptions,
+    required this.currencyOptions,
+  });
+
+  final AccountModel? account;
+  final List<IconData> iconOptions;
+  final List<Color> colorOptions;
+  final List<String> currencyOptions;
+
+  @override
+  State<_AccountDialogContent> createState() => _AccountDialogContentState();
+}
+
+class _AccountDialogContentState extends State<_AccountDialogContent> {
+  final formKey = GlobalKey<FormState>();
+  late final TextEditingController nameController;
+  late final TextEditingController initialBalanceController;
+  late AccountType selectedType;
+  late String selectedCurrency;
+  late IconData selectedIcon;
+  late Color selectedColor;
+
+  @override
+  void initState() {
+    super.initState();
+    final account = widget.account;
+    nameController = TextEditingController(text: account?.name ?? '');
+    initialBalanceController = TextEditingController(
+      text: account?.initialBalance.toStringAsFixed(2) ?? '0.00',
+    );
+    selectedType = account?.type ?? AccountType.cash;
+    selectedCurrency = account?.currency ?? widget.currencyOptions.first;
+    selectedIcon = account != null ? account.icon : widget.iconOptions.first;
+    selectedColor = account != null ? Color(account.colorValue) : widget.colorOptions.first;
+  }
+
+  @override
+  void dispose() {
+    nameController.dispose();
+    initialBalanceController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final account = widget.account;
+    return AlertDialog(
+      title: Text(account == null ? 'Add Account' : 'Edit Account'),
+      content: SingleChildScrollView(
+        child: Form(
+          key: formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextFormField(
+                controller: nameController,
+                decoration: const InputDecoration(
+                  labelText: 'Name',
+                  border: OutlineInputBorder(),
+                ),
+                validator: (value) => (value == null || value.trim().isEmpty) ? 'Enter a name' : null,
+              ),
+              const SizedBox(height: 16),
+              DropdownButtonFormField<AccountType>(
+                decoration: const InputDecoration(
+                  labelText: 'Type',
+                  border: OutlineInputBorder(),
+                ),
+                initialValue: selectedType,
+                items: AccountType.values
+                    .map((type) => DropdownMenuItem(value: type, child: Text(type.name)))
+                    .toList(),
+                onChanged: (value) => setState(() => selectedType = value ?? selectedType),
+              ),
+              const SizedBox(height: 16),
+              DropdownButtonFormField<String>(
+                decoration: const InputDecoration(
+                  labelText: 'Currency',
+                  border: OutlineInputBorder(),
+                ),
+                initialValue: selectedCurrency,
+                items: widget.currencyOptions.map((code) => DropdownMenuItem(value: code, child: Text(code))).toList(),
+                onChanged: (value) => setState(() => selectedCurrency = value ?? selectedCurrency),
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: initialBalanceController,
+                decoration: const InputDecoration(
+                  labelText: 'Initial Balance',
+                  border: OutlineInputBorder(),
+                ),
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                validator: (value) => double.tryParse(value ?? '') == null ? 'Enter a valid amount' : null,
+              ),
+              const SizedBox(height: 16),
+              Wrap(
+                spacing: 8,
+                children: widget.iconOptions
+                    .map((icon) => InkWell(
+                          onTap: () => setState(() => selectedIcon = icon),
+                          child: CircleAvatar(
+                            backgroundColor: icon == selectedIcon
+                                ? Theme.of(context).colorScheme.primaryContainer
+                                : Colors.grey.withValues(alpha: 0.1),
+                            child: Icon(icon),
+                          ),
+                        ))
+                    .toList(),
+              ),
+              const SizedBox(height: 12),
+              Wrap(
+                spacing: 8,
+                children: widget.colorOptions
+                    .map((color) => InkWell(
+                          onTap: () => setState(() => selectedColor = color),
+                          child: CircleAvatar(
+                            backgroundColor: color,
+                            child: color == selectedColor ? const Icon(Icons.check, color: Colors.white) : null,
+                          ),
+                        ))
+                    .toList(),
+              ),
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          onPressed: () {
+            if (formKey.currentState?.validate() ?? false) {
+              Navigator.pop(
+                context,
+                _AccountDialogResult(
+                  name: nameController.text.trim(),
+                  type: selectedType,
+                  currency: selectedCurrency,
+                  initialBalance: double.parse(initialBalanceController.text),
+                  icon: selectedIcon,
+                  color: selectedColor,
+                ),
+              );
+            }
+          },
+          child: Text(account == null ? 'Create' : 'Save'),
+        ),
+      ],
     );
   }
 }

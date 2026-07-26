@@ -153,57 +153,12 @@ class _DayPlanningScreenState extends ConsumerState<DayPlanningScreen> {
   }
 
   Future<void> _addGoal() async {
-    final formKey = GlobalKey<FormState>();
-    final titleController = TextEditingController();
-    final descriptionController = TextEditingController();
-
-    final saved = await showDialog<bool>(
+    final result = await showDialog<_DayGoalDialogResult>(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('New Goal'),
-        content: Form(
-          key: formKey,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextFormField(
-                controller: titleController,
-                decoration: const InputDecoration(labelText: 'Title', border: OutlineInputBorder()),
-                validator: (value) => (value == null || value.trim().isEmpty) ? 'Title is required' : null,
-              ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: descriptionController,
-                maxLines: 2,
-                decoration: const InputDecoration(labelText: 'Description (optional)', border: OutlineInputBorder()),
-              ),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Cancel')),
-          FilledButton(
-            onPressed: () {
-              if (formKey.currentState?.validate() ?? false) {
-                Navigator.pop(dialogContext, true);
-              }
-            },
-            child: const Text('Create'),
-          ),
-        ],
-      ),
+      builder: (_) => const _DayGoalDialogContent(),
     );
 
-    if (saved != true) {
-      titleController.dispose();
-      descriptionController.dispose();
-      return;
-    }
-
-    final title = titleController.text.trim();
-    final description = descriptionController.text.trim();
-    titleController.dispose();
-    descriptionController.dispose();
+    if (result == null) return;
 
     final repo = ref.read(goalRepositoryProvider);
     final now = DateTime.now();
@@ -213,8 +168,8 @@ class _DayPlanningScreenState extends ConsumerState<DayPlanningScreen> {
         createdAt: now,
         updatedAt: now,
         userId: planningUserId,
-        title: title,
-        description: description.isEmpty ? null : description,
+        title: result.title,
+        description: result.description.isEmpty ? null : result.description,
         scope: GoalScope.daily,
         status: GoalStatus.notStarted,
         targetDate: _selectedDate,
@@ -281,5 +236,72 @@ class _DayPlanningScreenState extends ConsumerState<DayPlanningScreen> {
     ];
     await repo.updateBulk(updated);
     ref.invalidate(tasksForDateProvider(_selectedDate));
+  }
+}
+
+class _DayGoalDialogResult {
+  _DayGoalDialogResult(this.title, this.description);
+
+  final String title;
+  final String description;
+}
+
+class _DayGoalDialogContent extends StatefulWidget {
+  const _DayGoalDialogContent();
+
+  @override
+  State<_DayGoalDialogContent> createState() => _DayGoalDialogContentState();
+}
+
+class _DayGoalDialogContentState extends State<_DayGoalDialogContent> {
+  final formKey = GlobalKey<FormState>();
+  final titleController = TextEditingController();
+  final descriptionController = TextEditingController();
+
+  @override
+  void dispose() {
+    titleController.dispose();
+    descriptionController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('New Goal'),
+      content: Form(
+        key: formKey,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextFormField(
+              controller: titleController,
+              decoration: const InputDecoration(labelText: 'Title', border: OutlineInputBorder()),
+              validator: (value) => (value == null || value.trim().isEmpty) ? 'Title is required' : null,
+            ),
+            const SizedBox(height: 12),
+            TextFormField(
+              controller: descriptionController,
+              maxLines: 2,
+              decoration: const InputDecoration(labelText: 'Description (optional)', border: OutlineInputBorder()),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+        FilledButton(
+          onPressed: () {
+            if (formKey.currentState?.validate() ?? false) {
+              Navigator.pop(
+                context,
+                _DayGoalDialogResult(titleController.text.trim(), descriptionController.text.trim()),
+              );
+            }
+          },
+          child: const Text('Create'),
+        ),
+      ],
+    );
   }
 }

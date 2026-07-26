@@ -479,58 +479,12 @@ class _StrengthSetsState extends ConsumerState<_StrengthSets> {
   }
 
   Future<void> _showAddSetDialog() async {
-    final formKey = GlobalKey<FormState>();
-    final repsController = TextEditingController();
-    final weightController = TextEditingController();
-
-    final saved = await showDialog<bool>(
+    final result = await showDialog<_AddSetResult>(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Add Set'),
-        content: Form(
-          key: formKey,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextFormField(
-                controller: repsController,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(labelText: 'Reps', border: OutlineInputBorder()),
-                validator: (value) => (value == null || int.tryParse(value) == null) ? 'Required' : null,
-              ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: weightController,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                decoration: const InputDecoration(labelText: 'Weight (kg, optional)', border: OutlineInputBorder()),
-              ),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Cancel')),
-          FilledButton(
-            onPressed: () {
-              if (formKey.currentState?.validate() ?? false) {
-                Navigator.pop(dialogContext, true);
-              }
-            },
-            child: const Text('Add'),
-          ),
-        ],
-      ),
+      builder: (_) => const _AddSetDialogContent(),
     );
 
-    if (saved != true) {
-      repsController.dispose();
-      weightController.dispose();
-      return;
-    }
-
-    final reps = int.parse(repsController.text);
-    final weight = double.tryParse(weightController.text);
-    repsController.dispose();
-    weightController.dispose();
+    if (result == null) return;
 
     if (!mounted) {
       return;
@@ -550,8 +504,8 @@ class _StrengthSetsState extends ConsumerState<_StrengthSets> {
         userId: sportUserId,
         exerciseLogId: widget.log.id,
         setNumber: currentSets.length + 1,
-        reps: reps,
-        weightKg: weight,
+        reps: result.reps,
+        weightKg: result.weight,
       ),
     );
     if (!mounted) {
@@ -559,5 +513,73 @@ class _StrengthSetsState extends ConsumerState<_StrengthSets> {
     }
     ref.invalidate(setsForLogProvider(widget.log.id));
     ref.invalidate(personalRecordProvider(widget.exerciseId));
+  }
+}
+
+class _AddSetResult {
+  _AddSetResult(this.reps, this.weight);
+
+  final int reps;
+  final double? weight;
+}
+
+class _AddSetDialogContent extends StatefulWidget {
+  const _AddSetDialogContent();
+
+  @override
+  State<_AddSetDialogContent> createState() => _AddSetDialogContentState();
+}
+
+class _AddSetDialogContentState extends State<_AddSetDialogContent> {
+  final formKey = GlobalKey<FormState>();
+  final repsController = TextEditingController();
+  final weightController = TextEditingController();
+
+  @override
+  void dispose() {
+    repsController.dispose();
+    weightController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Add Set'),
+      content: Form(
+        key: formKey,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextFormField(
+              controller: repsController,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(labelText: 'Reps', border: OutlineInputBorder()),
+              validator: (value) => (value == null || int.tryParse(value) == null) ? 'Required' : null,
+            ),
+            const SizedBox(height: 12),
+            TextFormField(
+              controller: weightController,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              decoration: const InputDecoration(labelText: 'Weight (kg, optional)', border: OutlineInputBorder()),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+        FilledButton(
+          onPressed: () {
+            if (formKey.currentState?.validate() ?? false) {
+              Navigator.pop(
+                context,
+                _AddSetResult(int.parse(repsController.text), double.tryParse(weightController.text)),
+              );
+            }
+          },
+          child: const Text('Add'),
+        ),
+      ],
+    );
   }
 }

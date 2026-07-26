@@ -14,14 +14,90 @@ Future<bool> showNoteDialog(
   Note? existing,
   int order = 0,
 }) async {
-  final formKey = GlobalKey<FormState>();
-  final titleController = TextEditingController(text: existing?.title ?? '');
-  final contentController = TextEditingController(text: existing?.content ?? '');
-
-  final saved = await showDialog<bool>(
+  final result = await showDialog<_NoteDialogResult>(
     context: context,
-    builder: (dialogContext) => AlertDialog(
-      title: Text(existing == null ? 'New Note' : 'Edit Note'),
+    builder: (_) => _NoteDialogContent(existing: existing),
+  );
+
+  if (result == null) return false;
+
+  final repo = ref.read(notesRepositoryProvider);
+  final now = DateTime.now();
+
+  final saveResult = existing == null
+      ? await repo.create(
+          Note(
+            id: _uuid.v4(),
+            createdAt: now,
+            updatedAt: now,
+            userId: notesUserId,
+            title: result.title,
+            content: result.content,
+            tags: const [],
+            categoryId: null,
+            pinned: false,
+            archived: false,
+            attachments: const [],
+            color: null,
+            order: order,
+          ),
+        )
+      : await repo.update(existing.copyWith(title: result.title, content: result.content, updatedAt: now));
+
+  if (context.mounted) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          saveResult.isSuccess ? (existing == null ? 'Note created' : 'Note updated') : 'Something went wrong',
+        ),
+        backgroundColor: saveResult.isSuccess ? Colors.green : Colors.red,
+      ),
+    );
+  }
+
+  ref.invalidate(activeNotesProvider);
+  return saveResult.isSuccess;
+}
+
+class _NoteDialogResult {
+  _NoteDialogResult(this.title, this.content);
+
+  final String title;
+  final String content;
+}
+
+class _NoteDialogContent extends StatefulWidget {
+  const _NoteDialogContent({this.existing});
+
+  final Note? existing;
+
+  @override
+  State<_NoteDialogContent> createState() => _NoteDialogContentState();
+}
+
+class _NoteDialogContentState extends State<_NoteDialogContent> {
+  final formKey = GlobalKey<FormState>();
+  late final TextEditingController titleController;
+  late final TextEditingController contentController;
+
+  @override
+  void initState() {
+    super.initState();
+    titleController = TextEditingController(text: widget.existing?.title ?? '');
+    contentController = TextEditingController(text: widget.existing?.content ?? '');
+  }
+
+  @override
+  void dispose() {
+    titleController.dispose();
+    contentController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text(widget.existing == null ? 'New Note' : 'Edit Note'),
       content: SingleChildScrollView(
         child: Form(
           key: formKey,
@@ -44,62 +120,19 @@ Future<bool> showNoteDialog(
         ),
       ),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Cancel')),
+        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
         FilledButton(
           onPressed: () {
             if (formKey.currentState?.validate() ?? false) {
-              Navigator.pop(dialogContext, true);
+              Navigator.pop(
+                context,
+                _NoteDialogResult(titleController.text.trim(), contentController.text.trim()),
+              );
             }
           },
-          child: Text(existing == null ? 'Create' : 'Save'),
+          child: Text(widget.existing == null ? 'Create' : 'Save'),
         ),
       ],
-    ),
-  );
-
-  if (saved != true) {
-    titleController.dispose();
-    contentController.dispose();
-    return false;
-  }
-
-  final title = titleController.text.trim();
-  final content = contentController.text.trim();
-  titleController.dispose();
-  contentController.dispose();
-
-  final repo = ref.read(notesRepositoryProvider);
-  final now = DateTime.now();
-
-  final result = existing == null
-      ? await repo.create(
-          Note(
-            id: _uuid.v4(),
-            createdAt: now,
-            updatedAt: now,
-            userId: notesUserId,
-            title: title,
-            content: content,
-            tags: const [],
-            categoryId: null,
-            pinned: false,
-            archived: false,
-            attachments: const [],
-            color: null,
-            order: order,
-          ),
-        )
-      : await repo.update(existing.copyWith(title: title, content: content, updatedAt: now));
-
-  if (context.mounted) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(result.isSuccess ? (existing == null ? 'Note created' : 'Note updated') : 'Something went wrong'),
-        backgroundColor: result.isSuccess ? Colors.green : Colors.red,
-      ),
     );
   }
-
-  ref.invalidate(activeNotesProvider);
-  return result.isSuccess;
 }

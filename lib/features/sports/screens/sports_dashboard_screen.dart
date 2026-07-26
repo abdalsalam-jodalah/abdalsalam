@@ -372,10 +372,6 @@ class _SportsDashboardScreenState extends ConsumerState<SportsDashboardScreen> {
   }
 
   Future<void> _showAddMeasurementDialog() async {
-    final formKey = GlobalKey<FormState>();
-    final weightController = TextEditingController();
-    final bodyFatController = TextEditingController();
-
     // Height rarely changes, so prefill it from the last entry that recorded
     // one (looked up over a wide window) — the user only has to type it once.
     final longRange = (start: DateTime.now().subtract(const Duration(days: 1095)), end: DateTime.now());
@@ -387,164 +383,17 @@ class _SportsDashboardScreenState extends ConsumerState<SportsDashboardScreen> {
       break;
     }
 
-    final heightController = TextEditingController(text: lastHeight?.toString() ?? '');
-    final chestController = TextEditingController();
-    final waistController = TextEditingController();
-    final abdominalController = TextEditingController();
-    final hipsController = TextEditingController();
-    final thighController = TextEditingController();
-    final armController = TextEditingController();
-
     if (!mounted) {
       return;
     }
 
-    final saved = await showDialog<bool>(
+    final result = await showDialog<_MeasurementDialogResult>(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Log Body Measurements'),
-        content: SingleChildScrollView(
-          child: Form(
-            key: formKey,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextFormField(
-                  controller: weightController,
-                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                  decoration: const InputDecoration(labelText: 'Weight (kg)', border: OutlineInputBorder()),
-                  validator: (value) => (value == null || double.tryParse(value) == null) ? 'Required' : null,
-                ),
-                const SizedBox(height: 12),
-                TextFormField(
-                  controller: heightController,
-                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                  decoration: const InputDecoration(labelText: 'Height (cm, one-time)', border: OutlineInputBorder()),
-                ),
-                const SizedBox(height: 12),
-                TextFormField(
-                  controller: bodyFatController,
-                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                  decoration: const InputDecoration(labelText: 'Body fat % (optional)', border: OutlineInputBorder()),
-                ),
-                const Divider(height: 32),
-                const Align(
-                  alignment: Alignment.centerLeft,
-                  child: Text('Circumference (cm, optional)', style: TextStyle(fontWeight: FontWeight.w600)),
-                ),
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    Expanded(
-                      child: TextFormField(
-                        controller: chestController,
-                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                        decoration: const InputDecoration(labelText: 'Chest', border: OutlineInputBorder()),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: TextFormField(
-                        controller: waistController,
-                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                        decoration: const InputDecoration(labelText: 'Waist', border: OutlineInputBorder()),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    Expanded(
-                      child: TextFormField(
-                        controller: abdominalController,
-                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                        decoration: const InputDecoration(labelText: 'Abdominal', border: OutlineInputBorder()),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: TextFormField(
-                        controller: hipsController,
-                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                        decoration: const InputDecoration(labelText: 'Hips', border: OutlineInputBorder()),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    Expanded(
-                      child: TextFormField(
-                        controller: thighController,
-                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                        decoration: const InputDecoration(labelText: 'Leg (thigh)', border: OutlineInputBorder()),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: TextFormField(
-                        controller: armController,
-                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                        decoration: const InputDecoration(labelText: 'Arm', border: OutlineInputBorder()),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Cancel')),
-          FilledButton(
-            onPressed: () {
-              if (formKey.currentState?.validate() ?? false) {
-                Navigator.pop(dialogContext, true);
-              }
-            },
-            child: const Text('Save'),
-          ),
-        ],
-      ),
+      builder: (_) => _MeasurementDialogContent(lastHeight: lastHeight),
     );
 
-    final controllers = [
-      weightController,
-      heightController,
-      bodyFatController,
-      chestController,
-      waistController,
-      abdominalController,
-      hipsController,
-      thighController,
-      armController,
-    ];
+    if (result == null) return;
 
-    if (saved != true) {
-      for (final controller in controllers) {
-        controller.dispose();
-      }
-      return;
-    }
-
-    final weight = double.parse(weightController.text);
-    final height = double.tryParse(heightController.text);
-    final bodyFat = double.tryParse(bodyFatController.text);
-    final chest = double.tryParse(chestController.text);
-    final waist = double.tryParse(waistController.text);
-    final abdominal = double.tryParse(abdominalController.text);
-    final hips = double.tryParse(hipsController.text);
-    final thigh = double.tryParse(thighController.text);
-    final arm = double.tryParse(armController.text);
-    for (final controller in controllers) {
-      controller.dispose();
-    }
-
-    if (!mounted) {
-      return;
-    }
     final repo = ref.read(bodyMeasurementRepositoryProvider);
     final now = DateTime.now();
     await repo.create(
@@ -554,20 +403,210 @@ class _SportsDashboardScreenState extends ConsumerState<SportsDashboardScreen> {
         updatedAt: now,
         userId: sportUserId,
         date: dateOnly(now),
-        weightKg: weight,
-        heightCm: height,
-        bodyFatPercent: bodyFat,
-        chestCm: chest,
-        waistCm: waist,
-        abdominalCm: abdominal,
-        hipsCm: hips,
-        thighCm: thigh,
-        armCm: arm,
+        weightKg: result.weight,
+        heightCm: result.height,
+        bodyFatPercent: result.bodyFat,
+        chestCm: result.chest,
+        waistCm: result.waist,
+        abdominalCm: result.abdominal,
+        hipsCm: result.hips,
+        thighCm: result.thigh,
+        armCm: result.arm,
       ),
     );
     if (!mounted) {
       return;
     }
     ref.invalidate(bodyMeasurementsInRangeProvider);
+  }
+}
+
+class _MeasurementDialogResult {
+  _MeasurementDialogResult({
+    required this.weight,
+    required this.height,
+    required this.bodyFat,
+    required this.chest,
+    required this.waist,
+    required this.abdominal,
+    required this.hips,
+    required this.thigh,
+    required this.arm,
+  });
+
+  final double weight;
+  final double? height;
+  final double? bodyFat;
+  final double? chest;
+  final double? waist;
+  final double? abdominal;
+  final double? hips;
+  final double? thigh;
+  final double? arm;
+}
+
+class _MeasurementDialogContent extends StatefulWidget {
+  const _MeasurementDialogContent({required this.lastHeight});
+
+  final double? lastHeight;
+
+  @override
+  State<_MeasurementDialogContent> createState() => _MeasurementDialogContentState();
+}
+
+class _MeasurementDialogContentState extends State<_MeasurementDialogContent> {
+  final formKey = GlobalKey<FormState>();
+  final weightController = TextEditingController();
+  late final TextEditingController heightController;
+  final bodyFatController = TextEditingController();
+  final chestController = TextEditingController();
+  final waistController = TextEditingController();
+  final abdominalController = TextEditingController();
+  final hipsController = TextEditingController();
+  final thighController = TextEditingController();
+  final armController = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    heightController = TextEditingController(text: widget.lastHeight?.toString() ?? '');
+  }
+
+  @override
+  void dispose() {
+    weightController.dispose();
+    heightController.dispose();
+    bodyFatController.dispose();
+    chestController.dispose();
+    waistController.dispose();
+    abdominalController.dispose();
+    hipsController.dispose();
+    thighController.dispose();
+    armController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Log Body Measurements'),
+      content: SingleChildScrollView(
+        child: Form(
+          key: formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextFormField(
+                controller: weightController,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                decoration: const InputDecoration(labelText: 'Weight (kg)', border: OutlineInputBorder()),
+                validator: (value) => (value == null || double.tryParse(value) == null) ? 'Required' : null,
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: heightController,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                decoration: const InputDecoration(labelText: 'Height (cm, one-time)', border: OutlineInputBorder()),
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: bodyFatController,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                decoration: const InputDecoration(labelText: 'Body fat % (optional)', border: OutlineInputBorder()),
+              ),
+              const Divider(height: 32),
+              const Align(
+                alignment: Alignment.centerLeft,
+                child: Text('Circumference (cm, optional)', style: TextStyle(fontWeight: FontWeight.w600)),
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextFormField(
+                      controller: chestController,
+                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      decoration: const InputDecoration(labelText: 'Chest', border: OutlineInputBorder()),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: TextFormField(
+                      controller: waistController,
+                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      decoration: const InputDecoration(labelText: 'Waist', border: OutlineInputBorder()),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextFormField(
+                      controller: abdominalController,
+                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      decoration: const InputDecoration(labelText: 'Abdominal', border: OutlineInputBorder()),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: TextFormField(
+                      controller: hipsController,
+                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      decoration: const InputDecoration(labelText: 'Hips', border: OutlineInputBorder()),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextFormField(
+                      controller: thighController,
+                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      decoration: const InputDecoration(labelText: 'Leg (thigh)', border: OutlineInputBorder()),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: TextFormField(
+                      controller: armController,
+                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      decoration: const InputDecoration(labelText: 'Arm', border: OutlineInputBorder()),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+        FilledButton(
+          onPressed: () {
+            if (formKey.currentState?.validate() ?? false) {
+              Navigator.pop(
+                context,
+                _MeasurementDialogResult(
+                  weight: double.parse(weightController.text),
+                  height: double.tryParse(heightController.text),
+                  bodyFat: double.tryParse(bodyFatController.text),
+                  chest: double.tryParse(chestController.text),
+                  waist: double.tryParse(waistController.text),
+                  abdominal: double.tryParse(abdominalController.text),
+                  hips: double.tryParse(hipsController.text),
+                  thigh: double.tryParse(thighController.text),
+                  arm: double.tryParse(armController.text),
+                ),
+              );
+            }
+          },
+          child: const Text('Save'),
+        ),
+      ],
+    );
   }
 }
