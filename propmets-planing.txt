@@ -17,11 +17,12 @@ priorties:
 multiplatform ✅
 --------
 
+- general app enhanceing
+
 - calender with concation to palning and all thing
 - securty
 - analytics 
 
-- general app enhanceing
 ---------
 - backedn
 ---------
