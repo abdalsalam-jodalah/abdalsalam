@@ -91,7 +91,7 @@ abstract class BaseServiceImpl<T extends BaseModel> implements BaseService<T> {
       return Success(export);
     } catch (e, st) {
       logger.error('[$serviceName] exportWithMetadata failed', error: e, stackTrace: st);
-      return Failure(ExportError(e.toString()));
+      return Failure(ExportError('$serviceName export failed', cause: e, causeStackTrace: st));
     }
   }
 
@@ -163,7 +163,7 @@ abstract class BaseServiceImpl<T extends BaseModel> implements BaseService<T> {
       return importWithValidation(decoded);
     } catch (e, st) {
       logger.error('[$serviceName] importFromJson failed', error: e, stackTrace: st);
-      return Failure(ImportError(e.toString()));
+      return Failure(ImportError('$serviceName import failed', cause: e, causeStackTrace: st));
     }
   }
 
@@ -198,7 +198,7 @@ abstract class BaseServiceImpl<T extends BaseModel> implements BaseService<T> {
       return const Success(null);
     } catch (e, st) {
       logger.error('[$serviceName] importWithValidation failed', error: e, stackTrace: st);
-      return Failure(ImportError(e.toString()));
+      return Failure(ImportError('$serviceName import failed', cause: e, causeStackTrace: st));
     }
   }
 
