@@ -133,7 +133,7 @@ test_file_count() {
   find "test/$section" -name '*_test.dart' -type f | wc -l | tr -d ' '
 }
 
-UI_DIRS='/(screens|widgets)/|lib/main.dart|lib/app/'
+UI_DIRS='/(screens|widgets)/|lib/main.dart|lib/app/.*_(app|screen|banner|widget)\.dart'
 PROVIDER_DIRS='/providers/|lib/providers/'
 LOGIC_DIRS='/(services|repositories|infrastructure)/|lib/data/repositories/|base_repository'
 MODEL_DIRS='lib/data/models/'

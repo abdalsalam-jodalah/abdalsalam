@@ -6,6 +6,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:local_auth/local_auth.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../app/bootstrap/startup_report.dart';
 import '../core/result/result.dart';
 import '../data/repositories/calendar/calendar_repository.dart';
 import '../data/repositories/security/security_repository.dart';
@@ -174,6 +175,8 @@ final appSettingsProvider = FutureProvider<Map<String, dynamic>>((ref) async {
 /// (before the first frame) and overridden in main.dart — so the sidebar
 /// never flashes the default order while the async settings load resolves.
 final initialSidebarOrderProvider = Provider<List<String>?>((ref) => null);
+
+final startupReportProvider = Provider<StartupReport>((ref) => const StartupReport());
 
 final backupTablesProvider = Provider<List<String>>((ref) {
   return const <String>[

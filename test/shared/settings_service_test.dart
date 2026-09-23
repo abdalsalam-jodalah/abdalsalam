@@ -62,5 +62,21 @@ void main() {
       final settings = await service.getSettings();
       expect(settings['currency'], service.defaults['currency']);
     });
+
+    test('should fall back to defaults when stored settings have the wrong type', () async {
+      await StorageGateway.instance.save(key: 'app_settings_v1', value: 'not a map');
+
+      final settings = await service.getSettings();
+
+      expect(settings, service.defaults);
+    });
+
+    test('should repair corrupt settings on the next update', () async {
+      await StorageGateway.instance.save(key: 'app_settings_v1', value: 'not a map');
+
+      await service.updateSetting('themeMode', 'dark');
+
+      expect((await service.getSettings())['themeMode'], 'dark');
+    });
   });
 }

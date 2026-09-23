@@ -1,3 +1,4 @@
+import '../../core/errors/app_error.dart';
 import '../infrastructure/storage_gateway.dart';
 
 class SettingsService {
@@ -8,8 +9,18 @@ class SettingsService {
   SettingsService(this.storage);
 
   Future<Map<String, dynamic>> getSettings() async {
-    final data = await storage.get<Map<String, dynamic>>(_key);
-    return {...defaults, ...(data ?? <String, dynamic>{})};
+    try {
+      final data = await storage.get<Map<String, dynamic>>(_key);
+      return {...defaults, ...(data ?? <String, dynamic>{})};
+    } on CorruptDataError catch (error, stackTrace) {
+      storage.integrityReporter.reportCorruptRecord(
+        table: 'preferences',
+        recordId: _key,
+        reason: error,
+        stackTrace: stackTrace,
+      );
+      return defaults;
+    }
   }
 
   Future<void> updateSetting(String key, dynamic value) async {

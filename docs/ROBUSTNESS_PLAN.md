@@ -116,7 +116,8 @@ Totals: errStr 70 · unlogged catch 10 · provider masking 63 · ignored writes 
 - `lib/app/bootstrap/`: `AppBootstrapper` running `BootstrapStep`s, each `critical` or `nonCritical`, isolated try/catch, timed, logged → `StartupReport`.
 - Critical: logger, storage, schema. Non-critical: settings (fallback defaults), notifications, reminders (per-reminder isolation), medication/wellness rollovers, `markTakenStream` listener (with `onError`).
 - `main()` in `runZonedGuarded`; `FlutterError.onError`, `PlatformDispatcher.onError`, friendly `ErrorWidget.builder`, `AppProviderObserver` (`providerDidFail` → logger).
-- Critical failure → `StartupRecoveryScreen` (retry, export logs, reset corrupted settings). Non-critical → dismissible banner listing degraded features.
+- Critical failure → `StartupRecoveryScreen` (retry, copy error details + recent saved errors). Non-critical → dismissible `StartupStatusBanner` listing degraded features. Corrupt settings no longer need a manual reset: `SettingsService` falls back to defaults and reports it, and the next save repairs the value.
+- Optional steps that take longer than 10s keep running in the background, so startup isn't blocked. Found on macOS: the notification permission prompt held the splash screen until it was answered. A late failure is still logged.
 
 ### Phase 4 — Data layer
 - `BaseRepositoryImpl`: `_parseRows` parses row-by-row. A corrupt row is **skipped, logged with table + id + field, and left untouched in the DB**. Skips are counted into a `DataIntegrityReporter` (shared service + provider) that the UI shows as a small "N records couldn't be read" notice (tap → log viewer). wrap `count*`, `vacuum`, `getAllRecordsForPagination` in try; `DatabaseError` carries cause + stack. Fixes all 34 subclass repositories at once.
