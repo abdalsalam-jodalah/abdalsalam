@@ -15,6 +15,12 @@ import '../../../data/models/planning/planning_task.dart';
 import '../../../data/models/planning/plan_topic.dart';
 import '../../../providers/app_providers.dart';
 import '../../../shared/infrastructure/logger_service.dart';
+import '../services/achievement_service.dart';
+import '../services/goal_service.dart';
+import '../services/life_plan_service.dart';
+import '../services/plan_topic_service.dart';
+import '../services/planning_task_service.dart';
+import '../services/review_service.dart';
 
 const String planningUserId = 'user1';
 
@@ -71,6 +77,48 @@ final planTopicRepositoryProvider = Provider<PlanTopicRepository>((ref) {
     moduleType: logic.ModuleType.repository,
   );
   return PlanTopicRepositoryImpl(storage, logger);
+});
+
+final lifePlanServiceProvider = Provider<LifePlanService>((ref) {
+  return LifePlanService(
+    ref.watch(lifePlanRepositoryProvider),
+    LoggerService.forModule('LifePlanService', moduleType: logic.ModuleType.service),
+  );
+});
+
+final goalServiceProvider = Provider<GoalService>((ref) {
+  return GoalService(
+    ref.watch(goalRepositoryProvider),
+    LoggerService.forModule('GoalService', moduleType: logic.ModuleType.service),
+  );
+});
+
+final achievementServiceProvider = Provider<AchievementService>((ref) {
+  return AchievementService(
+    ref.watch(achievementRepositoryProvider),
+    LoggerService.forModule('AchievementService', moduleType: logic.ModuleType.service),
+  );
+});
+
+final reviewServiceProvider = Provider<ReviewService>((ref) {
+  return ReviewService(
+    ref.watch(reviewRepositoryProvider),
+    LoggerService.forModule('ReviewService', moduleType: logic.ModuleType.service),
+  );
+});
+
+final planningTaskServiceProvider = Provider<PlanningTaskService>((ref) {
+  return PlanningTaskService(
+    ref.watch(planningTaskRepositoryProvider),
+    LoggerService.forModule('PlanningTaskService', moduleType: logic.ModuleType.service),
+  );
+});
+
+final planTopicServiceProvider = Provider<PlanTopicService>((ref) {
+  return PlanTopicService(
+    ref.watch(planTopicRepositoryProvider),
+    LoggerService.forModule('PlanTopicService', moduleType: logic.ModuleType.service),
+  );
 });
 
 // Data Providers

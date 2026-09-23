@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../../core/constants/user_error_messages.dart';
 import '../../../data/models/sports/body_measurement.dart';
 import '../../../data/models/sports/exercise.dart';
 import '../providers/sports_providers.dart';
@@ -394,9 +395,9 @@ class _SportsDashboardScreenState extends ConsumerState<SportsDashboardScreen> {
 
     if (result == null) return;
 
-    final repo = ref.read(bodyMeasurementRepositoryProvider);
+    final service = ref.read(bodyMeasurementServiceProvider);
     final now = DateTime.now();
-    await repo.create(
+    final createResult = await service.create(
       BodyMeasurement(
         id: _uuid.v4(),
         createdAt: now,
@@ -416,6 +417,11 @@ class _SportsDashboardScreenState extends ConsumerState<SportsDashboardScreen> {
     );
     if (!mounted) {
       return;
+    }
+    if (createResult.isFailure) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text(UserErrorMessages.generic), backgroundColor: Colors.red),
+      );
     }
     ref.invalidate(bodyMeasurementsInRangeProvider);
   }

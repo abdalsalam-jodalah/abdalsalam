@@ -140,6 +140,21 @@ Totals: errStr 70 · unlogged catch 10 · provider masking 63 · ignored writes 
 - Every ignored `Result` handled; every catch logs; no `e.toString()` as message — use `ErrorHandler`.
 - Bug fixes: recurring generator (advance date only on success, distinguish lookup failure from not-found), medication rollover (mark done only on success), medication service (propagate update/create failures), Quran legacy import, `Currency.firstWhere` `orElse`, fallback exchange rates surfaced via `wasFallback` to UI, weather `isStale` flag, raw-value services (`weather`, `currency*`, `prayer_time*`, `athkar_content_loader`, `health_report`) → return `Result`.
 - New services for **planning** and **sports** (extending `BaseServiceImpl`) so UI stops writing to repositories directly and validation runs; wire existing `NotesService`.
+- **Done.** All 17 screens and widgets that wrote straight to repositories now go through services and check the returned results.
+  - Financial: the recurring generator no longer loses or duplicates transactions; unknown currencies return a typed failure; fallback exchange rates are flagged with `isFallback`/`wasFallback` and logged.
+  - Health: medication writes propagate failures; rollovers mark themselves done only after succeeding; attachment cleanup happens after the save.
+  - Religious: the Quran legacy import is atomic and can be re-run safely.
+  - Weather: data is parsed defensively and cached data is flagged `isStale`.
+  - Reminders: `rescheduleAll` isolates each reminder and returns counts.
+  - `NotificationService` and `AttachmentStorageService` return `Result`.
+- **Follow-ups found in Phase 5.**
+  - `ReminderService.schedule`/`cancel` still throw a mapped `AppError`, and about 10 callers catch it. Converting them to `Result` means touching every caller in one go.
+  - `HabitsService.scheduleHabitReminder` fires at `now` instead of `reminderTime` (a logic bug).
+  - `habit_form_screen.dart` ignores the reminder result and uses `int.parse` on the stored time (Phase 7).
+  - `EnhancedCurrencyService.getRateForDate` falls back to an ILS-based rate for other source currencies (no callers yet).
+  - `seedAll` still throws for `dev_tools_overlay` (Phase 7).
+  - `religious_tracker_service.dart` is about 540 lines and should be split.
+  - One tracker test depends on the time of day, so it needs an injected clock (Phase 10).
 
 ### Phase 6 — Providers
 - Replace every `result.data ?? []` with `result.getOrThrow()` so failures become `AsyncError`.

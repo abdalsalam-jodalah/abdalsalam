@@ -1,11 +1,9 @@
-// ignore_for_file: deprecated_member_use_from_same_package
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:uuid/uuid.dart';
 
-import '../../../data/models/religious/quran_progress.dart';
 import '../../../data/models/religious/quran_reading.dart';
 import '../../../data/repositories/religious/quran_reading_repository.dart';
 import '../../../providers/app_providers.dart';
+import '../services/quran_legacy_import_service.dart';
 import '../services/quran_reading_service.dart';
 import 'prayer_providers.dart';
 import 'quran_providers.dart';
@@ -20,6 +18,14 @@ final quranReadingServiceProvider = Provider<QuranReadingService>((ref) {
   final logger = ref.watch(loggerProvider);
   final repository = ref.watch(quranReadingRepositoryProvider);
   return QuranReadingService(repository, logger);
+});
+
+final quranLegacyImportServiceProvider = Provider<QuranLegacyImportService>((ref) {
+  return QuranLegacyImportService(
+    legacyRepository: ref.watch(quranRepositoryProvider),
+    readingService: ref.watch(quranReadingServiceProvider),
+    logger: ref.watch(loggerProvider),
+  );
 });
 
 final quranReadingControllerProvider =
@@ -64,8 +70,6 @@ final quranPagesLast7DaysProvider = FutureProvider<List<double>>((ref) async {
 });
 
 class QuranReadingController extends AsyncNotifier<List<QuranReading>> {
-  static const _uuid = Uuid();
-
   @override
   Future<List<QuranReading>> build() async {
     final service = ref.read(quranReadingServiceProvider);
@@ -106,37 +110,10 @@ class QuranReadingController extends AsyncNotifier<List<QuranReading>> {
     return null;
   }
 
-  /// One-shot manual migration of legacy [QuranProgress] rows into the
-  /// richer [QuranReading] model. Surah/ayah range is unknown for legacy
-  /// rows and is recorded as 0.
   Future<String?> importLegacyProgress() async {
-    final legacyRepo = ref.read(quranRepositoryProvider);
-    final legacyResult = await legacyRepo.getAll();
-    if (legacyResult.isFailure) {
-      return legacyResult.error!.toString();
-    }
-
-    final service = ref.read(quranReadingServiceProvider);
-    for (final legacy in legacyResult.data!) {
-      final now = DateTime.now();
-      final entity = QuranReading(
-        id: _uuid.v4(),
-        createdAt: now,
-        updatedAt: now,
-        userId: legacy.userId,
-        surahNumber: 0,
-        ayahFrom: 0,
-        ayahTo: 0,
-        readAt: legacy.loggedAt,
-        durationMinutes: legacy.minutesSpent,
-        memorized: false,
-        pagesRead: legacy.pagesRead,
-        place: null,
-      );
-      final created = await service.create(entity);
-      if (created.isFailure) {
-        return created.error!.toString();
-      }
+    final result = await ref.read(quranLegacyImportServiceProvider).importLegacyProgress();
+    if (result.isFailure) {
+      return result.error!.toString();
     }
 
     state = const AsyncLoading();

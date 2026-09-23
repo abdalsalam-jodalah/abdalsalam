@@ -8,6 +8,7 @@ import '../../../data/repositories/health/health_repository.dart';
 import '../../../data/repositories/health/medication_log_repository.dart';
 import '../../../shared/infrastructure/logger_service.dart';
 import '../../../shared/services/base_service_impl.dart';
+import '../../../shared/services/error_handler.dart';
 
 class MedicationService extends BaseServiceImpl<Medication> {
   final MedicationLogRepository logRepository;
@@ -20,6 +21,8 @@ class MedicationService extends BaseServiceImpl<Medication> {
   }) : super(repository, logger);
 
   HealthRepository get _repo => repository as HealthRepository;
+
+  ErrorHandler get _errorHandler => ErrorHandler(logger);
 
   @override
   String get serviceName => 'MedicationService';
@@ -80,21 +83,28 @@ class MedicationService extends BaseServiceImpl<Medication> {
       final medications = <Medication>[];
       for (var i = 0; i < medicationIds.length; i++) {
         final result = await repository.getById(medicationIds[i]);
-        if (result.isSuccess && result.data != null) {
-          final updated = result.data!.copyWith(
-            displayOrder: i,
-            updatedAt: DateTime.now(),
-          );
-          medications.add(updated);
+        if (result.isFailure) {
+          return Failure(result.error!);
         }
+        final medication = result.data;
+        if (medication == null) {
+          logger.warning('[$serviceName] Reorder skipped missing medication ${medicationIds[i]}');
+          continue;
+        }
+        medications.add(medication.copyWith(
+          displayOrder: i,
+          updatedAt: DateTime.now(),
+        ));
       }
 
-      await repository.updateBulk(medications);
+      final updateResult = await repository.updateBulk(medications);
+      if (updateResult.isFailure) {
+        return Failure(updateResult.error!);
+      }
       logger.info('[$serviceName] Reordered ${medications.length} medications');
       return const Success(null);
     } catch (e, st) {
-      logger.error('[$serviceName] Reorder failed', error: e, stackTrace: st);
-      return Failure(ServiceError(e.toString()));
+      return Failure(_errorHandler.mapException(e, context: '$serviceName.reorderMedications', stackTrace: st));
     }
   }
 
@@ -131,7 +141,11 @@ class MedicationService extends BaseServiceImpl<Medication> {
             time,
           );
 
-          if (existingLog.isSuccess && existingLog.data == null) {
+          if (existingLog.isFailure) {
+            return Failure(existingLog.error!);
+          }
+
+          if (existingLog.data == null) {
             // Create new log
             final log = MedicationLog(
               id: _uuid.v4(),
@@ -148,14 +162,16 @@ class MedicationService extends BaseServiceImpl<Medication> {
       }
 
       if (logs.isNotEmpty) {
-        await logRepository.createBulk(logs);
+        final createResult = await logRepository.createBulk(logs);
+        if (createResult.isFailure) {
+          return Failure(createResult.error!);
+        }
         logger.info('[$serviceName] Generated ${logs.length} logs for $date');
       }
 
       return const Success(null);
     } catch (e, st) {
-      logger.error('[$serviceName] Generate daily logs failed', error: e, stackTrace: st);
-      return Failure(ServiceError(e.toString()));
+      return Failure(_errorHandler.mapException(e, context: '$serviceName.generateDailyLogs', stackTrace: st));
     }
   }
 
@@ -186,12 +202,14 @@ class MedicationService extends BaseServiceImpl<Medication> {
         updatedAt: DateTime.now(),
       );
 
-      await logRepository.update(updated);
+      final updateResult = await logRepository.update(updated);
+      if (updateResult.isFailure) {
+        return Failure(updateResult.error!);
+      }
       logger.info('[$serviceName] Marked medication $medicationId as taken');
       return Success(updated);
     } catch (e, st) {
-      logger.error('[$serviceName] Mark as taken failed', error: e, stackTrace: st);
-      return Failure(ServiceError(e.toString()));
+      return Failure(_errorHandler.mapException(e, context: '$serviceName.markAsTaken', stackTrace: st));
     }
   }
 
@@ -210,12 +228,14 @@ class MedicationService extends BaseServiceImpl<Medication> {
             updatedAt: DateTime.now(),
           )).toList();
 
-      await logRepository.updateBulk(resetLogs);
+      final updateResult = await logRepository.updateBulk(resetLogs);
+      if (updateResult.isFailure) {
+        return Failure(updateResult.error!);
+      }
       logger.info('[$serviceName] Reset ${resetLogs.length} logs for $date');
       return const Success(null);
     } catch (e, st) {
-      logger.error('[$serviceName] Reset daily logs failed', error: e, stackTrace: st);
-      return Failure(ServiceError(e.toString()));
+      return Failure(_errorHandler.mapException(e, context: '$serviceName.resetDailyLogs', stackTrace: st));
     }
   }
 
@@ -232,7 +252,10 @@ class MedicationService extends BaseServiceImpl<Medication> {
 
       for (final log in logs) {
         final medResult = await repository.getById(log.medicationId);
-        if (medResult.isSuccess && medResult.data != null) {
+        if (medResult.isFailure) {
+          return Failure(medResult.error!);
+        }
+        if (medResult.data != null) {
           checklist.add(DailyMedicationCheck(
             log: log,
             medication: medResult.data!,
@@ -258,8 +281,7 @@ class MedicationService extends BaseServiceImpl<Medication> {
 
       return Success(checklist);
     } catch (e, st) {
-      logger.error('[$serviceName] Get daily checklist failed', error: e, stackTrace: st);
-      return Failure(ServiceError(e.toString()));
+      return Failure(_errorHandler.mapException(e, context: '$serviceName.getDailyChecklist', stackTrace: st));
     }
   }
 
@@ -267,21 +289,27 @@ class MedicationService extends BaseServiceImpl<Medication> {
   Future<Result<Medication, AppError>> toggleActive(String medicationId) async {
     try {
       final result = await repository.getById(medicationId);
-      if (result.isFailure || result.data == null) {
+      if (result.isFailure) {
+        return Failure(result.error!);
+      }
+      final medication = result.data;
+      if (medication == null) {
         return Failure(NotFoundError('Medication not found'));
       }
 
-      final updated = result.data!.copyWith(
-        isActive: !result.data!.isActive,
+      final updated = medication.copyWith(
+        isActive: !medication.isActive,
         updatedAt: DateTime.now(),
       );
 
-      await repository.update(updated);
+      final updateResult = await repository.update(updated);
+      if (updateResult.isFailure) {
+        return Failure(updateResult.error!);
+      }
       logger.info('[$serviceName] Toggled medication $medicationId active status');
       return Success(updated);
     } catch (e, st) {
-      logger.error('[$serviceName] Toggle active failed', error: e, stackTrace: st);
-      return Failure(ServiceError(e.toString()));
+      return Failure(_errorHandler.mapException(e, context: '$serviceName.toggleActive', stackTrace: st));
     }
   }
 }

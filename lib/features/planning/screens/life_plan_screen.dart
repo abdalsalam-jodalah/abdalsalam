@@ -47,7 +47,7 @@ class _LifePlanScreenState extends ConsumerState<LifePlanScreen> {
   }
 
   Future<void> _save() async {
-    final repo = ref.read(lifePlanRepositoryProvider);
+    final service = ref.read(lifePlanServiceProvider);
     final now = DateTime.now();
 
     final plan = LifePlan(
@@ -61,7 +61,7 @@ class _LifePlanScreenState extends ConsumerState<LifePlanScreen> {
       principles: _principles,
     );
 
-    final result = _existingPlan == null ? await repo.create(plan) : await repo.update(plan);
+    final result = _existingPlan == null ? await service.create(plan) : await service.update(plan);
 
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(

@@ -4,6 +4,9 @@ import '../../core/result/result.dart';
 import '../../core/errors/app_error.dart';
 
 class AnalyticsEngine {
+  static const int _minimumSamplesForAnomalies = 3;
+  static const double _spendingSpikeMultiplier = 1.5;
+
   Future<Result<Map<String, dynamic>, AppError>> computeCrossModuleInsights({
     required List<double> moodScores,
     required List<double> workoutCounts,
@@ -67,13 +70,16 @@ class AnalyticsEngine {
   }
 
   List<String> _detectAnomalies(List<double> spending) {
-    if (spending.length < 3) {
+    if (spending.length < _minimumSamplesForAnomalies) {
       return const <String>[];
     }
-    final avg = spending.reduce((a, b) => a + b) / spending.length;
+    final averageSpending = spending.reduce((a, b) => a + b) / spending.length;
+    if (averageSpending <= 0) {
+      return const <String>[];
+    }
     final anomalies = <String>[];
     for (var i = 0; i < spending.length; i++) {
-      if (spending[i] > avg * 1.5) {
+      if (spending[i] > averageSpending * _spendingSpikeMultiplier) {
         anomalies.add('Spending spike detected at index $i');
       }
     }

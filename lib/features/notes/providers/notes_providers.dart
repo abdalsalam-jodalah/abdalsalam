@@ -7,6 +7,8 @@ import '../../../data/models/notes/note.dart';
 import '../../../data/models/notes/todo.dart';
 import '../../../providers/app_providers.dart';
 import '../../../shared/infrastructure/logger_service.dart';
+import '../services/notes_service.dart';
+import '../services/todo_service.dart';
 
 const String notesUserId = 'user1';
 
@@ -26,6 +28,21 @@ final todoRepositoryProvider = Provider<TodoRepository>((ref) {
     moduleType: logic.ModuleType.repository,
   );
   return TodoRepositoryImpl(storage, logger);
+});
+
+final notesServiceProvider = Provider<NotesService>((ref) {
+  return NotesService(
+    ref.watch(notesRepositoryProvider),
+    LoggerService.forModule('NotesService', moduleType: logic.ModuleType.service),
+    reminders: ref.watch(reminderServiceProvider),
+  );
+});
+
+final todoServiceProvider = Provider<TodoService>((ref) {
+  return TodoService(
+    ref.watch(todoRepositoryProvider),
+    LoggerService.forModule('TodoService', moduleType: logic.ModuleType.service),
+  );
 });
 
 final activeNotesProvider = FutureProvider<List<Note>>((ref) async {

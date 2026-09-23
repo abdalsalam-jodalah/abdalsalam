@@ -3,35 +3,76 @@ import 'dart:typed_data';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 
+import '../../../core/errors/app_error.dart';
+import '../../../core/result/result.dart';
+import '../../../data/models/health/blood_test.dart';
+import '../../../data/models/health/doctor_visit.dart';
 import '../../../data/models/health/health_metric.dart';
+import '../../../data/models/health/medication.dart';
+import '../../../shared/infrastructure/logger_service.dart';
+import '../../../shared/services/error_handler.dart';
 import 'blood_test_service.dart';
 import 'doctor_visit_service.dart';
 import 'health_metric_service.dart';
 import 'medication_service.dart';
 
-/// Builds a shareable PDF summary of medications, metrics, blood tests, and
-/// doctor visits, intended for handing to a physician.
 class HealthReportService {
   static const _lookbackWindow = Duration(days: 180);
+  static const _logContext = 'HealthReportService';
 
   final MedicationService medicationService;
   final HealthMetricService healthMetricService;
   final BloodTestService bloodTestService;
   final DoctorVisitService doctorVisitService;
+  final LoggerService logger;
 
   HealthReportService({
     required this.medicationService,
     required this.healthMetricService,
     required this.bloodTestService,
     required this.doctorVisitService,
+    required this.logger,
   });
 
-  Future<Uint8List> generateReport() async {
-    final medications = (await medicationService.getMedicationsSorted()).data ?? [];
-    final metrics = (await healthMetricService.getActive()).data ?? [];
-    final bloodTests = (await bloodTestService.getActive()).data ?? [];
-    final visits = (await doctorVisitService.getActive()).data ?? [];
+  ErrorHandler get _errorHandler => ErrorHandler(logger);
 
+  Future<Result<Uint8List, AppError>> generateReport() async {
+    try {
+      final medicationsResult = await medicationService.getMedicationsSorted();
+      if (medicationsResult.isFailure) {
+        return Failure(medicationsResult.error!);
+      }
+      final metricsResult = await healthMetricService.getActive();
+      if (metricsResult.isFailure) {
+        return Failure(metricsResult.error!);
+      }
+      final bloodTestsResult = await bloodTestService.getActive();
+      if (bloodTestsResult.isFailure) {
+        return Failure(bloodTestsResult.error!);
+      }
+      final visitsResult = await doctorVisitService.getActive();
+      if (visitsResult.isFailure) {
+        return Failure(visitsResult.error!);
+      }
+
+      final bytes = await _buildDocument(
+        medications: medicationsResult.data!,
+        metrics: metricsResult.data!,
+        bloodTests: bloodTestsResult.data!,
+        visits: visitsResult.data!,
+      );
+      return Success(bytes);
+    } catch (e, st) {
+      return Failure(_errorHandler.mapException(e, context: '$_logContext.generateReport', stackTrace: st));
+    }
+  }
+
+  Future<Uint8List> _buildDocument({
+    required List<Medication> medications,
+    required List<HealthMetric> metrics,
+    required List<BloodTest> bloodTests,
+    required List<DoctorVisit> visits,
+  }) async {
     final cutoff = DateTime.now().subtract(_lookbackWindow);
 
     final activeMedications = medications.where((m) => m.isActive).toList();
@@ -115,12 +156,20 @@ class HealthReportService {
     return document.save();
   }
 
-  Future<void> shareReport() async {
-    final bytes = await generateReport();
-    await Printing.sharePdf(
-      bytes: bytes,
-      filename: 'health_report_${_formatDate(DateTime.now())}.pdf',
-    );
+  Future<Result<void, AppError>> shareReport() async {
+    final reportResult = await generateReport();
+    if (reportResult.isFailure) {
+      return Failure(reportResult.error!);
+    }
+    try {
+      await Printing.sharePdf(
+        bytes: reportResult.data!,
+        filename: 'health_report_${_formatDate(DateTime.now())}.pdf',
+      );
+      return const Success(null);
+    } catch (e, st) {
+      return Failure(_errorHandler.mapException(e, context: '$_logContext.shareReport', stackTrace: st));
+    }
   }
 
   String _formatDate(DateTime date) =>

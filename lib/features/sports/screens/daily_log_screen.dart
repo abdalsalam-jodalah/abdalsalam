@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../../core/constants/user_error_messages.dart';
 import '../../../data/models/sports/exercise.dart';
 import '../../../data/models/sports/exercise_log.dart';
 import '../../../data/models/sports/exercise_set_log.dart';
@@ -10,6 +11,12 @@ import '../widgets/reorderable_sport_list.dart';
 import '../widgets/sports_widgets.dart';
 
 const _uuid = Uuid();
+
+void _showFailureSnackBar(BuildContext context) {
+  ScaffoldMessenger.of(context).showSnackBar(
+    const SnackBar(content: Text(UserErrorMessages.generic), backgroundColor: Colors.red),
+  );
+}
 
 class DailyLogScreen extends ConsumerStatefulWidget {
   static const routeName = '/sports/daily-log';
@@ -187,24 +194,26 @@ class _DailyLogBodyState extends ConsumerState<_DailyLogBody> {
   }
 
   Future<void> _reorderLogs(List<ExerciseLog> reordered) async {
-    final repo = ref.read(exerciseLogRepositoryProvider);
+    final service = ref.read(exerciseLogServiceProvider);
     final updated = [
       for (var i = 0; i < reordered.length; i++)
         reordered[i].copyWith(order: i, updatedAt: DateTime.now()),
     ];
-    await repo.updateBulk(updated);
+    final updateResult = await service.updateBulk(updated);
     if (!mounted) {
       return;
     }
+    if (updateResult.isFailure) _showFailureSnackBar(context);
     ref.invalidate(logsForDateProvider(date));
   }
 
   Future<void> _deleteLog(ExerciseLog log) async {
-    final repo = ref.read(exerciseLogRepositoryProvider);
-    await repo.softDelete(log.id);
+    final service = ref.read(exerciseLogServiceProvider);
+    final deleteResult = await service.softDelete(log.id);
     if (!mounted) {
       return;
     }
+    if (deleteResult.isFailure) _showFailureSnackBar(context);
     ref.invalidate(logsForDateProvider(date));
   }
 
@@ -213,11 +222,12 @@ class _DailyLogBodyState extends ConsumerState<_DailyLogBody> {
     final alreadyLoggedExerciseIds = currentLogs.map((log) => log.exerciseId).toSet();
     final toAdd = scheduleEntries.where((entry) => !alreadyLoggedExerciseIds.contains(entry.exerciseId));
 
-    final repo = ref.read(exerciseLogRepositoryProvider);
+    final service = ref.read(exerciseLogServiceProvider);
     final now = DateTime.now();
     var order = currentLogs.length;
+    var hasFailure = false;
     for (final entry in toAdd) {
-      await repo.create(
+      final createResult = await service.create(
         ExerciseLog(
           id: _uuid.v4(),
           createdAt: now,
@@ -229,11 +239,13 @@ class _DailyLogBodyState extends ConsumerState<_DailyLogBody> {
           scheduleEntryId: entry.id,
         ),
       );
+      if (createResult.isFailure) hasFailure = true;
       order++;
     }
     if (!mounted) {
       return;
     }
+    if (hasFailure) _showFailureSnackBar(context);
     ref.invalidate(logsForDateProvider(date));
   }
 
@@ -267,9 +279,9 @@ class _DailyLogBodyState extends ConsumerState<_DailyLogBody> {
       return;
     }
 
-    final repo = ref.read(exerciseLogRepositoryProvider);
+    final service = ref.read(exerciseLogServiceProvider);
     final now = DateTime.now();
-    await repo.create(
+    final createResult = await service.create(
       ExerciseLog(
         id: _uuid.v4(),
         createdAt: now,
@@ -283,6 +295,7 @@ class _DailyLogBodyState extends ConsumerState<_DailyLogBody> {
     if (!mounted) {
       return;
     }
+    if (createResult.isFailure) _showFailureSnackBar(context);
     ref.invalidate(logsForDateProvider(date));
   }
 }
@@ -356,8 +369,8 @@ class _CardioFormState extends ConsumerState<_CardioForm> {
   }
 
   Future<void> _save() async {
-    final repo = ref.read(exerciseLogRepositoryProvider);
-    await repo.update(
+    final service = ref.read(exerciseLogServiceProvider);
+    final updateResult = await service.update(
       widget.log.copyWith(
         steps: int.tryParse(_stepsController.text),
         durationSeconds: int.tryParse(_durationController.text),
@@ -368,6 +381,7 @@ class _CardioFormState extends ConsumerState<_CardioForm> {
     if (!mounted) {
       return;
     }
+    if (updateResult.isFailure) _showFailureSnackBar(context);
     ref.invalidate(logsForDateProvider(dateOnly(widget.log.date)));
   }
 
@@ -494,9 +508,9 @@ class _StrengthSetsState extends ConsumerState<_StrengthSets> {
           orElse: () => const <ExerciseSetLog>[],
         );
 
-    final repo = ref.read(exerciseSetLogRepositoryProvider);
+    final service = ref.read(exerciseSetLogServiceProvider);
     final now = DateTime.now();
-    await repo.create(
+    final createResult = await service.create(
       ExerciseSetLog(
         id: _uuid.v4(),
         createdAt: now,
@@ -511,6 +525,7 @@ class _StrengthSetsState extends ConsumerState<_StrengthSets> {
     if (!mounted) {
       return;
     }
+    if (createResult.isFailure) _showFailureSnackBar(context);
     ref.invalidate(setsForLogProvider(widget.log.id));
     ref.invalidate(personalRecordProvider(widget.exerciseId));
   }

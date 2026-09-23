@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../../core/constants/user_error_messages.dart';
 import '../../../data/models/planning/goal.dart';
 import '../../../data/models/planning/planning_task.dart';
 import '../providers/planning_providers.dart';
@@ -160,9 +161,9 @@ class _DayPlanningScreenState extends ConsumerState<DayPlanningScreen> {
 
     if (result == null) return;
 
-    final repo = ref.read(goalRepositoryProvider);
+    final service = ref.read(goalServiceProvider);
     final now = DateTime.now();
-    await repo.create(
+    final saveResult = await service.create(
       Goal(
         id: _uuid.v4(),
         createdAt: now,
@@ -175,25 +176,31 @@ class _DayPlanningScreenState extends ConsumerState<DayPlanningScreen> {
         targetDate: _selectedDate,
       ),
     );
+    if (!mounted) return;
+    if (saveResult.isFailure) _showFailureSnackBar();
     ref.invalidate(goalsForDateProvider(_selectedDate));
     ref.invalidate(activeGoalsProvider);
   }
 
   Future<void> _toggleGoal(Goal goal, bool completed) async {
-    final repo = ref.read(goalRepositoryProvider);
-    await repo.update(
+    final service = ref.read(goalServiceProvider);
+    final updateResult = await service.update(
       goal.copyWith(
         status: completed ? GoalStatus.achieved : GoalStatus.notStarted,
         updatedAt: DateTime.now(),
       ),
     );
+    if (!mounted) return;
+    if (updateResult.isFailure) _showFailureSnackBar();
     ref.invalidate(goalsForDateProvider(_selectedDate));
     ref.invalidate(activeGoalsProvider);
   }
 
   Future<void> _deleteGoal(Goal goal) async {
-    final repo = ref.read(goalRepositoryProvider);
-    await repo.softDelete(goal.id);
+    final service = ref.read(goalServiceProvider);
+    final deleteResult = await service.softDelete(goal.id);
+    if (!mounted) return;
+    if (deleteResult.isFailure) _showFailureSnackBar();
     ref.invalidate(goalsForDateProvider(_selectedDate));
     ref.invalidate(activeGoalsProvider);
   }
@@ -218,24 +225,36 @@ class _DayPlanningScreenState extends ConsumerState<DayPlanningScreen> {
   }
 
   Future<void> _toggleTask(PlanningTask task, bool completed) async {
-    final repo = ref.read(planningTaskRepositoryProvider);
-    await repo.update(task.copyWith(isCompleted: completed, updatedAt: DateTime.now()));
+    final service = ref.read(planningTaskServiceProvider);
+    final updateResult = await service.update(task.copyWith(isCompleted: completed, updatedAt: DateTime.now()));
+    if (!mounted) return;
+    if (updateResult.isFailure) _showFailureSnackBar();
     ref.invalidate(tasksForDateProvider(_selectedDate));
   }
 
   Future<void> _deleteTask(PlanningTask task) async {
-    final repo = ref.read(planningTaskRepositoryProvider);
-    await repo.softDelete(task.id);
+    final service = ref.read(planningTaskServiceProvider);
+    final deleteResult = await service.softDelete(task.id);
+    if (!mounted) return;
+    if (deleteResult.isFailure) _showFailureSnackBar();
     ref.invalidate(tasksForDateProvider(_selectedDate));
   }
 
   Future<void> _reorderTasks(List<PlanningTask> reordered) async {
-    final repo = ref.read(planningTaskRepositoryProvider);
+    final service = ref.read(planningTaskServiceProvider);
     final updated = [
       for (var i = 0; i < reordered.length; i++) reordered[i].copyWith(order: i, updatedAt: DateTime.now()),
     ];
-    await repo.updateBulk(updated);
+    final updateResult = await service.updateBulk(updated);
+    if (!mounted) return;
+    if (updateResult.isFailure) _showFailureSnackBar();
     ref.invalidate(tasksForDateProvider(_selectedDate));
+  }
+
+  void _showFailureSnackBar() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text(UserErrorMessages.generic), backgroundColor: Colors.red),
+    );
   }
 }
 

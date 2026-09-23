@@ -1,19 +1,23 @@
+import '../../../core/errors/app_error.dart';
+import '../../../core/result/result.dart';
 import '../../../data/repositories/health/health_repository.dart';
 import '../../../shared/infrastructure/logger_service.dart';
 import '../../../shared/infrastructure/storage_gateway.dart';
+import '../../../shared/services/daily_run_marker.dart';
+import '../../../shared/services/error_handler.dart';
 import 'health_service.dart';
 import 'medication_service.dart';
 
-/// Ensures today's medication logs exist and reminders are (re)scheduled
-/// even if the medication list screen is never opened on a given day.
 class MedicationDailyRolloverService {
   static const _lastRunKey = 'medication_daily_rollover_last_run';
+  static const _logContext = 'MedicationDailyRolloverService';
 
   final MedicationService medicationService;
   final HealthService healthService;
   final HealthRepository healthRepository;
   final StorageGateway storage;
   final LoggerService logger;
+  final DateTime Function() clock;
 
   MedicationDailyRolloverService({
     required this.medicationService,
@@ -21,29 +25,47 @@ class MedicationDailyRolloverService {
     required this.healthRepository,
     required this.storage,
     required this.logger,
+    this.clock = DateTime.now,
   });
 
-  Future<void> runIfNeeded({String userId = 'current_user_id'}) async {
-    final today = DateTime.now();
-    final todayKey = _dateKey(today);
-    final lastRun = await storage.get<String>(_lastRunKey);
-    if (lastRun == todayKey) {
-      return;
-    }
+  DailyRunMarker get _runMarker => DailyRunMarker(storage: storage, storageKey: _lastRunKey);
 
-    await medicationService.generateDailyLogs(today, userId);
-
-    final activeResult = await healthRepository.getActive();
-    if (activeResult.isSuccess) {
-      for (final medication in activeResult.data!) {
-        await healthService.refreshReminders(medication);
+  Future<Result<void, AppError>> runIfNeeded({String userId = 'current_user_id'}) async {
+    try {
+      final today = clock();
+      if (await _runMarker.hasRunOn(today)) {
+        return const Success(null);
       }
+
+      final generateResult = await medicationService.generateDailyLogs(today, userId);
+      if (generateResult.isFailure) {
+        logger.error('[$_logContext] generating daily logs failed', error: generateResult.error);
+        return Failure(generateResult.error!);
+      }
+
+      final activeResult = await healthRepository.getActive();
+      if (activeResult.isFailure) {
+        logger.error('[$_logContext] loading active medications failed', error: activeResult.error);
+        return Failure(activeResult.error!);
+      }
+
+      AppError? firstReminderError;
+      for (final medication in activeResult.data!) {
+        final refreshResult = await healthService.refreshReminders(medication);
+        if (refreshResult.isFailure) {
+          logger.error('[$_logContext] refreshing reminders for ${medication.id} failed', error: refreshResult.error);
+          firstReminderError ??= refreshResult.error;
+        }
+      }
+      if (firstReminderError != null) {
+        return Failure(firstReminderError);
+      }
+
+      await _runMarker.markRunOn(today);
+      logger.info('[$_logContext] rollover completed for $today');
+      return const Success(null);
+    } catch (e, st) {
+      return Failure(ErrorHandler(logger).mapException(e, context: '$_logContext.runIfNeeded', stackTrace: st));
     }
-
-    await storage.save(key: _lastRunKey, value: todayKey);
-    logger.info('[MedicationDailyRolloverService] rollover completed for $todayKey');
   }
-
-  String _dateKey(DateTime date) =>
-      '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
 }

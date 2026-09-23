@@ -15,6 +15,12 @@ import '../../../data/repositories/sports/exercise_set_log_repository.dart';
 import '../../../data/repositories/sports/weekly_schedule_repository.dart';
 import '../../../providers/app_providers.dart';
 import '../../../shared/infrastructure/logger_service.dart';
+import '../services/body_measurement_service.dart';
+import '../services/exercise_category_service.dart';
+import '../services/exercise_log_service.dart';
+import '../services/exercise_service.dart';
+import '../services/exercise_set_log_service.dart';
+import '../services/weekly_schedule_service.dart';
 
 const String sportUserId = 'user1';
 
@@ -73,6 +79,48 @@ final bodyMeasurementRepositoryProvider = Provider<BodyMeasurementRepository>((r
     moduleType: logic.ModuleType.repository,
   );
   return BodyMeasurementRepositoryImpl(storage, logger);
+});
+
+final exerciseCategoryServiceProvider = Provider<ExerciseCategoryService>((ref) {
+  return ExerciseCategoryService(
+    ref.watch(exerciseCategoryRepositoryProvider),
+    LoggerService.forModule('ExerciseCategoryService', moduleType: logic.ModuleType.service),
+  );
+});
+
+final exerciseServiceProvider = Provider<ExerciseService>((ref) {
+  return ExerciseService(
+    ref.watch(exerciseRepositoryProvider),
+    LoggerService.forModule('ExerciseService', moduleType: logic.ModuleType.service),
+  );
+});
+
+final weeklyScheduleServiceProvider = Provider<WeeklyScheduleService>((ref) {
+  return WeeklyScheduleService(
+    ref.watch(weeklyScheduleRepositoryProvider),
+    LoggerService.forModule('WeeklyScheduleService', moduleType: logic.ModuleType.service),
+  );
+});
+
+final exerciseLogServiceProvider = Provider<ExerciseLogService>((ref) {
+  return ExerciseLogService(
+    ref.watch(exerciseLogRepositoryProvider),
+    LoggerService.forModule('ExerciseLogService', moduleType: logic.ModuleType.service),
+  );
+});
+
+final exerciseSetLogServiceProvider = Provider<ExerciseSetLogService>((ref) {
+  return ExerciseSetLogService(
+    ref.watch(exerciseSetLogRepositoryProvider),
+    LoggerService.forModule('ExerciseSetLogService', moduleType: logic.ModuleType.service),
+  );
+});
+
+final bodyMeasurementServiceProvider = Provider<BodyMeasurementService>((ref) {
+  return BodyMeasurementService(
+    ref.watch(bodyMeasurementRepositoryProvider),
+    LoggerService.forModule('BodyMeasurementService', moduleType: logic.ModuleType.service),
+  );
 });
 
 // Catalog Providers

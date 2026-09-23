@@ -97,9 +97,13 @@ class _FoodLogFormScreenState extends ConsumerState<FoodLogFormScreen> {
 
     setState(() => _isSavingImage = true);
     final attachmentStorage = ref.read(foodAttachmentStorageServiceProvider);
-    final savedPath = await attachmentStorage.saveAttachment(sourcePath);
+    final saveResult = await attachmentStorage.saveAttachment(sourcePath);
+    final savedPath = saveResult.data;
+    if (!mounted) return;
     setState(() {
-      _imagePath = savedPath;
+      if (savedPath != null) {
+        _imagePath = savedPath;
+      }
       _isSavingImage = false;
     });
   }

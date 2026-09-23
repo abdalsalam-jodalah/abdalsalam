@@ -12,6 +12,7 @@ import '../../../core/result/result.dart';
 import '../../../data/models/security/credential.dart';
 import '../../../data/repositories/security/security_repository.dart';
 import '../../../shared/services/base_service_impl.dart';
+import '../../../shared/services/error_handler.dart';
 import '../../../shared/services/reminder_service.dart';
 
 class SecurityService extends BaseServiceImpl<Credential> {
@@ -32,6 +33,8 @@ class SecurityService extends BaseServiceImpl<Credential> {
   });
 
   SecurityRepository get _repo => repository as SecurityRepository;
+
+  ErrorHandler get _errorHandler => ErrorHandler(logger);
 
   @override
   String get serviceName => 'SecurityService';
@@ -80,18 +83,23 @@ class SecurityService extends BaseServiceImpl<Credential> {
   }
 
   Future<Result<bool, AppError>> authenticate() async {
-    final available = await localAuth.canCheckBiometrics;
-    if (!available) {
-      return Failure(AuthError('Biometric authentication is not available'));
+    try {
+      final available = await localAuth.canCheckBiometrics;
+      if (!available) {
+        return Failure(AuthError('Biometric authentication is not available'));
+      }
+      final ok = await localAuth.authenticate(
+        localizedReason: 'Authenticate to access Security Vault',
+        options: const AuthenticationOptions(biometricOnly: true),
+      );
+      if (ok) {
+        touchActivity();
+      }
+      return Success(ok);
+    } catch (error, stackTrace) {
+      final mapped = _errorHandler.mapException(error, context: '$serviceName.authenticate', stackTrace: stackTrace);
+      return Failure(AuthError(mapped.message, cause: error, causeStackTrace: stackTrace));
     }
-    final ok = await localAuth.authenticate(
-      localizedReason: 'Authenticate to access Security Vault',
-      options: const AuthenticationOptions(biometricOnly: true),
-    );
-    if (ok) {
-      touchActivity();
-    }
-    return Success(ok);
   }
 
   void touchActivity() {
@@ -113,8 +121,8 @@ class SecurityService extends BaseServiceImpl<Credential> {
       final encrypter = enc.Encrypter(enc.AES(key));
       final encrypted = encrypter.encrypt(plainText, iv: iv);
       return Success('${iv.base64}:${encrypted.base64}');
-    } catch (e) {
-      return Failure(ServiceError('Unable to encrypt password: $e'));
+    } catch (error, stackTrace) {
+      return Failure(_errorHandler.mapException(error, context: '$serviceName.encryptPassword', stackTrace: stackTrace));
     }
   }
 
@@ -129,8 +137,8 @@ class SecurityService extends BaseServiceImpl<Credential> {
       final encrypted = enc.Encrypted.fromBase64(parts.last);
       final encrypter = enc.Encrypter(enc.AES(key));
       return Success(encrypter.decrypt(encrypted, iv: iv));
-    } catch (e) {
-      return Failure(ServiceError('Unable to decrypt password: $e'));
+    } catch (error, stackTrace) {
+      return Failure(_errorHandler.mapException(error, context: '$serviceName.decryptPassword', stackTrace: stackTrace));
     }
   }
 
@@ -168,27 +176,36 @@ class SecurityService extends BaseServiceImpl<Credential> {
         .join();
   }
 
-  Future<void> autoClearClipboardAfterDelay({
+  Future<Result<void, AppError>> autoClearClipboardAfterDelay({
     Duration delay = const Duration(seconds: 30),
   }) async {
-    await Future<void>.delayed(delay);
-    await Clipboard.setData(const ClipboardData(text: ''));
+    try {
+      await Future<void>.delayed(delay);
+      await Clipboard.setData(const ClipboardData(text: ''));
+      return const Success(null);
+    } catch (error, stackTrace) {
+      return Failure(_errorHandler.mapException(error, context: '$serviceName.autoClearClipboardAfterDelay', stackTrace: stackTrace));
+    }
   }
 
   Future<Result<void, AppError>> scheduleExpiryReminder(Credential credential) async {
     if (credential.expiryDate == null) {
       return const Success(null);
     }
-    await reminders.schedule(
-      ReminderPayload(
-        module: ReminderModule.security,
-        targetId: credential.id,
-        title: 'Credential expiry reminder',
-        body: '${credential.title} expires in 7 days',
-        scheduledAt: credential.expiryDate!.subtract(const Duration(days: 7)),
-      ),
-    );
-    return const Success(null);
+    try {
+      await reminders.schedule(
+        ReminderPayload(
+          module: ReminderModule.security,
+          targetId: credential.id,
+          title: 'Credential expiry reminder',
+          body: '${credential.title} expires in 7 days',
+          scheduledAt: credential.expiryDate!.subtract(const Duration(days: 7)),
+        ),
+      );
+      return const Success(null);
+    } catch (error, stackTrace) {
+      return Failure(_errorHandler.mapException(error, context: '$serviceName.scheduleExpiryReminder', stackTrace: stackTrace));
+    }
   }
 
   Future<Result<void, AppError>> handleCredentialReminderTap(
@@ -235,7 +252,10 @@ class SecurityService extends BaseServiceImpl<Credential> {
     required bool sanitizeSensitive,
   }) async {
     final auth = await authenticate();
-    if (auth.isFailure || auth.data != true) {
+    if (auth.isFailure) {
+      return Failure(auth.error!);
+    }
+    if (auth.data != true) {
       return Failure(AuthError('Biometric authentication required for vault export'));
     }
 

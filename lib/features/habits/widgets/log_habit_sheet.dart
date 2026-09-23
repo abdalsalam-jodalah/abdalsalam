@@ -100,7 +100,7 @@ class _LogHabitSheetState extends ConsumerState<_LogHabitSheet> {
       recoveryAction: widget.habit.isGoodHabit ? null : _emptyToNull(_recoveryActionController.text),
     );
 
-    final result = await ref.read(habitLogRepositoryProvider).create(log);
+    final result = await ref.read(habitLogServiceProvider).create(log);
 
     if (!mounted) {
       return;

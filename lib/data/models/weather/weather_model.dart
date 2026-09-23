@@ -12,6 +12,7 @@ class WeatherModel extends Equatable {
   final String icon;
   final DateTime timestamp;
   final List<HourlyForecast> hourlyForecast;
+  final bool isStale;
 
   const WeatherModel({
     required this.cityName,
@@ -23,6 +24,7 @@ class WeatherModel extends Equatable {
     required this.icon,
     required this.timestamp,
     this.hourlyForecast = const [],
+    this.isStale = false,
   });
 
   factory WeatherModel.fromJson(Map<String, dynamic> json) {
@@ -64,6 +66,7 @@ class WeatherModel extends Equatable {
         icon,
         timestamp,
         hourlyForecast,
+        isStale,
       ];
 }
 

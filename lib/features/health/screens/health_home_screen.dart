@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../data/models/health/health_metric.dart';
+import '../../../providers/app_providers.dart';
 import '../../../shared/widgets/chart_widgets.dart';
 import '../../food/screens/food_home_screen.dart';
 import '../../food/screens/food_log_form_screen.dart';
@@ -299,17 +300,17 @@ class _ExportReportButtonState extends ConsumerState<_ExportReportButton> {
   Future<void> _export() async {
     setState(() => _isExporting = true);
     final messenger = ScaffoldMessenger.of(context);
-    try {
-      await ref.read(healthReportServiceProvider).shareReport();
-    } catch (error) {
-      messenger.showSnackBar(
-        SnackBar(content: Text('Failed to generate report: $error'), backgroundColor: Colors.red),
-      );
-    } finally {
-      if (mounted) {
-        setState(() => _isExporting = false);
-      }
+    final result = await ref.read(healthReportServiceProvider).shareReport();
+    if (!mounted) {
+      return;
     }
+    if (result.isFailure) {
+      final message = ref.read(userErrorMessageMapperProvider).toUserMessage(result.error!);
+      messenger.showSnackBar(
+        SnackBar(content: Text(message), backgroundColor: Colors.red),
+      );
+    }
+    setState(() => _isExporting = false);
   }
 
   @override

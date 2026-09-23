@@ -2,11 +2,18 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../../core/constants/user_error_messages.dart';
 import '../../../data/models/sports/exercise.dart';
 import '../../../data/models/sports/exercise_category.dart';
 import '../providers/sports_providers.dart';
 
 const _uuid = Uuid();
+
+void _showFailureSnackBar(BuildContext context) {
+  ScaffoldMessenger.of(context).showSnackBar(
+    const SnackBar(content: Text(UserErrorMessages.generic), backgroundColor: Colors.red),
+  );
+}
 
 class ExerciseLibraryScreen extends ConsumerStatefulWidget {
   static const routeName = '/sports/library';
@@ -95,15 +102,16 @@ class _ExerciseLibraryScreenState extends ConsumerState<ExerciseLibraryScreen> {
     if (!mounted) {
       return;
     }
-    final repo = ref.read(exerciseCategoryRepositoryProvider);
+    final service = ref.read(exerciseCategoryServiceProvider);
     final now = DateTime.now();
 
+    final bool isSuccess;
     if (category == null) {
       final existing = ref.read(exerciseCategoriesProvider).maybeWhen(
             data: (list) => list,
             orElse: () => const <ExerciseCategory>[],
           );
-      await repo.create(
+      final createResult = await service.create(
         ExerciseCategory(
           id: _uuid.v4(),
           createdAt: now,
@@ -113,12 +121,15 @@ class _ExerciseLibraryScreenState extends ConsumerState<ExerciseLibraryScreen> {
           order: existing.length,
         ),
       );
+      isSuccess = createResult.isSuccess;
     } else {
-      await repo.update(category.copyWith(name: name, updatedAt: now));
+      final updateResult = await service.update(category.copyWith(name: name, updatedAt: now));
+      isSuccess = updateResult.isSuccess;
     }
     if (!mounted) {
       return;
     }
+    if (!isSuccess) _showFailureSnackBar(context);
     ref.invalidate(exerciseCategoriesProvider);
   }
 }
@@ -285,11 +296,12 @@ class _CategorySectionState extends ConsumerState<_CategorySection> {
   }
 
   Future<void> _deleteExercise(Exercise exercise) async {
-    final repo = ref.read(exerciseRepositoryProvider);
-    await repo.softDelete(exercise.id);
+    final service = ref.read(exerciseServiceProvider);
+    final deleteResult = await service.softDelete(exercise.id);
     if (!mounted) {
       return;
     }
+    if (deleteResult.isFailure) _showFailureSnackBar(context);
     ref.invalidate(exercisesByCategoryProvider(widget.category.id));
     ref.invalidate(allActiveExercisesProvider);
   }
@@ -305,15 +317,16 @@ class _CategorySectionState extends ConsumerState<_CategorySection> {
     if (!mounted) {
       return;
     }
-    final repo = ref.read(exerciseRepositoryProvider);
+    final service = ref.read(exerciseServiceProvider);
     final now = DateTime.now();
 
+    final bool isSuccess;
     if (exercise == null) {
       final existing = ref.read(exercisesByCategoryProvider(widget.category.id)).maybeWhen(
             data: (list) => list,
             orElse: () => const <Exercise>[],
           );
-      await repo.create(
+      final createResult = await service.create(
         Exercise(
           id: _uuid.v4(),
           createdAt: now,
@@ -331,8 +344,9 @@ class _CategorySectionState extends ConsumerState<_CategorySection> {
           order: existing.length,
         ),
       );
+      isSuccess = createResult.isSuccess;
     } else {
-      await repo.update(
+      final updateResult = await service.update(
         exercise.copyWith(
           name: result.name,
           trackingType: result.trackingType,
@@ -345,11 +359,13 @@ class _CategorySectionState extends ConsumerState<_CategorySection> {
           updatedAt: now,
         ),
       );
+      isSuccess = updateResult.isSuccess;
     }
 
     if (!mounted) {
       return;
     }
+    if (!isSuccess) _showFailureSnackBar(context);
     ref.invalidate(exercisesByCategoryProvider(widget.category.id));
     ref.invalidate(allActiveExercisesProvider);
   }

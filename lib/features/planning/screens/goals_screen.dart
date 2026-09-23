@@ -219,7 +219,7 @@ class _GoalsScreenState extends ConsumerState<GoalsScreen> {
       return;
     }
 
-    final result = await ref.read(goalRepositoryProvider).softDelete(goal.id);
+    final result = await ref.read(goalServiceProvider).softDelete(goal.id);
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(

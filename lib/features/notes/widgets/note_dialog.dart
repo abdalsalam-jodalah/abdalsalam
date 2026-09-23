@@ -21,11 +21,11 @@ Future<bool> showNoteDialog(
 
   if (result == null) return false;
 
-  final repo = ref.read(notesRepositoryProvider);
+  final service = ref.read(notesServiceProvider);
   final now = DateTime.now();
 
   final saveResult = existing == null
-      ? await repo.create(
+      ? await service.create(
           Note(
             id: _uuid.v4(),
             createdAt: now,
@@ -42,7 +42,7 @@ Future<bool> showNoteDialog(
             order: order,
           ),
         )
-      : await repo.update(existing.copyWith(title: result.title, content: result.content, updatedAt: now));
+      : await service.update(existing.copyWith(title: result.title, content: result.content, updatedAt: now));
 
   if (context.mounted) {
     ScaffoldMessenger.of(context).showSnackBar(

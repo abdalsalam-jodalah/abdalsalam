@@ -7,7 +7,13 @@ import '../../../data/repositories/religious/quran_reading_repository.dart';
 import '../../../shared/services/base_service_impl.dart';
 
 class QuranReadingService extends BaseServiceImpl<QuranReading> {
+  static const int unknownSurahNumber = 0;
+  static const int unknownAyahNumber = 0;
+  static const int firstSurahNumber = 1;
+  static const int lastSurahNumber = 114;
+
   static const _uuid = Uuid();
+  static const _unspecifiedPlace = 'unspecified';
 
   QuranReadingService(super.repository, super.logger);
 
@@ -83,7 +89,7 @@ class QuranReadingService extends BaseServiceImpl<QuranReading> {
     final memorizedCount = all.where((item) => item.memorized).length;
     final byPlace = <String, int>{};
     for (final item in all) {
-      final place = item.place ?? 'unspecified';
+      final place = item.place ?? _unspecifiedPlace;
       byPlace[place] = (byPlace[place] ?? 0) + 1;
     }
 
@@ -107,7 +113,7 @@ class QuranReadingService extends BaseServiceImpl<QuranReading> {
       );
     }
 
-    if (entity.surahNumber < 1 || entity.surahNumber > 114) {
+    if (!_hasValidSurah(entity)) {
       return Failure(
         ValidationError(
           'Validation failed',
@@ -152,5 +158,13 @@ class QuranReadingService extends BaseServiceImpl<QuranReading> {
     }
 
     return const Success(null);
+  }
+
+  bool _hasValidSurah(QuranReading entity) {
+    final isUnknownPassage = entity.surahNumber == unknownSurahNumber &&
+        entity.ayahFrom == unknownAyahNumber &&
+        entity.ayahTo == unknownAyahNumber;
+    final isKnownSurah = entity.surahNumber >= firstSurahNumber && entity.surahNumber <= lastSurahNumber;
+    return isUnknownPassage || isKnownSurah;
   }
 }

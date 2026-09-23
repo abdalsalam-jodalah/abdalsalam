@@ -34,12 +34,12 @@ Future<bool> showPlanningTaskDialog(
 
   if (result == null) return false;
 
-  final repo = ref.read(planningTaskRepositoryProvider);
+  final service = ref.read(planningTaskServiceProvider);
   final now = DateTime.now();
   final resolvedGoalId = fixedGoalId ?? result.selectedGoalId;
 
   final saveResult = existing == null
-      ? await repo.create(
+      ? await service.create(
           PlanningTask(
             id: _uuid.v4(),
             createdAt: now,
@@ -52,7 +52,7 @@ Future<bool> showPlanningTaskDialog(
             order: order,
           ),
         )
-      : await repo.update(
+      : await service.update(
           existing.copyWith(
             title: result.title,
             description: result.description.isEmpty ? null : result.description,

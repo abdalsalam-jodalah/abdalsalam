@@ -3,7 +3,10 @@ import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:timezone/data/latest_all.dart' as tz_data;
 import 'package:timezone/timezone.dart' as tz;
 
+import '../../core/errors/app_error.dart';
+import '../../core/result/result.dart';
 import '../infrastructure/logger_service.dart';
+import 'error_handler.dart';
 
 enum NotificationChannelType {
   religious,
@@ -26,6 +29,9 @@ class NotificationService {
 
   static const markTakenActionId = 'mark_taken';
   static const _medicationCategoryId = 'medication_actions';
+  static const _serviceName = 'NotificationService';
+
+  ErrorHandler get _errorHandler => ErrorHandler(logger);
 
   static const Map<NotificationChannelType, AndroidNotificationChannel>
       channels = <NotificationChannelType, AndroidNotificationChannel>{
@@ -91,17 +97,44 @@ class NotificationService {
     ),
   };
 
-  Future<void> initialize({
+  Future<Result<void, AppError>> initialize({
     void Function(String? payload, {String? actionId})? onNotificationTap,
   }) async {
+    await _configureLocalTimezone();
+
+    final pluginResult = await _guard('initialize.plugin', () => _initializePlugin(onNotificationTap));
+    if (pluginResult.isFailure) {
+      return pluginResult;
+    }
+
+    final channelsResult = await _guard('initialize.channels', _createAndroidChannels);
+    if (channelsResult.isFailure) {
+      return channelsResult;
+    }
+
+    final permissionsResult = await requestPermissions();
+    if (permissionsResult.isFailure) {
+      logger.warning('[$_serviceName] permissions request failed; notifications may be blocked by the OS');
+    }
+
+    logger.info('[$_serviceName] initialized');
+    return const Success(null);
+  }
+
+  Future<void> _configureLocalTimezone() async {
     tz_data.initializeTimeZones();
     try {
       final localTimezone = await FlutterTimezone.getLocalTimezone();
       tz.setLocalLocation(tz.getLocation(localTimezone));
-    } catch (error) {
-      logger.warning('[NotificationService] timezone detection failed, using UTC: $error');
+    } catch (error, stackTrace) {
+      _errorHandler.mapException(error, context: '$_serviceName.initialize.timezone', stackTrace: stackTrace);
+      logger.warning('[$_serviceName] timezone detection failed, using UTC');
     }
+  }
 
+  Future<void> _initializePlugin(
+    void Function(String? payload, {String? actionId})? onNotificationTap,
+  ) async {
     const androidInit = AndroidInitializationSettings('@mipmap/ic_launcher');
     final iosInit = DarwinInitializationSettings(
       notificationCategories: [
@@ -124,7 +157,9 @@ class NotificationService {
         onNotificationTap?.call(response.payload, actionId: response.actionId);
       },
     );
+  }
 
+  Future<void> _createAndroidChannels() async {
     final androidPlugin =
         plugin.resolvePlatformSpecificImplementation<
             AndroidFlutterLocalNotificationsPlugin>();
@@ -133,26 +168,25 @@ class NotificationService {
         await androidPlugin.createNotificationChannel(channel);
       }
     }
-
-    await requestPermissions();
-    logger.info('[NotificationService] initialized');
   }
 
-  Future<void> requestPermissions() async {
-    final androidPlugin =
-        plugin.resolvePlatformSpecificImplementation<
-            AndroidFlutterLocalNotificationsPlugin>();
-    await androidPlugin?.requestNotificationsPermission();
-    await androidPlugin?.requestExactAlarmsPermission();
+  Future<Result<void, AppError>> requestPermissions() {
+    return _guard('requestPermissions', () async {
+      final androidPlugin =
+          plugin.resolvePlatformSpecificImplementation<
+              AndroidFlutterLocalNotificationsPlugin>();
+      await androidPlugin?.requestNotificationsPermission();
+      await androidPlugin?.requestExactAlarmsPermission();
 
-    final iosPlugin =
-        plugin.resolvePlatformSpecificImplementation<
-            IOSFlutterLocalNotificationsPlugin>();
-    await iosPlugin?.requestPermissions(
-      alert: true,
-      badge: true,
-      sound: true,
-    );
+      final iosPlugin =
+          plugin.resolvePlatformSpecificImplementation<
+              IOSFlutterLocalNotificationsPlugin>();
+      await iosPlugin?.requestPermissions(
+        alert: true,
+        badge: true,
+        sound: true,
+      );
+    });
   }
 
   NotificationDetails _detailsFor(
@@ -180,7 +214,7 @@ class NotificationService {
     );
   }
 
-  Future<void> showNow({
+  Future<Result<void, AppError>> showNow({
     required int id,
     required String title,
     required String body,
@@ -188,17 +222,19 @@ class NotificationService {
     String? payload,
     bool withMarkTakenAction = false,
     bool quiet = false,
-  }) async {
-    await plugin.show(
-      id,
-      title,
-      body,
-      _detailsFor(channel, withMarkTakenAction: withMarkTakenAction, quiet: quiet),
-      payload: payload,
-    );
+  }) {
+    return _guard('showNow', () async {
+      await plugin.show(
+        id,
+        title,
+        body,
+        _detailsFor(channel, withMarkTakenAction: withMarkTakenAction, quiet: quiet),
+        payload: payload,
+      );
+    });
   }
 
-  Future<void> zonedSchedule({
+  Future<Result<void, AppError>> zonedSchedule({
     required int id,
     required String title,
     required String body,
@@ -208,34 +244,47 @@ class NotificationService {
     bool recurringDaily = false,
     bool withMarkTakenAction = false,
     bool quiet = false,
-  }) async {
-    await plugin.zonedSchedule(
-      id,
-      title,
+  }) {
+    return _guard('zonedSchedule', () async {
+      await plugin.zonedSchedule(
+        id,
+        title,
+        body,
+        tz.TZDateTime.from(scheduledAt, tz.local),
+        _detailsFor(channel, withMarkTakenAction: withMarkTakenAction, quiet: quiet),
+        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+        uiLocalNotificationDateInterpretation:
+            UILocalNotificationDateInterpretation.absoluteTime,
+        matchDateTimeComponents: recurringDaily ? DateTimeComponents.time : null,
+        payload: payload,
+      );
+      logger.info(
+        '[$_serviceName] scheduled id=$id at ${scheduledAt.toIso8601String()}'
+        '${recurringDaily ? ' (recurring daily)' : ''}',
+      );
+    });
+  }
+
+  Future<Result<void, AppError>> cancel(int id) {
+    return _guard('cancel', () => plugin.cancel(id));
+  }
+
+  Future<Result<void, AppError>> cancelAll() {
+    return _guard('cancelAll', plugin.cancelAll);
+  }
+
+  Future<Result<List<PendingNotificationRequest>, AppError>> pendingNotifications() {
+    return _guard('pendingNotifications', plugin.pendingNotificationRequests);
+  }
+
+  Future<Result<T, AppError>> _guard<T>(String operation, Future<T> Function() body) {
+    return Result.guardAsync<T, AppError>(
       body,
-      tz.TZDateTime.from(scheduledAt, tz.local),
-      _detailsFor(channel, withMarkTakenAction: withMarkTakenAction, quiet: quiet),
-      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-      uiLocalNotificationDateInterpretation:
-          UILocalNotificationDateInterpretation.absoluteTime,
-      matchDateTimeComponents: recurringDaily ? DateTimeComponents.time : null,
-      payload: payload,
+      onError: (error, stackTrace) => _errorHandler.mapException(
+        error,
+        context: '$_serviceName.$operation',
+        stackTrace: stackTrace,
+      ),
     );
-    logger.info(
-      '[NotificationService] scheduled id=$id at ${scheduledAt.toIso8601String()}'
-      '${recurringDaily ? ' (recurring daily)' : ''}',
-    );
-  }
-
-  Future<void> cancel(int id) async {
-    await plugin.cancel(id);
-  }
-
-  Future<void> cancelAll() async {
-    await plugin.cancelAll();
-  }
-
-  Future<List<PendingNotificationRequest>> pendingNotifications() async {
-    return plugin.pendingNotificationRequests();
   }
 }

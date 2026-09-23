@@ -1,17 +1,26 @@
 import '../../../core/errors/app_error.dart';
 import '../../../core/result/result.dart';
+import '../../../core/validation/validation_result_factory.dart';
+import '../../../core/validation/validation_utils.dart';
 import '../../../data/models/habits/habit.dart';
 import '../../../data/models/habits/habit_log.dart';
 import '../../../data/repositories/habits/habits_repository.dart';
 import '../../../shared/services/base_service_impl.dart';
+import '../../../shared/services/error_handler.dart';
 import '../../../shared/services/reminder_service.dart';
 
 class HabitsService extends BaseServiceImpl<Habit> {
+  static const String userIdField = 'userId';
+  static const String nameField = 'name';
+  static const String targetCountField = 'targetCount';
+
   final ReminderService reminders;
 
-  HabitsService(super.repository, super.logger, {required this.reminders});
+  HabitsService(HabitsRepository super.repository, super.logger, {required this.reminders});
 
   HabitsRepository get _repo => repository as HabitsRepository;
+
+  ErrorHandler get _errorHandler => ErrorHandler(logger);
 
   @override
   String get serviceName => 'HabitsService';
@@ -24,16 +33,16 @@ class HabitsService extends BaseServiceImpl<Habit> {
 
   @override
   Result<void, AppError> validate(Habit entity) {
-    if (entity.userId.trim().isEmpty) {
-      return Failure(ValidationError('userId is required'));
-    }
-    if (entity.name.trim().isEmpty) {
-      return Failure(ValidationError('name is required'));
-    }
-    if (entity.targetCount <= 0) {
-      return Failure(ValidationError('targetCount must be > 0'));
-    }
-    return const Success(null);
+    return ValidationResultFactory.fromFieldErrors(
+      ValidationUtils.collect([
+        MapEntry(userIdField, ValidationUtils.requiredField(entity.userId, userIdField)),
+        MapEntry(nameField, ValidationUtils.requiredField(entity.name, nameField)),
+        MapEntry(
+          targetCountField,
+          ValidationUtils.positiveNumber(value: entity.targetCount, fieldName: targetCountField),
+        ),
+      ]),
+    );
   }
 
   @override
@@ -167,28 +176,36 @@ class HabitsService extends BaseServiceImpl<Habit> {
     if (habit.reminderTime == null) {
       return const Success(null);
     }
-    await reminders.schedule(
-      ReminderPayload(
-        module: ReminderModule.habits,
-        targetId: habit.id,
-        title: 'Habit reminder',
-        body: 'Time to complete ${habit.name}',
-        scheduledAt: DateTime.now(),
-      ),
-    );
-    return const Success(null);
+    try {
+      await reminders.schedule(
+        ReminderPayload(
+          module: ReminderModule.habits,
+          targetId: habit.id,
+          title: 'Habit reminder',
+          body: 'Time to complete ${habit.name}',
+          scheduledAt: DateTime.now(),
+        ),
+      );
+      return const Success(null);
+    } catch (e, st) {
+      return Failure(_errorHandler.mapException(e, context: '$serviceName.scheduleHabitReminder', stackTrace: st));
+    }
   }
 
   Future<Result<void, AppError>> handleReminderTap(Habit habit) async {
-    reminders.handleNotificationTap(
-      ReminderPayload(
-        module: ReminderModule.habits,
-        targetId: habit.id,
-        title: 'Open habit',
-        body: habit.name,
-        scheduledAt: DateTime.now(),
-      ),
-    );
-    return const Success(null);
+    try {
+      reminders.handleNotificationTap(
+        ReminderPayload(
+          module: ReminderModule.habits,
+          targetId: habit.id,
+          title: 'Open habit',
+          body: habit.name,
+          scheduledAt: DateTime.now(),
+        ),
+      );
+      return const Success(null);
+    } catch (e, st) {
+      return Failure(_errorHandler.mapException(e, context: '$serviceName.handleReminderTap', stackTrace: st));
+    }
   }
 }

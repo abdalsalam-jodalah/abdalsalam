@@ -1,6 +1,5 @@
 import '../../../core/errors/app_error.dart';
 import '../../../core/result/result.dart';
-import '../../../core/errors/financial_errors.dart';
 import '../../../data/models/financial/account_model.dart';
 import '../../../data/models/financial/transaction_model.dart';
 import '../../../data/models/financial/category_model.dart';
@@ -11,6 +10,9 @@ import '../../../data/repositories/financial/category_repository.dart';
 import '../../../data/repositories/financial/budget_repository.dart';
 import '../../../data/repositories/financial/account_repository.dart';
 import '../../../data/repositories/financial/financial_activity_log_repository.dart';
+import '../../../shared/infrastructure/logger_service.dart';
+import '../../../shared/services/error_handler.dart';
+import 'conversion_result.dart';
 import 'currency_conversion_service.dart';
 import 'financial_activity_logger.dart';
 
@@ -21,6 +23,8 @@ class FinancialService {
   final AccountRepository _accountRepo;
   final CurrencyConversionService _conversionService;
   final FinancialActivityLogger _activityLogger;
+  final LoggerService _logger;
+  final ErrorHandler _errorHandler;
 
   FinancialService({
     required TransactionRepository transactionRepo,
@@ -29,12 +33,15 @@ class FinancialService {
     required AccountRepository accountRepo,
     required FinancialActivityLogRepository activityLogRepo,
     required CurrencyConversionService conversionService,
+    required LoggerService logger,
   })  : _transactionRepo = transactionRepo,
         _categoryRepo = categoryRepo,
         _budgetRepo = budgetRepo,
         _accountRepo = accountRepo,
         _conversionService = conversionService,
-        _activityLogger = FinancialActivityLogger(activityLogRepo);
+        _logger = logger,
+        _errorHandler = ErrorHandler(logger),
+        _activityLogger = FinancialActivityLogger(activityLogRepo, logger);
 
   // Transaction methods
 
@@ -60,6 +67,10 @@ class FinancialService {
 
   Future<Result<void, AppError>> deleteTransaction(String id) async {
     final existingResult = await _transactionRepo.getById(id);
+    if (existingResult.isFailure) {
+      _logger.warning('Could not load transaction $id before delete; its deletion will not be audited: '
+          '${existingResult.error}');
+    }
     final result = await _transactionRepo.delete(id);
     if (result.isSuccess && existingResult.data != null) {
       await _activityLogger.logTransactionDeleted(existingResult.data!);
@@ -71,11 +82,29 @@ class FinancialService {
     if (transaction.currency == CurrencyConversionService.baseCurrencyCode) {
       return null;
     }
-    return _conversionService.convertToBase(
+    final conversionResult = await _conversionService.convertToBase(
       amount: transaction.amount,
       fromCurrency: transaction.currency,
       asOfDate: transaction.date,
     );
+    if (conversionResult.isFailure) {
+      _logger.warning('Transaction ${transaction.id} will be audited without a conversion rate: '
+          '${conversionResult.error}');
+    }
+    return conversionResult.data;
+  }
+
+  Future<Result<double, AppError>> _amountInBase(TransactionModel transaction) async {
+    final conversionResult = await _conversionService.convertToBase(
+      amount: transaction.amount,
+      fromCurrency: transaction.currency,
+      asOfDate: transaction.date,
+    );
+    return conversionResult.map((conversion) => conversion.convertedAmount);
+  }
+
+  Failure<T, AppError> _mapCaughtError<T>(Object error, StackTrace stackTrace, String context) {
+    return Failure(_errorHandler.mapException(error, context: context, stackTrace: stackTrace));
   }
 
   Future<Result<List<TransactionModel>, AppError>> getTransactionsByDateRange(
@@ -107,15 +136,14 @@ class FinancialService {
       double income = 0;
       double expense = 0;
       for (final t in transactionsResult.data!) {
-        final converted = await _conversionService.convertToBase(
-          amount: t.amount,
-          fromCurrency: t.currency,
-          asOfDate: t.date,
-        );
+        final convertedResult = await _amountInBase(t);
+        if (convertedResult.isFailure) {
+          return Failure(convertedResult.error!);
+        }
         if (t.type == TransactionType.income) {
-          income += converted.convertedAmount;
+          income += convertedResult.data!;
         } else {
-          expense += converted.convertedAmount;
+          expense += convertedResult.data!;
         }
       }
 
@@ -124,8 +152,8 @@ class FinancialService {
         'expense': expense,
         'balance': income - expense,
       });
-    } catch (e) {
-      return Failure(FinancialError(e.toString()));
+    } catch (error, stackTrace) {
+      return _mapCaughtError(error, stackTrace, 'FinancialService.getFinancialSummary');
     }
   }
 
@@ -141,17 +169,16 @@ class FinancialService {
 
       final totals = <String, double>{};
       for (final t in transactionsResult.data!) {
-        final converted = await _conversionService.convertToBase(
-          amount: t.amount,
-          fromCurrency: t.currency,
-          asOfDate: t.date,
-        );
-        totals[t.categoryId] = (totals[t.categoryId] ?? 0) + converted.convertedAmount;
+        final convertedResult = await _amountInBase(t);
+        if (convertedResult.isFailure) {
+          return Failure(convertedResult.error!);
+        }
+        totals[t.categoryId] = (totals[t.categoryId] ?? 0) + convertedResult.data!;
       }
 
       return Success(totals);
-    } catch (e) {
-      return Failure(FinancialError(e.toString()));
+    } catch (error, stackTrace) {
+      return _mapCaughtError(error, stackTrace, 'FinancialService.getCategoryTotals');
     }
   }
 
@@ -203,12 +230,11 @@ class FinancialService {
 
       double spent = 0;
       for (final t in transactionsResult.data!.where((t) => t.type == TransactionType.expense)) {
-        final converted = await _conversionService.convertToBase(
-          amount: t.amount,
-          fromCurrency: t.currency,
-          asOfDate: t.date,
-        );
-        spent += converted.convertedAmount;
+        final convertedResult = await _amountInBase(t);
+        if (convertedResult.isFailure) {
+          return Failure(convertedResult.error!);
+        }
+        spent += convertedResult.data!;
       }
 
       final percentage = budget.amount > 0 ? (spent / budget.amount) * 100 : 0.0;
@@ -222,8 +248,8 @@ class FinancialService {
         'isOverBudget': spent > budget.amount,
         'isNearLimit': percentage >= budget.alertThreshold,
       });
-    } catch (e) {
-      return Failure(FinancialError(e.toString()));
+    } catch (error, stackTrace) {
+      return _mapCaughtError(error, stackTrace, 'FinancialService.getBudgetProgress');
     }
   }
 
@@ -309,18 +335,22 @@ class FinancialService {
 
       double balance = account.initialBalance;
       for (final t in transactionsResult.data!) {
-        final converted = await _conversionService.convertToAccountCurrency(
+        final convertedResult = await _conversionService.convertToAccountCurrency(
           amount: t.amount,
           fromCurrency: t.currency,
           toCurrency: account.currency,
           asOfDate: t.date,
         );
+        if (convertedResult.isFailure) {
+          return Failure(convertedResult.error!);
+        }
+        final converted = convertedResult.data!.convertedAmount;
         balance += t.type == TransactionType.income ? converted : -converted;
       }
 
       return Success(balance);
-    } catch (e) {
-      return Failure(FinancialError(e.toString()));
+    } catch (error, stackTrace) {
+      return _mapCaughtError(error, stackTrace, 'FinancialService.getAccountBalance');
     }
   }
 
@@ -338,29 +368,41 @@ class FinancialService {
       for (final account in accountsResult.data!) {
         final balanceResult = await getAccountBalance(account);
         if (balanceResult.isFailure) {
-          continue;
+          return Failure(balanceResult.error!);
         }
-        final converted = await _conversionService.convertToBase(
+        final convertedResult = await _conversionService.convertToBase(
           amount: balanceResult.data!,
           fromCurrency: account.currency,
           asOfDate: DateTime.now(),
         );
-        netWorthBase += converted.convertedAmount;
+        if (convertedResult.isFailure) {
+          return Failure(convertedResult.error!);
+        }
+        netWorthBase += convertedResult.data!.convertedAmount;
       }
 
       final budgetsResult = await _budgetRepo.getActive();
+      if (budgetsResult.isFailure) {
+        return Failure(budgetsResult.error!);
+      }
       var budgetsOverThreshold = 0;
-      final activeBudgets = budgetsResult.data ?? [];
+      final activeBudgets = budgetsResult.data!;
       for (final budget in activeBudgets) {
         final progressResult = await getBudgetProgress(budget);
-        if (progressResult.isSuccess &&
-            (progressResult.data!['isNearLimit'] as bool? ?? false)) {
+        if (progressResult.isFailure) {
+          _logger.warning('Budget ${budget.id} excluded from near-limit count: ${progressResult.error}');
+          continue;
+        }
+        if (progressResult.data!['isNearLimit'] as bool? ?? false) {
           budgetsOverThreshold++;
         }
       }
 
       final transactionsResult = await _transactionRepo.getAll();
-      final upcomingRecurring = (transactionsResult.data ?? [])
+      if (transactionsResult.isFailure) {
+        return Failure(transactionsResult.error!);
+      }
+      final upcomingRecurring = transactionsResult.data!
           .where((t) => t.isRecurring && t.recurrenceNextDueDate != null)
           .toList()
         ..sort((a, b) => a.recurrenceNextDueDate!.compareTo(b.recurrenceNextDueDate!));
@@ -372,8 +414,8 @@ class FinancialService {
         'budgetsNearOrOverLimit': budgetsOverThreshold,
         'upcomingRecurring': upcomingRecurring.take(5).toList(),
       });
-    } catch (e) {
-      return Failure(FinancialError(e.toString()));
+    } catch (error, stackTrace) {
+      return _mapCaughtError(error, stackTrace, 'FinancialService.getNetWorthSummary');
     }
   }
 }

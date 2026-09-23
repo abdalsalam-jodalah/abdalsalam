@@ -1,8 +1,9 @@
 import 'package:abdalsalam/data/models/financial/account_model.dart';
 import 'package:abdalsalam/data/models/financial/financial_activity_log_model.dart';
 import 'package:abdalsalam/data/models/financial/transaction_model.dart';
-import 'package:abdalsalam/features/financial/services/currency_conversion_service.dart';
+import 'package:abdalsalam/features/financial/services/conversion_result.dart';
 import 'package:abdalsalam/features/financial/services/financial_activity_logger.dart';
+import 'package:abdalsalam/shared/infrastructure/logger_service.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'fakes.dart';
@@ -27,7 +28,7 @@ void main() {
   group('FinancialActivityLogger', () {
     test('logs exactly one entry on transaction creation', () async {
       final repo = FakeFinancialActivityLogRepository();
-      final logger = FinancialActivityLogger(repo);
+      final logger = FinancialActivityLogger(repo, LoggerService.forModule('FinancialActivityLoggerTest'));
 
       await logger.logTransactionCreated(_transaction());
 
@@ -39,7 +40,7 @@ void main() {
 
     test('logs exactly one entry on transaction update', () async {
       final repo = FakeFinancialActivityLogRepository();
-      final logger = FinancialActivityLogger(repo);
+      final logger = FinancialActivityLogger(repo, LoggerService.forModule('FinancialActivityLoggerTest'));
 
       await logger.logTransactionUpdated(_transaction());
 
@@ -49,7 +50,7 @@ void main() {
 
     test('logs exactly one entry on transaction deletion', () async {
       final repo = FakeFinancialActivityLogRepository();
-      final logger = FinancialActivityLogger(repo);
+      final logger = FinancialActivityLogger(repo, LoggerService.forModule('FinancialActivityLoggerTest'));
 
       await logger.logTransactionDeleted(_transaction());
 
@@ -59,7 +60,7 @@ void main() {
 
     test('records the conversion rate and its date when provided', () async {
       final repo = FakeFinancialActivityLogRepository();
-      final logger = FinancialActivityLogger(repo);
+      final logger = FinancialActivityLogger(repo, LoggerService.forModule('FinancialActivityLoggerTest'));
       final conversion = ConversionResult(
         convertedAmount: 100,
         rateUsed: 3.7,
@@ -77,7 +78,7 @@ void main() {
 
     test('logs account create/update/delete distinctly', () async {
       final repo = FakeFinancialActivityLogRepository();
-      final logger = FinancialActivityLogger(repo);
+      final logger = FinancialActivityLogger(repo, LoggerService.forModule('FinancialActivityLoggerTest'));
       final now = DateTime(2026, 1, 1);
       final account = AccountModel(
         id: 'acc-1',
@@ -98,6 +99,14 @@ void main() {
       expect(repo.entries.map((e) => e.action),
           [FinancialActionType.created, FinancialActionType.deleted]);
       expect(repo.entries.every((e) => e.entityType == FinancialEntityType.account), isTrue);
+    });
+    test('should complete without throwing when the activity log write fails', () async {
+      final logger = FinancialActivityLogger(
+        FailingFinancialActivityLogRepository(),
+        LoggerService.forModule('FinancialActivityLoggerTest'),
+      );
+
+      await expectLater(logger.logTransactionCreated(_transaction()), completes);
     });
   });
 }

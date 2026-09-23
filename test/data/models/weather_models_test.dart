@@ -169,18 +169,12 @@ void main() {
       final onlineClient = MockClient((_) async => http.Response(jsonEncode(_openMeteoResponse()), _okStatus));
       final offlineClient = MockClient((_) async => http.Response('{}', _serverErrorStatus));
 
-      final fetched = await http.runWithClient(
-        () => WeatherService(logger, storage).getWeatherForNablus(),
-        () => onlineClient,
-      );
-      final cached = await http.runWithClient(
-        () => WeatherService(logger, storage).getWeatherForNablus(),
-        () => offlineClient,
-      );
+      final fetched = await WeatherService(logger, storage, httpClient: onlineClient).getWeatherForNablus();
+      final cached = await WeatherService(logger, storage, httpClient: offlineClient).getWeatherForNablus();
 
-      expect(fetched, isNotNull);
-      expect(fetched!.hourlyForecast, hasLength(2));
-      expect(cached, fetched);
+      expect(fetched.data?.hourlyForecast, hasLength(2));
+      expect(cached.data?.hourlyForecast, fetched.data?.hourlyForecast);
+      expect(cached.data?.temperature, fetched.data?.temperature);
     });
   });
 }

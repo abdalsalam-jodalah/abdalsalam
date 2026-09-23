@@ -74,9 +74,13 @@ class _DoctorVisitFormScreenState extends ConsumerState<DoctorVisitFormScreen> {
 
     setState(() => _isSavingAttachment = true);
     final attachmentStorage = ref.read(attachmentStorageServiceProvider);
-    final savedPath = await attachmentStorage.saveAttachment(sourcePath);
+    final saveResult = await attachmentStorage.saveAttachment(sourcePath);
+    final savedPath = saveResult.data;
+    if (!mounted) return;
     setState(() {
-      _attachmentPaths.add(savedPath);
+      if (savedPath != null) {
+        _attachmentPaths.add(savedPath);
+      }
       _isSavingAttachment = false;
     });
   }

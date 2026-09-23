@@ -6,6 +6,8 @@ import '../../../data/models/financial/category_model.dart';
 import '../../../data/models/financial/financial_activity_log_model.dart';
 import '../../../data/models/financial/transaction_model.dart';
 import '../../../data/repositories/financial/financial_activity_log_repository.dart';
+import '../../../shared/infrastructure/logger_service.dart';
+import 'conversion_result.dart';
 import 'currency_conversion_service.dart';
 
 /// Records an append-only audit trail of financial mutations, including the
@@ -13,9 +15,10 @@ import 'currency_conversion_service.dart';
 /// converted for a summary — so historical conversions stay auditable.
 class FinancialActivityLogger {
   final FinancialActivityLogRepository _repo;
+  final LoggerService _logger;
   static const _uuid = Uuid();
 
-  FinancialActivityLogger(this._repo);
+  FinancialActivityLogger(this._repo, this._logger);
 
   /// [conversion] is populated by the caller when [transaction].currency
   /// differs from the base currency — it captures the rate actually used to
@@ -64,7 +67,7 @@ class FinancialActivityLogger {
             '@ ${conversion.rateUsed.toStringAsFixed(4)} on '
             '${conversion.rateDate.toIso8601String().split('T').first}'
             '${conversion.wasFallback ? ', fallback rate' : ''})';
-    await _repo.create(FinancialActivityLogModel(
+    await _record(FinancialActivityLogModel(
       id: _uuid.v4(),
       userId: transaction.userId,
       entityType: FinancialEntityType.transaction,
@@ -88,7 +91,7 @@ class FinancialActivityLogger {
 
   Future<void> logBudget(BudgetModel budget, FinancialActionType action) async {
     final now = DateTime.now();
-    await _repo.create(FinancialActivityLogModel(
+    await _record(FinancialActivityLogModel(
       id: _uuid.v4(),
       userId: budget.userId,
       entityType: FinancialEntityType.budget,
@@ -105,7 +108,7 @@ class FinancialActivityLogger {
 
   Future<void> logCategory(CategoryModel category, FinancialActionType action) async {
     final now = DateTime.now();
-    await _repo.create(FinancialActivityLogModel(
+    await _record(FinancialActivityLogModel(
       id: _uuid.v4(),
       userId: category.userId,
       entityType: FinancialEntityType.category,
@@ -120,7 +123,7 @@ class FinancialActivityLogger {
 
   Future<void> logAccount(AccountModel account, FinancialActionType action) async {
     final now = DateTime.now();
-    await _repo.create(FinancialActivityLogModel(
+    await _record(FinancialActivityLogModel(
       id: _uuid.v4(),
       userId: account.userId,
       entityType: FinancialEntityType.account,
@@ -132,5 +135,15 @@ class FinancialActivityLogger {
       createdAt: now,
       updatedAt: now,
     ));
+  }
+
+  Future<void> _record(FinancialActivityLogModel entry) async {
+    final result = await _repo.create(entry);
+    if (result.isFailure) {
+      _logger.warning(
+        'Activity log write failed for ${entry.entityType.name} ${entry.entityId} '
+        '(${entry.action.name}): ${result.error}',
+      );
+    }
   }
 }

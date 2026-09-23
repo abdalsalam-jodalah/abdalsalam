@@ -1,3 +1,5 @@
+import 'package:abdalsalam/core/errors/app_error.dart';
+import 'package:abdalsalam/core/result/result.dart';
 import 'package:abdalsalam/shared/infrastructure/logger_service.dart';
 import 'package:abdalsalam/shared/infrastructure/storage_gateway.dart';
 import 'package:abdalsalam/shared/services/notification_service.dart';
@@ -12,13 +14,21 @@ class _FakeNotificationService extends NotificationService {
   final List<DateTime> scheduledTimes = [];
   final List<int> shownNowIds = [];
   final List<int> cancelledIds = [];
+  final Set<int> failingIds = {};
 
   _FakeNotificationService({required super.plugin, required super.logger});
 
   final List<bool> quietFlags = [];
 
+  Result<void, AppError> _outcomeFor(int id) {
+    if (failingIds.contains(id)) {
+      return Failure(ServiceError('plugin rejected $id'));
+    }
+    return const Success(null);
+  }
+
   @override
-  Future<void> zonedSchedule({
+  Future<Result<void, AppError>> zonedSchedule({
     required int id,
     required String title,
     required String body,
@@ -29,13 +39,17 @@ class _FakeNotificationService extends NotificationService {
     bool withMarkTakenAction = false,
     bool quiet = false,
   }) async {
+    if (failingIds.contains(id)) {
+      return _outcomeFor(id);
+    }
     scheduledIds.add(id);
     scheduledTimes.add(scheduledAt);
     quietFlags.add(quiet);
+    return const Success(null);
   }
 
   @override
-  Future<void> showNow({
+  Future<Result<void, AppError>> showNow({
     required int id,
     required String title,
     required String body,
@@ -44,13 +58,21 @@ class _FakeNotificationService extends NotificationService {
     bool withMarkTakenAction = false,
     bool quiet = false,
   }) async {
+    if (failingIds.contains(id)) {
+      return _outcomeFor(id);
+    }
     shownNowIds.add(id);
     quietFlags.add(quiet);
+    return const Success(null);
   }
 
   @override
-  Future<void> cancel(int id) async {
+  Future<Result<void, AppError>> cancel(int id) async {
+    if (failingIds.contains(id)) {
+      return _outcomeFor(id);
+    }
     cancelledIds.add(id);
+    return const Success(null);
   }
 }
 
@@ -162,8 +184,10 @@ void main() {
         value: [past.toJson(), future.toJson()],
       );
 
-      await service.rescheduleAll();
+      final summary = (await service.rescheduleAll()).getOrThrow();
 
+      expect(summary.rescheduledCount, 1);
+      expect(summary.failedCount, 0);
       final stored = await service.getAllScheduled();
       expect(stored.length, 1);
       expect(stored.first.targetId, 'future');
@@ -199,6 +223,100 @@ void main() {
       expect(received.length, 1);
       expect(received.first.targetId, payload.targetId);
       expect(received.first.notificationId, payload.notificationId);
+      await subscription.cancel();
+    });
+    test('should keep rescheduling other reminders when one delivery fails', () async {
+      final broken = buildPayload(targetId: 'broken');
+      final first = buildPayload(targetId: 'first');
+      final second = buildPayload(targetId: 'second');
+      notifications.failingIds.add(broken.notificationId);
+      await StorageGateway.instance.save(
+        key: 'scheduled_reminders',
+        value: [first.toJson(), broken.toJson(), second.toJson()],
+      );
+
+      final result = await service.rescheduleAll();
+
+      final summary = result.getOrThrow();
+      expect(summary.rescheduledCount, 2);
+      expect(summary.failedCount, 1);
+      expect(summary.hasFailures, isTrue);
+      expect(notifications.scheduledIds, [first.notificationId, second.notificationId]);
+    });
+
+    test('should count reminders of disabled modules as skipped on rescheduleAll', () async {
+      final payload = buildPayload();
+      await StorageGateway.instance.save(key: 'scheduled_reminders', value: [payload.toJson()]);
+      await service.setModuleEnabled(ReminderModule.health, false);
+
+      final summary = (await service.rescheduleAll()).getOrThrow();
+
+      expect(summary.skippedCount, 1);
+      expect(summary.rescheduledCount, 0);
+      expect(notifications.scheduledIds, isEmpty);
+    });
+
+    test('should treat a corrupt scheduled list as empty and report it', () async {
+      StorageGateway.instance.integrityReporter.clearReports();
+      await StorageGateway.instance.save(key: 'scheduled_reminders', value: {'not': 'a list'});
+
+      final stored = await service.getAllScheduled();
+
+      expect(stored, isEmpty);
+      expect(
+        StorageGateway.instance.integrityReporter.reports.map((report) => report.recordId),
+        contains('scheduled_reminders'),
+      );
+    });
+
+    test('should skip and report unreadable reminder entries while keeping valid ones', () async {
+      StorageGateway.instance.integrityReporter.clearReports();
+      final valid = buildPayload(targetId: 'valid');
+      await StorageGateway.instance.save(
+        key: 'scheduled_reminders',
+        value: [
+          valid.toJson(),
+          {'module': 'unknown-module', 'targetId': 'x', 'scheduledAt': 'not a date'},
+          'not an object',
+        ],
+      );
+
+      final stored = await service.getAllScheduled();
+
+      expect(stored.map((item) => item.targetId), ['valid']);
+      expect(StorageGateway.instance.integrityReporter.corruptRecordCount, 2);
+    });
+
+    test('should fall back to enabled modules when reminder settings are corrupt', () async {
+      StorageGateway.instance.integrityReporter.clearReports();
+      await StorageGateway.instance.save(key: 'reminder_settings', value: ['not', 'a', 'map']);
+
+      final settings = await service.getModuleSettings();
+
+      expect(settings.values, everyElement(isTrue));
+      expect(
+        StorageGateway.instance.integrityReporter.reports.map((report) => report.recordId),
+        contains('reminder_settings'),
+      );
+    });
+
+    test('should throw the delivery error from schedule so callers can map it', () async {
+      final payload = buildPayload();
+      notifications.failingIds.add(payload.notificationId);
+
+      expect(() => service.schedule(payload), throwsA(isA<ServiceError>()));
+    });
+
+    test('should ignore a malformed notification payload without emitting a tap', () async {
+      final received = <ReminderPayload>[];
+      final subscription = service.tapStream.listen(received.add);
+
+      service.handleNotificationResponse('{"module":"health","targetId":"t","scheduledAt":"nope"}');
+      service.handleNotificationResponse('not json');
+      service.handleNotificationResponse('[1, 2]');
+      await Future<void>.delayed(Duration.zero);
+
+      expect(received, isEmpty);
       await subscription.cancel();
     });
   });

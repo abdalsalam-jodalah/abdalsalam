@@ -1,6 +1,10 @@
 import 'package:adhan/adhan.dart';
 
+import '../../../core/errors/app_error.dart';
+import '../../../core/result/result.dart';
+import '../../../data/models/religious/prayer_log.dart';
 import '../../../shared/infrastructure/logger_service.dart';
+import '../../../shared/services/error_handler.dart';
 import 'prayer_times_cache_service.dart';
 
 const _calculationMethods = <String, CalculationMethod>{
@@ -17,41 +21,78 @@ const _calculationMethods = <String, CalculationMethod>{
 };
 
 class PrayerTimeService {
+  static const String defaultMethod = 'muslim_world_league';
+
   final LoggerService logger;
   final PrayerTimesCacheService cache;
 
   const PrayerTimeService({required this.logger, required this.cache});
 
-  Future<Map<String, String>> calculatePrayerTimes({
+  ErrorHandler get _errorHandler => ErrorHandler(logger);
+
+  Future<Result<Map<String, DateTime>, AppError>> calculatePrayerTimes({
     required DateTime date,
     required double latitude,
     required double longitude,
-    String method = 'muslim_world_league',
+    String method = defaultMethod,
   }) async {
     final cached = await cache.getForDate(date, method);
-    if (cached != null) {
-      return cached;
+    if (cached.isFailure) {
+      logger.warning('[PrayerTimeService] cache read failed, recalculating: ${cached.error}');
+    }
+    final cachedTimes = cached.data;
+    if (cachedTimes != null && _hasAllPrayers(cachedTimes)) {
+      return Success(cachedTimes);
     }
 
-    final calculationMethod = _calculationMethods[method] ?? CalculationMethod.muslim_world_league;
-    final params = calculationMethod.getParameters();
-    final coordinates = Coordinates(latitude, longitude);
+    final calculated = Result.guard<Map<String, DateTime>, AppError>(
+      () => _calculate(date: date, latitude: latitude, longitude: longitude, method: method),
+      onError: (error, stackTrace) => _errorHandler.mapException(
+        error,
+        context: 'PrayerTimeService.calculatePrayerTimes',
+        stackTrace: stackTrace,
+      ),
+    );
+    if (calculated.isFailure) {
+      return calculated;
+    }
+
+    final times = calculated.data!;
+    final cachedWrite = await cache.cacheForDate(date: date, method: method, times: times);
+    if (cachedWrite.isFailure) {
+      logger.warning('[PrayerTimeService] cache write failed: ${cachedWrite.error}');
+    }
+    logger.info('[PrayerTimeService] calculated prayer times for ${date.toIso8601String().split('T').first} ($method)');
+    return Success(times);
+  }
+
+  Map<String, DateTime> _calculate({
+    required DateTime date,
+    required double latitude,
+    required double longitude,
+    required String method,
+  }) {
+    final calculationMethod = _calculationMethods[method];
+    if (calculationMethod == null) {
+      logger.warning('[PrayerTimeService] unknown method "$method", falling back to $defaultMethod');
+    }
+    final params = (calculationMethod ?? CalculationMethod.muslim_world_league).getParameters();
     final prayerTimes = PrayerTimes(
-      coordinates,
+      Coordinates(latitude, longitude),
       DateComponents(date.year, date.month, date.day),
       params,
     );
 
-    final result = <String, String>{
-      'fajr': prayerTimes.fajr.toIso8601String(),
-      'dhuhr': prayerTimes.dhuhr.toIso8601String(),
-      'asr': prayerTimes.asr.toIso8601String(),
-      'maghrib': prayerTimes.maghrib.toIso8601String(),
-      'isha': prayerTimes.isha.toIso8601String(),
+    return <String, DateTime>{
+      PrayerName.fajr.name: prayerTimes.fajr,
+      PrayerName.dhuhr.name: prayerTimes.dhuhr,
+      PrayerName.asr.name: prayerTimes.asr,
+      PrayerName.maghrib.name: prayerTimes.maghrib,
+      PrayerName.isha.name: prayerTimes.isha,
     };
+  }
 
-    await cache.cacheForDate(date: date, method: method, times: result);
-    logger.info('[PrayerTimeService] calculated and cached prayer times for ${date.toIso8601String().split('T').first} ($method)');
-    return result;
+  bool _hasAllPrayers(Map<String, DateTime> times) {
+    return PrayerName.values.every((prayer) => times.containsKey(prayer.name));
   }
 }

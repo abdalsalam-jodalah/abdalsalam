@@ -1,8 +1,11 @@
+import 'package:abdalsalam/core/errors/app_error.dart';
+import 'package:abdalsalam/core/result/result.dart';
 import 'package:abdalsalam/data/models/financial/budget_model.dart';
 import 'package:abdalsalam/data/models/financial/exchange_rate_model.dart';
 import 'package:abdalsalam/data/models/financial/transaction_model.dart';
 import 'package:abdalsalam/features/financial/services/currency_conversion_service.dart';
 import 'package:abdalsalam/features/financial/services/currency_service.dart';
+import 'package:abdalsalam/features/financial/services/exchange_rate_quote.dart';
 import 'package:abdalsalam/features/financial/services/financial_service.dart';
 import 'package:abdalsalam/shared/infrastructure/logger_service.dart';
 import 'package:abdalsalam/shared/infrastructure/storage_gateway.dart';
@@ -14,7 +17,8 @@ class _StubCurrencyService extends CurrencyService {
   _StubCurrencyService() : super(LoggerService.forModule('test'), StorageGateway.instance);
 
   @override
-  Future<double> getExchangeRate(Currency targetCurrency) async => 1.0;
+  Future<Result<ExchangeRateQuote, AppError>> getExchangeRate(Currency targetCurrency) async =>
+      const Success(ExchangeRateQuote(rate: 1.0, fetchedAt: null, isFallback: false));
 }
 
 TransactionModel _expense({
@@ -74,7 +78,12 @@ void main() {
         budgetRepo: FakeBudgetRepository(),
         accountRepo: FakeAccountRepository(),
         activityLogRepo: FakeFinancialActivityLogRepository(),
-        conversionService: CurrencyConversionService(exchangeRateRepo, _StubCurrencyService()),
+        conversionService: CurrencyConversionService(
+          exchangeRateRepo,
+          _StubCurrencyService(),
+          LoggerService.forModule('test'),
+        ),
+        logger: LoggerService.forModule('test'),
       );
     });
 

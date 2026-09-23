@@ -360,3 +360,112 @@ class FakeAccountRepository implements AccountRepository {
     return Success(accounts.where((a) => a.isActive).toList());
   }
 }
+
+class FailingTransactionRepository extends FakeTransactionRepository {
+  final bool isCreateFailing;
+  final bool isUpdateFailing;
+  final bool isCategoryDateLookupFailing;
+  final bool isDateRangeLookupFailing;
+
+  FailingTransactionRepository(
+    super.seed, {
+    this.isCreateFailing = false,
+    this.isUpdateFailing = false,
+    this.isCategoryDateLookupFailing = false,
+    this.isDateRangeLookupFailing = false,
+  });
+
+  @override
+  Future<Result<TransactionModel, AppError>> create(TransactionModel transaction) async {
+    if (isCreateFailing) return Failure(DatabaseError('create failed'));
+    return super.create(transaction);
+  }
+
+  @override
+  Future<Result<void, AppError>> update(TransactionModel transaction) async {
+    if (isUpdateFailing) return Failure(DatabaseError('update failed'));
+    return super.update(transaction);
+  }
+
+  @override
+  Future<Result<List<TransactionModel>, AppError>> getByCategoryAndDateRange(
+    String categoryId,
+    DateTime start,
+    DateTime end,
+  ) async {
+    if (isCategoryDateLookupFailing) return Failure(DatabaseError('lookup failed'));
+    return super.getByCategoryAndDateRange(categoryId, start, end);
+  }
+
+  @override
+  Future<Result<List<TransactionModel>, AppError>> getByDateRange(
+    DateTime start,
+    DateTime end,
+  ) async {
+    if (isDateRangeLookupFailing) return Failure(DatabaseError('range lookup failed'));
+    return super.getByDateRange(start, end);
+  }
+}
+
+class FailingExchangeRateRepository extends FakeExchangeRateRepository {
+  final bool isCreateFailing;
+  final bool isLookupFailing;
+  final bool isCleanupFailing;
+
+  FailingExchangeRateRepository({
+    List<ExchangeRateModel>? seed,
+    this.isCreateFailing = false,
+    this.isLookupFailing = false,
+    this.isCleanupFailing = false,
+  }) : super(seed);
+
+  @override
+  Future<Result<ExchangeRateModel, AppError>> create(ExchangeRateModel rate) async {
+    if (isCreateFailing) return Failure(DatabaseError('create failed'));
+    return super.create(rate);
+  }
+
+  @override
+  Future<Result<ExchangeRateModel?, AppError>> getRateForDate(
+    String fromCurrency,
+    String toCurrency,
+    DateTime date,
+  ) async {
+    if (isLookupFailing) return Failure(DatabaseError('lookup failed'));
+    return super.getRateForDate(fromCurrency, toCurrency, date);
+  }
+
+  @override
+  Future<Result<ExchangeRateModel?, AppError>> getNearestRateOnOrBefore(
+    String fromCurrency,
+    String toCurrency,
+    DateTime date,
+  ) async {
+    if (isLookupFailing) return Failure(DatabaseError('lookup failed'));
+    return super.getNearestRateOnOrBefore(fromCurrency, toCurrency, date);
+  }
+
+  @override
+  Future<Result<ExchangeRateModel?, AppError>> getLatestRate(
+    String fromCurrency,
+    String toCurrency,
+  ) async {
+    if (isLookupFailing) return Failure(DatabaseError('lookup failed'));
+    return super.getLatestRate(fromCurrency, toCurrency);
+  }
+
+  @override
+  Future<Result<void, AppError>> deleteOldRates(DateTime before) async {
+    if (isCleanupFailing) return Failure(DatabaseError('cleanup failed'));
+    return super.deleteOldRates(before);
+  }
+}
+
+class FailingFinancialActivityLogRepository extends FakeFinancialActivityLogRepository {
+  @override
+  Future<Result<FinancialActivityLogModel, AppError>> create(
+    FinancialActivityLogModel entry,
+  ) async {
+    return Failure(DatabaseError('activity log write failed'));
+  }
+}

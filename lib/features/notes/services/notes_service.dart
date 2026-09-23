@@ -2,18 +2,26 @@ import 'package:flutter/widgets.dart';
 
 import '../../../core/errors/app_error.dart';
 import '../../../core/result/result.dart';
+import '../../../core/validation/validation_result_factory.dart';
+import '../../../core/validation/validation_utils.dart';
 import '../../../data/models/notes/note.dart';
 import '../../../data/models/notes/todo.dart';
 import '../../../data/repositories/notes/notes_repository.dart';
 import '../../../shared/services/base_service_impl.dart';
+import '../../../shared/services/error_handler.dart';
 import '../../../shared/services/reminder_service.dart';
 
 class NotesService extends BaseServiceImpl<Note> {
+  static const String userIdField = 'userId';
+  static const String titleField = 'title';
+
   final ReminderService reminders;
 
-  NotesService(super.repository, super.logger, {required this.reminders});
+  NotesService(NotesRepository super.repository, super.logger, {required this.reminders});
 
   NotesRepository get _repo => repository as NotesRepository;
+
+  ErrorHandler get _errorHandler => ErrorHandler(logger);
 
   @override
   String get serviceName => 'NotesService';
@@ -26,23 +34,12 @@ class NotesService extends BaseServiceImpl<Note> {
 
   @override
   Result<void, AppError> validate(Note entity) {
-    if (entity.userId.trim().isEmpty) {
-      return Failure(ValidationError('userId is required'));
-    }
-    if (entity.title.trim().isEmpty) {
-      return Failure(ValidationError('title is required'));
-    }
-    return const Success(null);
-  }
-
-  Result<void, AppError> validateTodo(Todo todo) {
-    if (todo.userId.trim().isEmpty) {
-      return Failure(ValidationError('userId is required'));
-    }
-    if (todo.title.trim().isEmpty) {
-      return Failure(ValidationError('title is required'));
-    }
-    return const Success(null);
+    return ValidationResultFactory.fromFieldErrors(
+      ValidationUtils.collect([
+        MapEntry(userIdField, ValidationUtils.requiredField(entity.userId, userIdField)),
+        MapEntry(titleField, ValidationUtils.requiredField(entity.title, titleField)),
+      ]),
+    );
   }
 
   @override
@@ -71,31 +68,40 @@ class NotesService extends BaseServiceImpl<Note> {
   }
 
   Future<Result<void, AppError>> scheduleTodoReminder(Todo todo) async {
-    if (todo.reminderAt == null) {
+    final reminderAt = todo.reminderAt;
+    if (reminderAt == null) {
       return const Success(null);
     }
-    await reminders.schedule(
-      ReminderPayload(
-        module: ReminderModule.notes,
-        targetId: todo.id,
-        title: 'Todo reminder',
-        body: todo.title,
-        scheduledAt: todo.reminderAt!,
-      ),
-    );
-    return const Success(null);
+    try {
+      await reminders.schedule(
+        ReminderPayload(
+          module: ReminderModule.notes,
+          targetId: todo.id,
+          title: 'Todo reminder',
+          body: todo.title,
+          scheduledAt: reminderAt,
+        ),
+      );
+      return const Success(null);
+    } catch (e, st) {
+      return Failure(_errorHandler.mapException(e, context: '$serviceName.scheduleTodoReminder', stackTrace: st));
+    }
   }
 
   Future<Result<void, AppError>> handleTodoReminderTap(Todo todo) async {
-    reminders.handleNotificationTap(
-      ReminderPayload(
-        module: ReminderModule.notes,
-        targetId: todo.id,
-        title: 'Open todo',
-        body: todo.title,
-        scheduledAt: DateTime.now(),
-      ),
-    );
-    return const Success(null);
+    try {
+      reminders.handleNotificationTap(
+        ReminderPayload(
+          module: ReminderModule.notes,
+          targetId: todo.id,
+          title: 'Open todo',
+          body: todo.title,
+          scheduledAt: DateTime.now(),
+        ),
+      );
+      return const Success(null);
+    } catch (e, st) {
+      return Failure(_errorHandler.mapException(e, context: '$serviceName.handleTodoReminderTap', stackTrace: st));
+    }
   }
 }

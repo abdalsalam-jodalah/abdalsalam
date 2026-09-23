@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/constants/user_error_messages.dart';
 import '../../../data/models/notes/todo.dart';
 import '../../habits/screens/habit_detail_screen.dart';
 import '../providers/notes_providers.dart';
@@ -35,7 +36,7 @@ class TodoListScreen extends ConsumerWidget {
             padding: const EdgeInsets.all(16),
             buildDefaultDragHandles: false,
             itemCount: todos.length,
-            onReorderItem: (oldIndex, newIndex) => _reorder(ref, todos, oldIndex, newIndex),
+            onReorderItem: (oldIndex, newIndex) => _reorder(context, ref, todos, oldIndex, newIndex),
             itemBuilder: (context, index) {
               final todo = todos[index];
               return ReorderableDelayedDragStartListener(
@@ -44,7 +45,7 @@ class TodoListScreen extends ConsumerWidget {
                 child: TodoItem(
                   title: todo.title,
                   completed: todo.status == TodoStatus.done,
-                  onChanged: (value) => _toggleTodo(ref, todo, value ?? false),
+                  onChanged: (value) => _toggleTodo(context, ref, todo, value ?? false),
                   trailing: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
@@ -64,9 +65,9 @@ class TodoListScreen extends ConsumerWidget {
                             case _TodoMenuAction.edit:
                               _editTodo(context, ref, todo);
                             case _TodoMenuAction.delete:
-                              _deleteTodo(ref, todo);
+                              _deleteTodo(context, ref, todo);
                             case _TodoMenuAction.unlinkHabit:
-                              _unlinkHabit(ref, todo);
+                              _unlinkHabit(context, ref, todo);
                           }
                         },
                         itemBuilder: (context) => [
@@ -102,39 +103,53 @@ class TodoListScreen extends ConsumerWidget {
     await showTodoDialog(context, ref, existing: todo);
   }
 
-  Future<void> _toggleTodo(WidgetRef ref, Todo todo, bool completed) async {
-    final repo = ref.read(todoRepositoryProvider);
-    await repo.update(
+  Future<void> _toggleTodo(BuildContext context, WidgetRef ref, Todo todo, bool completed) async {
+    final service = ref.read(todoServiceProvider);
+    final updateResult = await service.update(
       todo.copyWith(
         status: completed ? TodoStatus.done : TodoStatus.pending,
         updatedAt: DateTime.now(),
       ),
     );
+    if (!context.mounted) return;
+    if (updateResult.isFailure) _showFailureSnackBar(context);
     ref.invalidate(activeTodosProvider);
   }
 
-  Future<void> _deleteTodo(WidgetRef ref, Todo todo) async {
-    final repo = ref.read(todoRepositoryProvider);
-    await repo.softDelete(todo.id);
+  Future<void> _deleteTodo(BuildContext context, WidgetRef ref, Todo todo) async {
+    final service = ref.read(todoServiceProvider);
+    final deleteResult = await service.softDelete(todo.id);
+    if (!context.mounted) return;
+    if (deleteResult.isFailure) _showFailureSnackBar(context);
     ref.invalidate(activeTodosProvider);
   }
 
-  Future<void> _unlinkHabit(WidgetRef ref, Todo todo) async {
-    final repo = ref.read(todoRepositoryProvider);
-    await repo.update(todo.copyWith(clearHabitId: true, updatedAt: DateTime.now()));
+  Future<void> _unlinkHabit(BuildContext context, WidgetRef ref, Todo todo) async {
+    final service = ref.read(todoServiceProvider);
+    final updateResult = await service.update(todo.copyWith(clearHabitId: true, updatedAt: DateTime.now()));
+    if (!context.mounted) return;
+    if (updateResult.isFailure) _showFailureSnackBar(context);
     ref.invalidate(activeTodosProvider);
   }
 
-  Future<void> _reorder(WidgetRef ref, List<Todo> todos, int oldIndex, int newIndex) async {
+  Future<void> _reorder(BuildContext context, WidgetRef ref, List<Todo> todos, int oldIndex, int newIndex) async {
     final reordered = [...todos];
     final moved = reordered.removeAt(oldIndex);
     reordered.insert(newIndex, moved);
 
-    final repo = ref.read(todoRepositoryProvider);
+    final service = ref.read(todoServiceProvider);
     final updated = [
       for (var i = 0; i < reordered.length; i++) reordered[i].copyWith(order: i, updatedAt: DateTime.now()),
     ];
-    await repo.updateBulk(updated);
+    final updateResult = await service.updateBulk(updated);
+    if (!context.mounted) return;
+    if (updateResult.isFailure) _showFailureSnackBar(context);
     ref.invalidate(activeTodosProvider);
+  }
+
+  void _showFailureSnackBar(BuildContext context) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text(UserErrorMessages.generic), backgroundColor: Colors.red),
+    );
   }
 }

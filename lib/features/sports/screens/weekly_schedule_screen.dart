@@ -2,12 +2,19 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../../core/constants/user_error_messages.dart';
 import '../../../data/models/sports/exercise.dart';
 import '../../../data/models/sports/weekly_schedule_entry.dart';
 import '../providers/sports_providers.dart';
 import '../widgets/reorderable_sport_list.dart';
 
 const _uuid = Uuid();
+
+void _showFailureSnackBar(BuildContext context) {
+  ScaffoldMessenger.of(context).showSnackBar(
+    const SnackBar(content: Text(UserErrorMessages.generic), backgroundColor: Colors.red),
+  );
+}
 
 const List<String> _dayLabels = [
   'Monday',
@@ -159,24 +166,26 @@ class _DayScheduleListState extends ConsumerState<_DayScheduleList> {
   }
 
   Future<void> _reorderEntries(List<WeeklyScheduleEntry> reordered) async {
-    final repo = ref.read(weeklyScheduleRepositoryProvider);
+    final service = ref.read(weeklyScheduleServiceProvider);
     final updated = [
       for (var i = 0; i < reordered.length; i++)
         reordered[i].copyWith(order: i, updatedAt: DateTime.now()),
     ];
-    await repo.updateBulk(updated);
+    final updateResult = await service.updateBulk(updated);
     if (!mounted) {
       return;
     }
+    if (updateResult.isFailure) _showFailureSnackBar(context);
     ref.invalidate(scheduleForDayProvider(dayOfWeek));
   }
 
   Future<void> _removeEntry(WeeklyScheduleEntry entry) async {
-    final repo = ref.read(weeklyScheduleRepositoryProvider);
-    await repo.softDelete(entry.id);
+    final service = ref.read(weeklyScheduleServiceProvider);
+    final deleteResult = await service.softDelete(entry.id);
     if (!mounted) {
       return;
     }
+    if (deleteResult.isFailure) _showFailureSnackBar(context);
     ref.invalidate(scheduleForDayProvider(dayOfWeek));
   }
 
@@ -213,9 +222,9 @@ class _DayScheduleListState extends ConsumerState<_DayScheduleList> {
       return;
     }
 
-    final repo = ref.read(weeklyScheduleRepositoryProvider);
+    final service = ref.read(weeklyScheduleServiceProvider);
     final now = DateTime.now();
-    await repo.create(
+    final createResult = await service.create(
       WeeklyScheduleEntry(
         id: _uuid.v4(),
         createdAt: now,
@@ -229,6 +238,7 @@ class _DayScheduleListState extends ConsumerState<_DayScheduleList> {
     if (!mounted) {
       return;
     }
+    if (createResult.isFailure) _showFailureSnackBar(context);
     ref.invalidate(scheduleForDayProvider(dayOfWeek));
   }
 }

@@ -23,11 +23,11 @@ Future<bool> showTodoDialog(
 
   if (result == null) return false;
 
-  final repo = ref.read(todoRepositoryProvider);
+  final service = ref.read(todoServiceProvider);
   final now = DateTime.now();
 
   final saveResult = existing == null
-      ? await repo.create(
+      ? await service.create(
           Todo(
             id: _uuid.v4(),
             createdAt: now,
@@ -46,7 +46,7 @@ Future<bool> showTodoDialog(
             habitId: result.linkedHabitId,
           ),
         )
-      : await repo.update(
+      : await service.update(
           existing.copyWith(
             title: result.title,
             description: result.description.isEmpty ? null : result.description,

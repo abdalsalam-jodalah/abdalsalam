@@ -3,6 +3,7 @@ import '../../../core/result/result.dart';
 import '../../../data/models/calendar/event.dart';
 import '../../../data/repositories/calendar/calendar_repository.dart';
 import '../../../shared/services/base_service_impl.dart';
+import '../../../shared/services/error_handler.dart';
 import '../../../shared/services/reminder_service.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:googleapis/calendar/v3.dart' as gcal;
@@ -22,6 +23,8 @@ class CalendarService extends BaseServiceImpl<Event> {
                 GoogleSignIn.standard(scopes: const <String>[gcal.CalendarApi.calendarScope]);
 
   CalendarRepository get _repo => repository as CalendarRepository;
+
+  ErrorHandler get _errorHandler => ErrorHandler(logger);
 
   @override
   String get serviceName => 'CalendarService';
@@ -70,19 +73,23 @@ class CalendarService extends BaseServiceImpl<Event> {
   }
 
   Future<Result<void, AppError>> scheduleEventReminders(Event event) async {
-    for (final minutes in event.reminderMinutes) {
-      final scheduled = event.startTime.subtract(Duration(minutes: minutes));
-      await reminders.schedule(
-        ReminderPayload(
-          module: ReminderModule.calendar,
-          targetId: event.id,
-          title: event.title,
-          body: 'Event starts in $minutes minutes',
-          scheduledAt: scheduled,
-        ),
-      );
+    try {
+      for (final minutes in event.reminderMinutes) {
+        final scheduled = event.startTime.subtract(Duration(minutes: minutes));
+        await reminders.schedule(
+          ReminderPayload(
+            module: ReminderModule.calendar,
+            targetId: event.id,
+            title: event.title,
+            body: 'Event starts in $minutes minutes',
+            scheduledAt: scheduled,
+          ),
+        );
+      }
+      return const Success(null);
+    } catch (error, stackTrace) {
+      return Failure(_errorHandler.mapException(error, context: '$serviceName.scheduleEventReminders', stackTrace: stackTrace));
     }
-    return const Success(null);
   }
 
   Future<Result<List<Event>, AppError>> pullGoogleCalendarEvents() async {
@@ -123,8 +130,8 @@ class CalendarService extends BaseServiceImpl<Event> {
           .toList(growable: false);
 
       return Success(mapped);
-    } catch (e) {
-      return Failure(ServiceError('Google pull failed: $e'));
+    } catch (error, stackTrace) {
+      return Failure(_errorHandler.mapException(error, context: '$serviceName.pullGoogleCalendarEvents', stackTrace: stackTrace));
     }
   }
 
@@ -152,8 +159,8 @@ class CalendarService extends BaseServiceImpl<Event> {
         await api.events.insert(payload, 'primary');
       }
       return const Success(null);
-    } catch (e) {
-      return Failure(ServiceError('Google push failed: $e'));
+    } catch (error, stackTrace) {
+      return Failure(_errorHandler.mapException(error, context: '$serviceName.pushEventToGoogleCalendar', stackTrace: stackTrace));
     }
   }
 

@@ -47,6 +47,9 @@ class DoctorVisitService extends BaseServiceImpl<DoctorVisit> {
     }
 
     final nextVisit = await _repo.getNextUpcoming();
+    if (nextVisit.isFailure) {
+      return Failure(nextVisit.error!);
+    }
 
     return Success(<String, dynamic>{
       'totalVisits': all.data!.length,
@@ -56,27 +59,43 @@ class DoctorVisitService extends BaseServiceImpl<DoctorVisit> {
 
   Future<Result<DoctorVisit?, AppError>> getNextUpcoming() => _repo.getNextUpcoming();
 
-  /// Deletes the visit's local attachment files, then soft-deletes the record.
   Future<Result<void, AppError>> deleteWithAttachments(String id) async {
     final existing = await getById(id);
-    if (existing.isSuccess && existing.data != null) {
-      await attachments.deleteAttachments(existing.data!.attachmentPaths);
+    if (existing.isFailure) {
+      return Failure(existing.error!);
     }
-    return softDelete(id);
+    final deleteResult = await softDelete(id);
+    if (deleteResult.isFailure) {
+      return deleteResult;
+    }
+    final visit = existing.data;
+    if (visit != null) {
+      await _deleteAttachmentFiles(visit.attachmentPaths, context: '$serviceName.deleteWithAttachments');
+    }
+    return const Success(null);
   }
 
-  /// Removes any attachment files that are no longer referenced by [updated]
-  /// compared to what was previously stored, then saves.
   Future<Result<void, AppError>> updateWithAttachmentCleanup(
     DoctorVisit previous,
     DoctorVisit updated,
   ) async {
+    final updateResult = await update(updated);
+    if (updateResult.isFailure) {
+      return updateResult;
+    }
     final removed = previous.attachmentPaths
         .where((path) => !updated.attachmentPaths.contains(path))
         .toList(growable: false);
     if (removed.isNotEmpty) {
-      await attachments.deleteAttachments(removed);
+      await _deleteAttachmentFiles(removed, context: '$serviceName.updateWithAttachmentCleanup');
     }
-    return update(updated);
+    return const Success(null);
+  }
+
+  Future<void> _deleteAttachmentFiles(List<String> paths, {required String context}) async {
+    final deletion = await attachments.deleteAttachments(paths);
+    if (deletion.isFailure) {
+      logger.warning('[$context] record saved but some attachment files were left on disk: ${deletion.error}');
+    }
   }
 }

@@ -1,53 +1,90 @@
+import '../../../core/errors/app_error.dart';
+import '../../../core/json/json_reader.dart';
+import '../../../core/result/result.dart';
 import '../../../shared/infrastructure/logger_service.dart';
 import '../../../shared/infrastructure/storage_gateway.dart';
+import '../../../shared/services/error_handler.dart';
 
 class PrayerTimesCacheService {
   static const _key = 'prayer_times_cache';
+  static const _keySeparator = '|';
+  static const _timesField = 'times';
+  static const _cachedAtField = 'cachedAt';
+  static const _retention = Duration(days: 30);
 
   final StorageGateway storage;
   final LoggerService logger;
 
   const PrayerTimesCacheService({required this.storage, required this.logger});
 
-  String _cacheKey(DateTime date, String method) =>
-      '${date.toIso8601String().split('T').first}|$method';
+  ErrorHandler get _errorHandler => ErrorHandler(logger);
 
-  Future<void> cacheForDate({
+  String _dateLabel(DateTime date) => date.toIso8601String().split('T').first;
+
+  String _cacheKey(DateTime date, String method) => '${_dateLabel(date)}$_keySeparator$method';
+
+  Future<Result<void, AppError>> cacheForDate({
     required DateTime date,
     required String method,
-    required Map<String, String> times,
+    required Map<String, DateTime> times,
   }) async {
-    final existing = await storage.get<Map<String, dynamic>>(_key) ?? <String, dynamic>{};
-    existing[_cacheKey(date, method)] = <String, dynamic>{
-      'times': times,
-      'cachedAt': DateTime.now().toIso8601String(),
-    };
+    try {
+      final existing = await _readCache();
+      existing[_cacheKey(date, method)] = <String, dynamic>{
+        _timesField: times.map((name, time) => MapEntry(name, time.toIso8601String())),
+        _cachedAtField: DateTime.now().toIso8601String(),
+      };
 
-    final cutoff = DateTime.now().subtract(const Duration(days: 30));
-    existing.removeWhere((key, _) {
-      final parsed = DateTime.tryParse(key.split('|').first);
-      return parsed != null && parsed.isBefore(cutoff);
-    });
+      final cutoff = DateTime.now().subtract(_retention);
+      existing.removeWhere((key, _) {
+        final parsed = DateTime.tryParse(key.split(_keySeparator).first);
+        return parsed != null && parsed.isBefore(cutoff);
+      });
 
-    await storage.save(key: _key, value: existing);
-    logger.debug('[PrayerTimesCache] cached for ${date.toIso8601String().split('T').first} ($method)');
+      await storage.save(key: _key, value: existing);
+      logger.debug('[PrayerTimesCache] cached for ${_dateLabel(date)} ($method)');
+      return const Success(null);
+    } catch (error, stackTrace) {
+      return Failure(
+        _errorHandler.mapException(error, context: 'PrayerTimesCache.cacheForDate', stackTrace: stackTrace),
+      );
+    }
   }
 
-  Future<Map<String, String>?> getForDate(DateTime date, String method) async {
-    final existing = await storage.get<Map<String, dynamic>>(_key);
-    if (existing == null) {
-      return null;
-    }
+  Future<Result<Map<String, DateTime>?, AppError>> getForDate(DateTime date, String method) async {
+    try {
+      final existing = await _readCache();
+      final entry = JsonReader(existing, source: _key).optionalMap(_cacheKey(date, method));
+      if (entry == null) {
+        return const Success(null);
+      }
 
-    final value = existing[_cacheKey(date, method)];
-    if (value is! Map<String, dynamic>) {
-      return null;
-    }
+      final storedTimes = JsonReader(entry, source: _key).optionalMap(_timesField);
+      if (storedTimes == null) {
+        logger.warning('[PrayerTimesCache] ignoring malformed entry for ${_dateLabel(date)} ($method)');
+        return const Success(null);
+      }
 
-    final times = value['times'];
-    if (times is! Map) {
-      return null;
+      final timesReader = JsonReader(storedTimes, source: _key);
+      final times = <String, DateTime>{};
+      for (final name in storedTimes.keys) {
+        final time = timesReader.optionalDate(name);
+        if (time == null) {
+          logger.warning('[PrayerTimesCache] ignoring unparseable "$name" for ${_dateLabel(date)} ($method)');
+          return const Success(null);
+        }
+        times[name] = time;
+      }
+      return Success(times);
+    } catch (error, stackTrace) {
+      return Failure(
+        _errorHandler.mapException(error, context: 'PrayerTimesCache.getForDate', stackTrace: stackTrace),
+      );
     }
-    return times.map((k, v) => MapEntry(k.toString(), v.toString()));
+  }
+
+  Future<Map<String, dynamic>> _readCache() async {
+    final stored = await storage.get<Map<String, dynamic>>(_key);
+    return <String, dynamic>{...?stored};
   }
 }

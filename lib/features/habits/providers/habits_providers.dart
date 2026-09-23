@@ -7,6 +7,7 @@ import '../../../data/repositories/habits/habits_repository.dart';
 import '../../../data/repositories/habits/habit_log_repository.dart';
 import '../../../providers/app_providers.dart';
 import '../../../shared/infrastructure/logger_service.dart';
+import '../services/habit_log_service.dart';
 import '../services/habits_service.dart';
 
 const String habitsUserId = 'user1';
@@ -30,6 +31,13 @@ final habitsServiceProvider = Provider<HabitsService>((ref) {
     ref.watch(habitsRepositoryProvider),
     LoggerService.forModule('HabitsService', moduleType: logic.ModuleType.service),
     reminders: ref.watch(reminderServiceProvider),
+  );
+});
+
+final habitLogServiceProvider = Provider<HabitLogService>((ref) {
+  return HabitLogService(
+    ref.watch(habitLogRepositoryProvider),
+    LoggerService.forModule('HabitLogService', moduleType: logic.ModuleType.service),
   );
 });
 

@@ -36,7 +36,11 @@ final currencyServiceProvider = Provider<CurrencyService>((ref) {
   );
   final storage = ref.watch(storageGatewayProvider);
   final service = CurrencyService(logger, storage);
-  service.initialize();
+  service.initialize().then((result) {
+    if (result.isFailure) {
+      logger.warning('Currency service initialization failed: ${result.error}');
+    }
+  });
   return service;
 });
 
@@ -125,6 +129,10 @@ final currencyConversionServiceProvider = Provider<CurrencyConversionService>((r
   return CurrencyConversionService(
     ref.watch(exchangeRateRepositoryProvider),
     ref.watch(currencyServiceProvider),
+    LoggerService.forModule(
+      'CurrencyConversionService',
+      moduleType: logic.ModuleType.service,
+    ),
   );
 });
 
@@ -137,14 +145,23 @@ final financialServiceProvider = Provider<FinancialService>((ref) {
     accountRepo: ref.watch(accountRepositoryProvider),
     activityLogRepo: ref.watch(financialActivityLogRepositoryProvider),
     conversionService: ref.watch(currencyConversionServiceProvider),
+    logger: LoggerService.forModule(
+      'FinancialService',
+      moduleType: logic.ModuleType.service,
+    ),
   );
 });
 
 final recurringTransactionGeneratorProvider =
     Provider<RecurringTransactionGenerator>((ref) {
+  final logger = LoggerService.forModule(
+    'RecurringTransactionGenerator',
+    moduleType: logic.ModuleType.service,
+  );
   return RecurringTransactionGenerator(
     ref.watch(transactionRepositoryProvider),
-    FinancialActivityLogger(ref.watch(financialActivityLogRepositoryProvider)),
+    FinancialActivityLogger(ref.watch(financialActivityLogRepositoryProvider), logger),
+    logger,
   );
 });
 
@@ -152,8 +169,19 @@ final recurringTransactionGeneratorProvider =
 /// first build): catches up any due recurring transactions and refreshes
 /// exchange rates, so historical conversions keep accumulating daily.
 final financialStartupTasksProvider = FutureProvider<void>((ref) async {
-  await ref.read(recurringTransactionGeneratorProvider).catchUpDueRecurrences();
-  await ref.read(enhancedCurrencyServiceProvider).syncDailyRates();
+  final logger = LoggerService.forModule(
+    'FinancialStartupTasks',
+    moduleType: logic.ModuleType.service,
+  );
+  final recurringResult =
+      await ref.read(recurringTransactionGeneratorProvider).catchUpDueRecurrences();
+  if (recurringResult.isFailure) {
+    logger.error('Recurring transaction catch-up failed: ${recurringResult.error}');
+  }
+  final syncResult = await ref.read(enhancedCurrencyServiceProvider).syncDailyRates();
+  if (syncResult.isFailure) {
+    logger.warning('Daily exchange rate sync failed: ${syncResult.error}');
+  }
 });
 
 // Data Providers

@@ -88,9 +88,9 @@ class _AchievementsScreenState extends ConsumerState<AchievementsScreen> {
       }
     }
 
-    final repo = ref.read(achievementRepositoryProvider);
+    final service = ref.read(achievementServiceProvider);
     final now = DateTime.now();
-    final saveResult = await repo.create(
+    final saveResult = await service.create(
       Achievement(
         id: _uuid.v4(),
         createdAt: now,

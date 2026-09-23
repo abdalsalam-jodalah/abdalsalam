@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:uuid/uuid.dart';
+import '../../../core/errors/app_error.dart';
+import '../../../core/result/result.dart';
 import '../../../data/models/financial/transaction_model.dart';
 import '../../../data/models/financial/category_model.dart';
 import '../../../data/models/financial/budget_model.dart';
@@ -15,6 +17,10 @@ class FinancialDataSeeder {
   final BudgetRepository _budgetRepo;
   final LoggerService _logger;
 
+  static const String _foodCategoryName = 'Food & Dining';
+  static const String _transportCategoryName = 'Transport';
+  static const String _salaryCategoryName = 'Salary';
+
   const FinancialDataSeeder({
     required TransactionRepository transactionRepo,
     required CategoryRepository categoryRepo,
@@ -26,7 +32,7 @@ class FinancialDataSeeder {
         _logger = logger;
 
   /// Seed sample categories
-  Future<List<CategoryModel>> seedCategories() async {
+  Future<Result<List<CategoryModel>, AppError>> seedCategories() async {
     _logger.info('Seeding categories...');
     
     final categories = [
@@ -34,7 +40,7 @@ class FinancialDataSeeder {
       CategoryModel(
         id: const Uuid().v4(),
         userId: 'user1',
-        name: 'Food & Dining',
+        name: _foodCategoryName,
         type: CategoryType.expense,
         icon: Icons.restaurant,
         color: Colors.orange,
@@ -44,7 +50,7 @@ class FinancialDataSeeder {
       CategoryModel(
         id: const Uuid().v4(),
         userId: 'user1',
-        name: 'Transport',
+        name: _transportCategoryName,
         type: CategoryType.expense,
         icon: Icons.directions_car,
         color: Colors.blue,
@@ -85,7 +91,7 @@ class FinancialDataSeeder {
       CategoryModel(
         id: const Uuid().v4(),
         userId: 'user1',
-        name: 'Salary',
+        name: _salaryCategoryName,
         type: CategoryType.income,
         icon: Icons.attach_money,
         color: Colors.green,
@@ -104,25 +110,33 @@ class FinancialDataSeeder {
       ),
     ];
 
+    AppError? firstFailure;
     for (final category in categories) {
-      await _categoryRepo.create(category);
+      final result = await _categoryRepo.create(category);
+      if (result.isFailure) {
+        _logger.warning('Failed to seed category ${category.name}: ${result.error}');
+        firstFailure ??= result.error;
+      }
+    }
+    if (firstFailure != null) {
+      return Failure(firstFailure);
     }
 
     _logger.info('Seeded ${categories.length} categories');
-    return categories;
+    return Success(categories);
   }
 
   /// Seed sample transactions
-  Future<void> seedTransactions(List<CategoryModel> categories) async {
+  Future<Result<void, AppError>> seedTransactions(List<CategoryModel> categories) async {
     _logger.info('Seeding transactions...');
     
     final now = DateTime.now();
-    final foodCategory = categories.firstWhere((c) => c.name == 'Food & Dining');
-    final transportCategory = categories.firstWhere((c) => c.name == 'Transport');
-    final salaryCategory = categories.firstWhere((c) => c.name == 'Salary');
+    final foodCategory = _categoryNamed(categories, _foodCategoryName);
+    final transportCategory = _categoryNamed(categories, _transportCategoryName);
+    final salaryCategory = _categoryNamed(categories, _salaryCategoryName);
 
     final transactions = [
-      TransactionModel(
+      if (salaryCategory != null) TransactionModel(
         id: const Uuid().v4(),
         userId: 'user1',
         type: TransactionType.income,
@@ -135,7 +149,7 @@ class FinancialDataSeeder {
         createdAt: now,
         updatedAt: now,
       ),
-      TransactionModel(
+      if (foodCategory != null) TransactionModel(
         id: const Uuid().v4(),
         userId: 'user1',
         type: TransactionType.expense,
@@ -148,7 +162,7 @@ class FinancialDataSeeder {
         createdAt: now,
         updatedAt: now,
       ),
-      TransactionModel(
+      if (transportCategory != null) TransactionModel(
         id: const Uuid().v4(),
         userId: 'user1',
         type: TransactionType.expense,
@@ -161,7 +175,7 @@ class FinancialDataSeeder {
         createdAt: now,
         updatedAt: now,
       ),
-      TransactionModel(
+      if (foodCategory != null) TransactionModel(
         id: const Uuid().v4(),
         userId: 'user1',
         type: TransactionType.expense,
@@ -176,26 +190,35 @@ class FinancialDataSeeder {
       ),
     ];
 
+    AppError? firstFailure;
     for (final transaction in transactions) {
-      await _transactionRepo.create(transaction);
+      final result = await _transactionRepo.create(transaction);
+      if (result.isFailure) {
+        _logger.warning('Failed to seed transaction ${transaction.description}: ${result.error}');
+        firstFailure ??= result.error;
+      }
+    }
+    if (firstFailure != null) {
+      return Failure(firstFailure);
     }
 
     _logger.info('Seeded ${transactions.length} transactions');
+    return const Success(null);
   }
 
   /// Seed sample budgets
-  Future<void> seedBudgets(List<CategoryModel> categories) async {
+  Future<Result<void, AppError>> seedBudgets(List<CategoryModel> categories) async {
     _logger.info('Seeding budgets...');
     
     final now = DateTime.now();
     final startOfMonth = DateTime(now.year, now.month, 1);
     final endOfMonth = DateTime(now.year, now.month + 1, 0, 23, 59, 59);
 
-    final foodCategory = categories.firstWhere((c) => c.name == 'Food & Dining');
-    final transportCategory = categories.firstWhere((c) => c.name == 'Transport');
+    final foodCategory = _categoryNamed(categories, _foodCategoryName);
+    final transportCategory = _categoryNamed(categories, _transportCategoryName);
 
     final budgets = [
-      BudgetModel(
+      if (foodCategory != null) BudgetModel(
         id: const Uuid().v4(),
         userId: 'user1',
         categoryId: foodCategory.id,
@@ -208,7 +231,7 @@ class FinancialDataSeeder {
         createdAt: now,
         updatedAt: now,
       ),
-      BudgetModel(
+      if (transportCategory != null) BudgetModel(
         id: const Uuid().v4(),
         userId: 'user1',
         categoryId: transportCategory.id,
@@ -223,11 +246,28 @@ class FinancialDataSeeder {
       ),
     ];
 
+    AppError? firstFailure;
     for (final budget in budgets) {
-      await _budgetRepo.create(budget);
+      final result = await _budgetRepo.create(budget);
+      if (result.isFailure) {
+        _logger.warning('Failed to seed budget for category ${budget.categoryId}: ${result.error}');
+        firstFailure ??= result.error;
+      }
+    }
+    if (firstFailure != null) {
+      return Failure(firstFailure);
     }
 
     _logger.info('Seeded ${budgets.length} budgets');
+    return const Success(null);
+  }
+
+  CategoryModel? _categoryNamed(List<CategoryModel> categories, String name) {
+    final category = categories.where((c) => c.name == name).firstOrNull;
+    if (category == null) {
+      _logger.warning('Seed category "$name" not found; skipping seed data that depends on it');
+    }
+    return category;
   }
 
   /// Seed all financial data
@@ -235,9 +275,9 @@ class FinancialDataSeeder {
     try {
       _logger.info('Starting financial data seeding...');
       
-      final categories = await seedCategories();
-      await seedTransactions(categories);
-      await seedBudgets(categories);
+      final categories = (await seedCategories()).getOrThrow();
+      (await seedTransactions(categories)).getOrThrow();
+      (await seedBudgets(categories)).getOrThrow();
       
       _logger.info('Financial data seeding completed successfully!');
     } catch (e, st) {

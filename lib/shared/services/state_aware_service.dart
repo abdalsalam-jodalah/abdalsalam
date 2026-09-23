@@ -1,9 +1,11 @@
-import 'package:abdalsalam_logic_flutter/abdalsalam_logic_flutter.dart';
+import 'package:abdalsalam_logic_flutter/abdalsalam_logic_flutter.dart' hide ErrorHandler;
 
 import '../../core/errors/app_error.dart';
+import '../../core/json/json_reader.dart';
 import '../../core/result/result.dart';
 import '../infrastructure/logger_service.dart';
 import '../infrastructure/storage_gateway.dart';
+import 'error_handler.dart';
 
 enum SyncPolicy { wifiOnly, wifiOrCellular }
 
@@ -25,20 +27,19 @@ class StateAwareSettings {
       };
 
   factory StateAwareSettings.fromJson(Map<String, dynamic> json) {
-    final policy = (json['syncPolicy'] as String?) ?? SyncPolicy.wifiOnly.name;
+    final reader = JsonReader(json, source: 'StateAwareSettings');
     return StateAwareSettings(
-      forceSync: json['forceSync'] == true,
-      disableBatteryOptimization: json['disableBatteryOptimization'] == true,
-      syncPolicy: SyncPolicy.values.firstWhere(
-        (item) => item.name == policy,
-        orElse: () => SyncPolicy.wifiOnly,
-      ),
+      forceSync: reader.readBool('forceSync'),
+      disableBatteryOptimization: reader.readBool('disableBatteryOptimization'),
+      syncPolicy: reader.readEnum('syncPolicy', SyncPolicy.values, fallback: SyncPolicy.wifiOnly),
     );
   }
 }
 
 class StateAwareService {
   static const _settingsKey = 'state_aware_settings';
+  static const _serviceName = 'StateAwareService';
+  static const _preferencesSource = 'preferences';
 
   final AppStateManager appState;
   final StorageGateway storage;
@@ -50,17 +51,36 @@ class StateAwareService {
     required this.logger,
   });
 
-  Future<StateAwareSettings> getSettings() async {
-    final raw = await storage.get<Map<String, dynamic>>(_settingsKey);
-    if (raw == null) {
-      return const StateAwareSettings();
+  ErrorHandler get _errorHandler => ErrorHandler(logger);
+
+  Future<Result<StateAwareSettings, AppError>> getSettings() async {
+    try {
+      final raw = await storage.get<Map<String, dynamic>>(_settingsKey);
+      if (raw == null) {
+        return const Success(StateAwareSettings());
+      }
+      return Success(StateAwareSettings.fromJson(raw));
+    } on CorruptDataError catch (error, stackTrace) {
+      storage.integrityReporter.reportCorruptRecord(
+        table: _preferencesSource,
+        recordId: _settingsKey,
+        reason: error,
+        stackTrace: stackTrace,
+      );
+      return const Success(StateAwareSettings());
+    } catch (error, stackTrace) {
+      return Failure(_errorHandler.mapException(error, context: '$_serviceName.getSettings', stackTrace: stackTrace));
     }
-    return StateAwareSettings.fromJson(raw);
   }
 
-  Future<void> saveSettings(StateAwareSettings settings) async {
-    await storage.save(key: _settingsKey, value: settings.toJson());
-    logger.info('[StateAwareService] settings persisted');
+  Future<Result<void, AppError>> saveSettings(StateAwareSettings settings) async {
+    try {
+      await storage.save(key: _settingsKey, value: settings.toJson());
+      logger.info('[$_serviceName] settings persisted');
+      return const Success(null);
+    } catch (error, stackTrace) {
+      return Failure(_errorHandler.mapException(error, context: '$_serviceName.saveSettings', stackTrace: stackTrace));
+    }
   }
 
   Result<void, AppError> canRunNonCriticalOperation({

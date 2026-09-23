@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/constants/user_error_messages.dart';
 import '../../../data/models/notes/note.dart';
 import '../providers/notes_providers.dart';
 import '../widgets/note_dialog.dart';
@@ -44,7 +45,7 @@ class NotesHomeScreen extends ConsumerWidget {
             padding: const EdgeInsets.all(16),
             buildDefaultDragHandles: false,
             itemCount: notes.length,
-            onReorderItem: (oldIndex, newIndex) => _reorder(ref, notes, oldIndex, newIndex),
+            onReorderItem: (oldIndex, newIndex) => _reorder(context, ref, notes, oldIndex, newIndex),
             itemBuilder: (context, index) {
               final note = notes[index];
               return ReorderableDelayedDragStartListener(
@@ -61,7 +62,7 @@ class NotesHomeScreen extends ConsumerWidget {
                         case _NoteMenuAction.edit:
                           _editNote(context, ref, note);
                         case _NoteMenuAction.delete:
-                          _deleteNote(ref, note);
+                          _deleteNote(context, ref, note);
                       }
                     },
                     itemBuilder: (context) => const [
@@ -90,22 +91,32 @@ class NotesHomeScreen extends ConsumerWidget {
     await showNoteDialog(context, ref, existing: note);
   }
 
-  Future<void> _deleteNote(WidgetRef ref, Note note) async {
-    final repo = ref.read(notesRepositoryProvider);
-    await repo.softDelete(note.id);
+  Future<void> _deleteNote(BuildContext context, WidgetRef ref, Note note) async {
+    final service = ref.read(notesServiceProvider);
+    final deleteResult = await service.softDelete(note.id);
+    if (!context.mounted) return;
+    if (deleteResult.isFailure) _showFailureSnackBar(context);
     ref.invalidate(activeNotesProvider);
   }
 
-  Future<void> _reorder(WidgetRef ref, List<Note> notes, int oldIndex, int newIndex) async {
+  Future<void> _reorder(BuildContext context, WidgetRef ref, List<Note> notes, int oldIndex, int newIndex) async {
     final reordered = [...notes];
     final moved = reordered.removeAt(oldIndex);
     reordered.insert(newIndex, moved);
 
-    final repo = ref.read(notesRepositoryProvider);
+    final service = ref.read(notesServiceProvider);
     final updated = [
       for (var i = 0; i < reordered.length; i++) reordered[i].copyWith(order: i, updatedAt: DateTime.now()),
     ];
-    await repo.updateBulk(updated);
+    final updateResult = await service.updateBulk(updated);
+    if (!context.mounted) return;
+    if (updateResult.isFailure) _showFailureSnackBar(context);
     ref.invalidate(activeNotesProvider);
+  }
+
+  void _showFailureSnackBar(BuildContext context) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text(UserErrorMessages.generic), backgroundColor: Colors.red),
+    );
   }
 }

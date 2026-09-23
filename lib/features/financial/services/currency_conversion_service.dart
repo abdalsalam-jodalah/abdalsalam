@@ -1,19 +1,11 @@
+import '../../../core/errors/app_error.dart';
+import '../../../core/errors/financial_errors.dart';
+import '../../../core/result/result.dart';
+import '../../../data/models/financial/exchange_rate_model.dart';
 import '../../../data/repositories/financial/exchange_rate_repository.dart';
+import '../../../shared/infrastructure/logger_service.dart';
+import 'conversion_result.dart';
 import 'currency_service.dart';
-
-class ConversionResult {
-  final double convertedAmount;
-  final double rateUsed;
-  final DateTime rateDate;
-  final bool wasFallback;
-
-  const ConversionResult({
-    required this.convertedAmount,
-    required this.rateUsed,
-    required this.rateDate,
-    required this.wasFallback,
-  });
-}
 
 /// Single source of truth for converting an amount into the app's base
 /// currency. Every aggregation (summaries, category totals, budget spend,
@@ -26,93 +18,160 @@ class ConversionResult {
 class CurrencyConversionService {
   final ExchangeRateRepository _exchangeRateRepo;
   final CurrencyService _currencyService;
+  final LoggerService _logger;
 
   static const String baseCurrencyCode = 'ILS';
+  static const double _identityRate = 1.0;
 
-  CurrencyConversionService(this._exchangeRateRepo, this._currencyService);
+  CurrencyConversionService(this._exchangeRateRepo, this._currencyService, this._logger);
 
-  Future<ConversionResult> convertToBase({
+  Future<Result<ConversionResult, AppError>> convertToBase({
     required double amount,
     required String fromCurrency,
     required DateTime asOfDate,
   }) async {
     if (fromCurrency == baseCurrencyCode) {
-      return ConversionResult(
-        convertedAmount: amount,
-        rateUsed: 1.0,
-        rateDate: asOfDate,
-        wasFallback: false,
-      );
+      return Success(_identityConversion(amount, asOfDate));
     }
 
-    final exactResult = await _exchangeRateRepo.getRateForDate(
-      baseCurrencyCode,
-      fromCurrency,
-      asOfDate,
+    final exactRate = _usableStoredRate(
+      await _exchangeRateRepo.getRateForDate(baseCurrencyCode, fromCurrency, asOfDate),
+      fromCurrency: fromCurrency,
+      lookupName: 'exact-date',
     );
-    if (exactResult.isSuccess && exactResult.data != null) {
-      final rate = exactResult.data!;
-      return ConversionResult(
-        convertedAmount: amount / rate.rate,
-        rateUsed: 1 / rate.rate,
-        rateDate: rate.date,
-        wasFallback: false,
-      );
+    if (exactRate != null) {
+      return Success(_convertWithStoredRate(amount, exactRate, wasFallback: false));
     }
 
-    final nearestResult = await _exchangeRateRepo.getNearestRateOnOrBefore(
-      baseCurrencyCode,
-      fromCurrency,
-      asOfDate,
+    final nearestRate = _usableStoredRate(
+      await _exchangeRateRepo.getNearestRateOnOrBefore(baseCurrencyCode, fromCurrency, asOfDate),
+      fromCurrency: fromCurrency,
+      lookupName: 'nearest-earlier',
     );
-    if (nearestResult.isSuccess && nearestResult.data != null) {
-      final rate = nearestResult.data!;
-      return ConversionResult(
-        convertedAmount: amount / rate.rate,
-        rateUsed: 1 / rate.rate,
-        rateDate: rate.date,
-        wasFallback: true,
+    if (nearestRate != null) {
+      _logger.info(
+        'No $fromCurrency rate stored for $asOfDate; using nearest earlier rate from ${nearestRate.date}',
       );
+      return Success(_convertWithStoredRate(amount, nearestRate, wasFallback: true));
     }
 
-    final liveRate = await _currencyService.getExchangeRate(
-      Currency.values.firstWhere((c) => c.code == fromCurrency),
-    );
+    return _convertWithLiveRate(amount, fromCurrency);
+  }
+
+  ConversionResult _identityConversion(double amount, DateTime asOfDate) {
     return ConversionResult(
-      convertedAmount: liveRate == 0 ? amount : amount / liveRate,
-      rateUsed: liveRate == 0 ? 1.0 : 1 / liveRate,
-      rateDate: DateTime.now(),
-      wasFallback: true,
+      convertedAmount: amount,
+      rateUsed: _identityRate,
+      rateDate: asOfDate,
+      wasFallback: false,
     );
+  }
+
+  ExchangeRateModel? _usableStoredRate(
+    Result<ExchangeRateModel?, AppError> lookupResult, {
+    required String fromCurrency,
+    required String lookupName,
+  }) {
+    if (lookupResult.isFailure) {
+      _logger.warning('$lookupName $fromCurrency rate lookup failed: ${lookupResult.error}');
+      return null;
+    }
+    final storedRate = lookupResult.data;
+    if (storedRate == null) {
+      return null;
+    }
+    if (storedRate.rate <= 0) {
+      _logger.warning('Ignoring non-positive stored $fromCurrency rate ${storedRate.id}: ${storedRate.rate}');
+      return null;
+    }
+    return storedRate;
+  }
+
+  ConversionResult _convertWithStoredRate(
+    double amount,
+    ExchangeRateModel storedRate, {
+    required bool wasFallback,
+  }) {
+    return ConversionResult(
+      convertedAmount: amount / storedRate.rate,
+      rateUsed: _identityRate / storedRate.rate,
+      rateDate: storedRate.date,
+      wasFallback: wasFallback,
+    );
+  }
+
+  Future<Result<ConversionResult, AppError>> _convertWithLiveRate(
+    double amount,
+    String fromCurrency,
+  ) async {
+    final currencyResult = CurrencyService.resolveCurrency(fromCurrency);
+    if (currencyResult.isFailure) {
+      _logger.warning('Cannot convert $fromCurrency to $baseCurrencyCode: ${currencyResult.error}');
+      return Failure(currencyResult.error!);
+    }
+
+    final quoteResult = await _currencyService.getExchangeRate(currencyResult.data!);
+    if (quoteResult.isFailure) {
+      return Failure(quoteResult.error!);
+    }
+
+    final quote = quoteResult.data!;
+    if (quote.rate <= 0) {
+      return Failure(FinancialError('No usable exchange rate for $fromCurrency: ${quote.rate}'));
+    }
+
+    _logger.warning(
+      'No stored $fromCurrency rate; using live rate ${quote.rate} (hard-coded or stale: ${quote.isFallback})',
+    );
+    return Success(ConversionResult(
+      convertedAmount: amount / quote.rate,
+      rateUsed: _identityRate / quote.rate,
+      rateDate: quote.fetchedAt ?? DateTime.now(),
+      wasFallback: true,
+    ));
   }
 
   /// Converts between two arbitrary currencies by routing through base
   /// currency (base is the only currency stored rates are anchored to).
-  Future<double> convertToAccountCurrency({
+  Future<Result<ConversionResult, AppError>> convertToAccountCurrency({
     required double amount,
     required String fromCurrency,
     required String toCurrency,
     required DateTime asOfDate,
   }) async {
     if (fromCurrency == toCurrency) {
-      return amount;
+      return Success(_identityConversion(amount, asOfDate));
     }
-    final inBase = await convertToBase(
+
+    final inBaseResult = await convertToBase(
       amount: amount,
       fromCurrency: fromCurrency,
       asOfDate: asOfDate,
     );
-    if (toCurrency == baseCurrencyCode) {
-      return inBase.convertedAmount;
+    if (inBaseResult.isFailure || toCurrency == baseCurrencyCode) {
+      return inBaseResult;
     }
-    final toBaseRate = await convertToBase(
-      amount: 1,
+
+    final targetUnitResult = await convertToBase(
+      amount: _identityRate,
       fromCurrency: toCurrency,
       asOfDate: asOfDate,
     );
-    if (toBaseRate.convertedAmount == 0) {
-      return inBase.convertedAmount;
+    if (targetUnitResult.isFailure) {
+      return Failure(targetUnitResult.error!);
     }
-    return inBase.convertedAmount / toBaseRate.convertedAmount;
+
+    final inBase = inBaseResult.data!;
+    final targetUnit = targetUnitResult.data!;
+    if (targetUnit.convertedAmount <= 0) {
+      return Failure(FinancialError('No usable exchange rate for $toCurrency: ${targetUnit.rateUsed}'));
+    }
+
+    return Success(ConversionResult(
+      convertedAmount: inBase.convertedAmount / targetUnit.convertedAmount,
+      rateUsed: inBase.rateUsed / targetUnit.rateUsed,
+      rateDate: inBase.rateDate.isBefore(targetUnit.rateDate) ? inBase.rateDate : targetUnit.rateDate,
+      wasFallback: inBase.wasFallback || targetUnit.wasFallback,
+    ));
   }
 }

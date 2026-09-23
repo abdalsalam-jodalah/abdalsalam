@@ -2,10 +2,11 @@ import 'package:uuid/uuid.dart';
 
 import '../../../core/errors/app_error.dart';
 import '../../../core/result/result.dart';
-import '../../../core/errors/financial_errors.dart';
 import '../../../data/models/financial/recurrence_pattern.dart';
 import '../../../data/models/financial/transaction_model.dart';
 import '../../../data/repositories/financial/transaction_repository.dart';
+import '../../../shared/infrastructure/logger_service.dart';
+import '../../../shared/services/error_handler.dart';
 import 'financial_activity_logger.dart';
 
 /// Materializes due occurrences of recurring transactions as real
@@ -14,13 +15,16 @@ import 'financial_activity_logger.dart';
 class RecurringTransactionGenerator {
   final TransactionRepository _transactionRepo;
   final FinancialActivityLogger _activityLogger;
+  final LoggerService _logger;
+  final ErrorHandler _errorHandler;
   static const _uuid = Uuid();
 
   /// Safety cap on how many missed occurrences a single series will
   /// catch up in one run (e.g. app not opened for a long time).
   static const int maxCatchUpPerSeries = 24;
 
-  RecurringTransactionGenerator(this._transactionRepo, this._activityLogger);
+  RecurringTransactionGenerator(this._transactionRepo, this._activityLogger, this._logger)
+      : _errorHandler = ErrorHandler(_logger);
 
   static DateTime nextDueDate(DateTime from, RecurrencePattern pattern) {
     switch (pattern) {
@@ -58,23 +62,43 @@ class RecurringTransactionGenerator {
           !t.recurrenceNextDueDate!.isAfter(effectiveNow));
 
       var generatedCount = 0;
+      AppError? firstFailure;
       for (final original in dueSeries) {
-        generatedCount += await _catchUpSeries(original, effectiveNow);
+        final seriesResult = await _catchUpSeries(original, effectiveNow);
+        if (seriesResult.isFailure) {
+          firstFailure ??= seriesResult.error;
+          continue;
+        }
+        generatedCount += seriesResult.data!;
       }
 
+      if (firstFailure != null) {
+        return Failure(firstFailure);
+      }
       return Success(generatedCount);
-    } catch (e) {
-      return Failure(FinancialError(e.toString()));
+    } catch (error, stackTrace) {
+      return Failure(_errorHandler.mapException(
+        error,
+        context: 'RecurringTransactionGenerator.catchUpDueRecurrences',
+        stackTrace: stackTrace,
+      ));
     }
   }
 
-  Future<int> _catchUpSeries(TransactionModel original, DateTime now) async {
+  Future<Result<int, AppError>> _catchUpSeries(TransactionModel original, DateTime now) async {
     var dueDate = original.recurrenceNextDueDate!;
     var generated = 0;
 
     while (!dueDate.isAfter(now) && generated < maxCatchUpPerSeries) {
-      final alreadyExists = await _occurrenceAlreadyExists(original, dueDate);
-      if (!alreadyExists) {
+      final existsResult = await _occurrenceAlreadyExists(original, dueDate);
+      if (existsResult.isFailure) {
+        _logger.warning(
+          'Stopping catch-up for series ${original.id}: duplicate check for $dueDate failed: ${existsResult.error}',
+        );
+        return Failure(existsResult.error!);
+      }
+
+      if (!existsResult.data!) {
         final occurrence = original.copyWith(
           id: _uuid.v4(),
           date: dueDate,
@@ -84,19 +108,34 @@ class RecurringTransactionGenerator {
           createdAt: DateTime.now(),
           updatedAt: DateTime.now(),
         );
-        await _transactionRepo.create(occurrence);
+        final createResult = await _transactionRepo.create(occurrence);
+        if (createResult.isFailure) {
+          _logger.warning(
+            'Stopping catch-up for series ${original.id}: creating occurrence for $dueDate failed: ${createResult.error}',
+          );
+          return Failure(createResult.error!);
+        }
         await _activityLogger.logTransactionRecurringGenerated(occurrence);
         generated++;
       }
 
-      dueDate = nextDueDate(dueDate, original.recurrence!);
-      await _transactionRepo.update(original.copyWith(recurrenceNextDueDate: dueDate));
+      final followingDueDate = nextDueDate(dueDate, original.recurrence!);
+      final advanceResult = await _transactionRepo.update(
+        original.copyWith(recurrenceNextDueDate: followingDueDate),
+      );
+      if (advanceResult.isFailure) {
+        _logger.warning(
+          'Stopping catch-up for series ${original.id}: advancing due date to $followingDueDate failed: ${advanceResult.error}',
+        );
+        return Failure(advanceResult.error!);
+      }
+      dueDate = followingDueDate;
     }
 
-    return generated;
+    return Success(generated);
   }
 
-  Future<bool> _occurrenceAlreadyExists(TransactionModel original, DateTime dueDate) async {
+  Future<Result<bool, AppError>> _occurrenceAlreadyExists(TransactionModel original, DateTime dueDate) async {
     final startOfDay = DateTime(dueDate.year, dueDate.month, dueDate.day);
     final endOfDay = DateTime(dueDate.year, dueDate.month, dueDate.day, 23, 59, 59);
     final existingResult = await _transactionRepo.getByCategoryAndDateRange(
@@ -104,12 +143,9 @@ class RecurringTransactionGenerator {
       startOfDay,
       endOfDay,
     );
-    if (existingResult.isFailure) {
-      return false;
-    }
-    return existingResult.data!.any((t) =>
+    return existingResult.map((existing) => existing.any((t) =>
         t.id != original.id &&
         t.description == original.description &&
-        t.accountId == original.accountId);
+        t.accountId == original.accountId));
   }
 }

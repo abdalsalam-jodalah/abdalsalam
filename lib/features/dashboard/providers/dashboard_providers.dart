@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:http/http.dart' as http;
 import '../../../data/models/weather/weather_model.dart';
 import '../../../data/models/financial/exchange_rate_model.dart';
 import '../../../shared/infrastructure/logger_service.dart';
@@ -14,15 +15,16 @@ final weatherServiceProvider = Provider<WeatherService>((ref) {
     moduleType: logic.ModuleType.service,
   );
   final storage = ref.watch(storageGatewayProvider);
-  final service = WeatherService(logger, storage);
-  service.initialize();
-  return service;
+  final httpClient = http.Client();
+  ref.onDispose(httpClient.close);
+  return WeatherService(logger, storage, httpClient: httpClient);
 });
 
 // Weather Provider
 final weatherProvider = FutureProvider<WeatherModel?>((ref) async {
   final service = ref.watch(weatherServiceProvider);
-  return await service.getWeatherForNablus();
+  final result = await service.getWeatherForNablus();
+  return result.getOrThrow();
 });
 
 // Currency Rates Provider

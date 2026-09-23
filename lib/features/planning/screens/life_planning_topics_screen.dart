@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../../core/constants/user_error_messages.dart';
 import '../../../data/models/planning/goal.dart';
 import '../../../data/models/planning/plan_topic.dart';
 import '../../../data/models/planning/planning_task.dart';
@@ -63,11 +64,12 @@ Future<void> _showTopicDialog(
 
   if (result == null) return;
 
-  final repo = ref.read(planTopicRepositoryProvider);
+  final service = ref.read(planTopicServiceProvider);
   final now = DateTime.now();
 
+  final bool isSuccess;
   if (existing == null) {
-    await repo.create(
+    final createResult = await service.create(
       PlanTopic(
         id: _uuid.v4(),
         createdAt: now,
@@ -78,12 +80,16 @@ Future<void> _showTopicDialog(
         parentTopicId: parentTopicId,
       ),
     );
+    isSuccess = createResult.isSuccess;
   } else {
-    await repo.update(
+    final updateResult = await service.update(
       existing.copyWith(title: result.title, description: result.description.isEmpty ? null : result.description, updatedAt: now),
     );
+    isSuccess = updateResult.isSuccess;
   }
 
+  if (!context.mounted) return;
+  if (!isSuccess) _showFailureSnackBar(context);
   if (parentTopicId == null) {
     ref.invalidate(rootTopicsProvider);
   } else {
@@ -168,9 +174,11 @@ class _TopicDialogContentState extends State<_TopicDialogContent> {
   }
 }
 
-Future<void> _deleteTopic(WidgetRef ref, PlanTopic topic) async {
-  final repo = ref.read(planTopicRepositoryProvider);
-  await repo.softDelete(topic.id);
+Future<void> _deleteTopic(BuildContext context, WidgetRef ref, PlanTopic topic) async {
+  final service = ref.read(planTopicServiceProvider);
+  final deleteResult = await service.softDelete(topic.id);
+  if (!context.mounted) return;
+  if (deleteResult.isFailure) _showFailureSnackBar(context);
   if (topic.parentTopicId == null) {
     ref.invalidate(rootTopicsProvider);
   } else {
@@ -203,7 +211,7 @@ class _TopicTile extends ConsumerWidget {
               case _TopicMenuAction.edit:
                 _showTopicDialog(context, ref, parentTopicId: topic.parentTopicId, existing: topic);
               case _TopicMenuAction.delete:
-                _deleteTopic(ref, topic);
+                _deleteTopic(context, ref, topic);
             }
           },
           itemBuilder: (context) => const [
@@ -247,7 +255,7 @@ class _SubTopicTile extends ConsumerWidget {
               case _TopicMenuAction.edit:
                 _showTopicDialog(context, ref, parentTopicId: subTopic.parentTopicId, existing: subTopic);
               case _TopicMenuAction.delete:
-                _deleteTopic(ref, subTopic);
+                _deleteTopic(context, ref, subTopic);
             }
           },
           itemBuilder: (context) => const [
@@ -304,10 +312,10 @@ class _GoalTile extends ConsumerWidget {
             error: (error, stack) => const Padding(padding: EdgeInsets.all(12), child: Text('Failed to load tasks')),
             data: (tasks) => ReorderableTaskList(
               tasks: tasks,
-              onToggle: (task, completed) => _toggleTask(ref, task, completed),
+              onToggle: (task, completed) => _toggleTask(context, ref, task, completed),
               onEdit: (task) => _editTask(context, ref, task),
-              onDelete: (task) => _deleteTask(ref, task),
-              onReorder: (reordered) => _reorderTasks(ref, reordered),
+              onDelete: (task) => _deleteTask(context, ref, task),
+              onReorder: (reordered) => _reorderTasks(context, ref, reordered),
             ),
           ),
         ],
@@ -327,24 +335,36 @@ class _GoalTile extends ConsumerWidget {
     await showPlanningTaskDialog(context, ref, existing: task, fixedGoalId: goal.id);
   }
 
-  Future<void> _toggleTask(WidgetRef ref, PlanningTask task, bool completed) async {
-    final repo = ref.read(planningTaskRepositoryProvider);
-    await repo.update(task.copyWith(isCompleted: completed, updatedAt: DateTime.now()));
+  Future<void> _toggleTask(BuildContext context, WidgetRef ref, PlanningTask task, bool completed) async {
+    final service = ref.read(planningTaskServiceProvider);
+    final updateResult = await service.update(task.copyWith(isCompleted: completed, updatedAt: DateTime.now()));
+    if (!context.mounted) return;
+    if (updateResult.isFailure) _showFailureSnackBar(context);
     ref.invalidate(tasksForGoalProvider(goal.id));
   }
 
-  Future<void> _deleteTask(WidgetRef ref, PlanningTask task) async {
-    final repo = ref.read(planningTaskRepositoryProvider);
-    await repo.softDelete(task.id);
+  Future<void> _deleteTask(BuildContext context, WidgetRef ref, PlanningTask task) async {
+    final service = ref.read(planningTaskServiceProvider);
+    final deleteResult = await service.softDelete(task.id);
+    if (!context.mounted) return;
+    if (deleteResult.isFailure) _showFailureSnackBar(context);
     ref.invalidate(tasksForGoalProvider(goal.id));
   }
 
-  Future<void> _reorderTasks(WidgetRef ref, List<PlanningTask> reordered) async {
-    final repo = ref.read(planningTaskRepositoryProvider);
+  Future<void> _reorderTasks(BuildContext context, WidgetRef ref, List<PlanningTask> reordered) async {
+    final service = ref.read(planningTaskServiceProvider);
     final updated = [
       for (var i = 0; i < reordered.length; i++) reordered[i].copyWith(order: i, updatedAt: DateTime.now()),
     ];
-    await repo.updateBulk(updated);
+    final updateResult = await service.updateBulk(updated);
+    if (!context.mounted) return;
+    if (updateResult.isFailure) _showFailureSnackBar(context);
     ref.invalidate(tasksForGoalProvider(goal.id));
   }
+}
+
+void _showFailureSnackBar(BuildContext context) {
+  ScaffoldMessenger.of(context).showSnackBar(
+    const SnackBar(content: Text(UserErrorMessages.generic), backgroundColor: Colors.red),
+  );
 }

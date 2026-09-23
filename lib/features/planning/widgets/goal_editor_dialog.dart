@@ -79,11 +79,11 @@ Future<bool> showGoalEditorDialog(
 
   if (result == null) return false;
 
-  final repo = ref.read(goalRepositoryProvider);
+  final service = ref.read(goalServiceProvider);
   final now = DateTime.now();
 
   final saveResult = existing == null
-      ? await repo.create(
+      ? await service.create(
           Goal(
             id: _uuid.v4(),
             createdAt: now,
@@ -99,7 +99,7 @@ Future<bool> showGoalEditorDialog(
             topicId: topicId ?? existing?.topicId,
           ),
         )
-      : await repo.update(
+      : await service.update(
           existing.copyWith(
             title: result.title,
             description: result.description.isEmpty ? null : result.description,

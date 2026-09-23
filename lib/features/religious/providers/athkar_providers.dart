@@ -44,7 +44,8 @@ final athkarCategoryProvider =
 
 final athkarSuggestionsProvider = FutureProvider<List<AthkarCategory>>((ref) async {
   final service = ref.watch(athkarServiceProvider);
-  return service.getCategoriesForNow();
+  final result = await service.getCategoriesForNow();
+  return result.getOrThrow();
 });
 
 final athkarLogsControllerProvider =

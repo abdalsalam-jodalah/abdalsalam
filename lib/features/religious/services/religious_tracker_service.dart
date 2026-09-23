@@ -4,21 +4,49 @@ import 'package:http/http.dart' as http;
 import 'package:uuid/uuid.dart';
 
 import '../../../core/errors/app_error.dart';
+import '../../../core/json/json_reader.dart';
 import '../../../core/result/result.dart';
+import '../../../data/models/religious/prayer_log.dart';
 import '../../../data/models/religious/prayer_times_snapshot.dart';
 import '../../../data/models/religious/religious_entry.dart';
 import '../../../data/repositories/religious/prayer_times_snapshot_repository.dart';
 import '../../../data/repositories/religious/religious_entry_repository.dart';
 import '../../../shared/infrastructure/logger_service.dart';
 import '../../../shared/services/base_service_impl.dart';
+import '../../../shared/services/error_handler.dart';
 import '../../../shared/services/reminder_service.dart';
 import '../../../shared/services/settings_service.dart';
 import 'prayer_time_service.dart';
+import 'religious_settings_keys.dart';
 
 class ReligiousTrackerService extends BaseServiceImpl<ReligiousEntry> {
+  static const int dailySyncHour = 1;
+
   static const _uuid = Uuid();
   static const _sourceUrl = 'https://quran-radio.com/';
   static const _adhanSourceLabel = 'adhan:muslim_world_league';
+  static const _adhanSource = 'adhan';
+  static const _scrapedSource = 'scraped';
+  static const _userAgentHeader = 'user-agent';
+  static const _userAgent = 'Mozilla/5.0 (Flutter App)';
+  static const _httpOk = 200;
+  static const _defaultLatitude = 32.2211;
+  static const _defaultLongitude = 35.2544;
+  static const _defaultReminderMinutes = 10;
+  static const _minimumRetentionDays = 365;
+  static const _labelSearchWindow = 240;
+  static const _hoursPerHalfDay = 12;
+  static const _minutesPerHour = 60;
+  static const _afternoonMarker = 'م';
+  static const _morningMarker = 'ص';
+  static const _timePattern = r'(\d{1,2}):(\d{2})\s*([صم])';
+  static const _prayerLabels = <String, PrayerName>{
+    'الفجر': PrayerName.fajr,
+    'الظهر': PrayerName.dhuhr,
+    'العصر': PrayerName.asr,
+    'المغرب': PrayerName.maghrib,
+    'العشاء': PrayerName.isha,
+  };
 
   final ReligiousEntryRepository _entriesRepo;
   final PrayerTimesSnapshotRepository _timesRepo;
@@ -42,6 +70,8 @@ class ReligiousTrackerService extends BaseServiceImpl<ReligiousEntry> {
         _httpClient = httpClient ?? http.Client(),
         _serviceLogger = logger,
         super(_entriesRepo, logger);
+
+  ErrorHandler get _errorHandler => ErrorHandler(_serviceLogger);
 
   @override
   String get serviceName => 'ReligiousTrackerService';
@@ -120,124 +150,55 @@ class ReligiousTrackerService extends BaseServiceImpl<ReligiousEntry> {
       return Failure(existing.error!);
     }
 
-    if (!force && existing.data != null) {
-      return Success(existing.data!);
+    final existingSnapshot = existing.data;
+    if (!force && existingSnapshot != null) {
+      return Success(existingSnapshot);
     }
 
-    try {
-      final settings = await _settings.getSettings();
-      final source = (settings['prayerTimeSource'] as String?) ?? 'scraped';
-
-      final Map<String, DateTime> parsed;
-      final String sourceLabel;
-      if (source == 'adhan') {
-        parsed = await _calculateAdhanTimes(now, settings);
-        sourceLabel = _adhanSourceLabel;
-      } else {
-        parsed = await _scrapeTimes(now);
-        sourceLabel = _sourceUrl;
-      }
-
-      final snapshot = PrayerTimesSnapshot(
-        id: dateKey,
-        createdAt: existing.data?.createdAt ?? now,
-        updatedAt: now,
-        dateKey: dateKey,
-        forDate: DateTime(now.year, now.month, now.day),
-        fetchedAt: now,
-        sourceUrl: sourceLabel,
-        fajr: parsed['fajr']!,
-        dhuhr: parsed['dhuhr']!,
-        asr: parsed['asr']!,
-        maghrib: parsed['maghrib']!,
-        isha: parsed['isha']!,
-      );
-
-      if (existing.data == null) {
-        final createResult = await _timesRepo.create(snapshot);
-        if (createResult.isFailure) {
-          return Failure(createResult.error!);
-        }
-      } else {
-        final updateResult = await _timesRepo.update(snapshot);
-        if (updateResult.isFailure) {
-          return Failure(updateResult.error!);
-        }
-      }
-
-      _serviceLogger.info('[ReligiousTracker] prayer times synced for $dateKey from $sourceLabel');
-      await _enforcePrayerTimesRetention();
-      await _schedulePrayerTimeReminders(snapshot);
-      return Success(snapshot);
-    } catch (e, st) {
-      _serviceLogger.error('[ReligiousTracker] prayer time sync failed', error: e, stackTrace: st);
-      return Failure(NetworkError(e.toString()));
+    final settingsResult = await _readSettings();
+    if (settingsResult.isFailure) {
+      return Failure(settingsResult.error!);
     }
-  }
+    final settings = settingsResult.data!;
 
-  Future<Map<String, DateTime>> _scrapeTimes(DateTime date) async {
-    final response = await _httpClient.get(
-      Uri.parse(_sourceUrl),
-      headers: const <String, String>{
-        'user-agent': 'Mozilla/5.0 (Flutter App)',
-      },
+    final isAdhan = settings.readString(ReligiousSettingsKeys.prayerTimeSource, fallback: _scrapedSource) ==
+        _adhanSource;
+    final sourceLabel = isAdhan ? _adhanSourceLabel : _sourceUrl;
+    final timesResult = isAdhan ? await _calculateAdhanTimes(now, settings) : await _scrapeTimes(now);
+    if (timesResult.isFailure) {
+      _serviceLogger.warning('[ReligiousTracker] prayer time sync failed for $dateKey: ${timesResult.error}');
+      return Failure(timesResult.error!);
+    }
+
+    final snapshotResult = _buildSnapshot(
+      times: timesResult.data!,
+      dateKey: dateKey,
+      now: now,
+      createdAt: existingSnapshot?.createdAt ?? now,
+      sourceLabel: sourceLabel,
     );
-    if (response.statusCode != 200) {
-      throw NetworkError('Failed to fetch prayer times (status ${response.statusCode})');
+    if (snapshotResult.isFailure) {
+      _serviceLogger.warning('[ReligiousTracker] prayer time sync failed for $dateKey: ${snapshotResult.error}');
+      return snapshotResult;
     }
+    final snapshot = snapshotResult.data!;
 
-    final parsed = _parsePrayerTimes(response.body, date);
-    if (parsed == null) {
-      throw ValidationError('Unable to parse prayer times from source page');
-    }
-    return parsed;
-  }
-
-  Future<Map<String, DateTime>> _calculateAdhanTimes(
-    DateTime date,
-    Map<String, dynamic> settings,
-  ) async {
-    final lat = (settings['prayerLocationLatitude'] as num?)?.toDouble() ?? 32.2211;
-    final long = (settings['prayerLocationLongitude'] as num?)?.toDouble() ?? 35.2544;
-    final method = (settings['prayerMethod'] as String?) ?? 'muslim_world_league';
-    final times = await _prayerTimeService.calculatePrayerTimes(
-      date: date,
-      latitude: lat,
-      longitude: long,
-      method: method,
-    );
-    return times.map((key, value) => MapEntry(key, DateTime.parse(value)));
-  }
-
-  /// Pure computation of a source's prayer times without persisting a
-  /// snapshot — used for the settings preview UI.
-  Future<Result<Map<String, DateTime>, AppError>> previewSource({
-    required String source,
-    double? latitude,
-    double? longitude,
-    DateTime? date,
-  }) async {
-    final targetDate = date ?? DateTime.now();
-    try {
-      if (source == 'adhan') {
-        final settings = await _settings.getSettings();
-        final lat = latitude ?? (settings['prayerLocationLatitude'] as num?)?.toDouble() ?? 32.2211;
-        final long = longitude ?? (settings['prayerLocationLongitude'] as num?)?.toDouble() ?? 35.2544;
-        final method = (settings['prayerMethod'] as String?) ?? 'muslim_world_league';
-        final times = await _prayerTimeService.calculatePrayerTimes(
-          date: targetDate,
-          latitude: lat,
-          longitude: long,
-          method: method,
-        );
-        return Success(times.map((key, value) => MapEntry(key, DateTime.parse(value))));
+    if (existingSnapshot == null) {
+      final createResult = await _timesRepo.create(snapshot);
+      if (createResult.isFailure) {
+        return Failure(createResult.error!);
       }
-      final parsed = await _scrapeTimes(targetDate);
-      return Success(parsed);
-    } catch (e, st) {
-      _serviceLogger.error('[ReligiousTracker] previewSource failed', error: e, stackTrace: st);
-      return Failure(NetworkError(e.toString()));
+    } else {
+      final updateResult = await _timesRepo.update(snapshot);
+      if (updateResult.isFailure) {
+        return Failure(updateResult.error!);
+      }
     }
+
+    _serviceLogger.info('[ReligiousTracker] prayer times synced for $dateKey from $sourceLabel');
+    await _enforcePrayerTimesRetention(settings);
+    await _schedulePrayerTimeReminders(snapshot, settings);
+    return Success(snapshot);
   }
 
   Future<Result<PrayerTimesSnapshot, AppError>> getTodayPrayerTimes() async {
@@ -247,18 +208,42 @@ class ReligiousTrackerService extends BaseServiceImpl<ReligiousEntry> {
     if (existing.isFailure) {
       return Failure(existing.error!);
     }
-    if (existing.data != null) {
-      return Success(existing.data!);
+    final snapshot = existing.data;
+    if (snapshot != null) {
+      return Success(snapshot);
     }
     return syncPrayerTimesForToday();
   }
 
-  Future<void> ensurePrayerTimesFresh() async {
-    final now = DateTime.now();
-    if (now.hour < 1) {
-      return;
+  Future<Result<Map<String, DateTime>, AppError>> previewSource({
+    required String source,
+    double? latitude,
+    double? longitude,
+    DateTime? date,
+  }) async {
+    final targetDate = date ?? DateTime.now();
+    if (source != _adhanSource) {
+      return _scrapeTimes(targetDate);
     }
-    await syncPrayerTimesForToday();
+
+    final settingsResult = await _readSettings();
+    if (settingsResult.isFailure) {
+      return Failure(settingsResult.error!);
+    }
+    return _calculateAdhanTimes(
+      targetDate,
+      settingsResult.data!,
+      latitude: latitude,
+      longitude: longitude,
+    );
+  }
+
+  Future<Result<void, AppError>> ensurePrayerTimesFresh() async {
+    if (DateTime.now().hour < dailySyncHour) {
+      return const Success(null);
+    }
+    final synced = await syncPrayerTimesForToday();
+    return synced.map<void>((_) {});
   }
 
   @override
@@ -300,13 +285,117 @@ class ReligiousTrackerService extends BaseServiceImpl<ReligiousEntry> {
     return const Success(null);
   }
 
-  Future<void> _schedulePrayerTimeReminders(PrayerTimesSnapshot snapshot) async {
-    final settings = await _settings.getSettings();
-    final minutes = (settings['religiousDefaultReminderMinutes'] as int?) ?? 10;
-    final prayerEnabled = (settings['religiousPrayerRemindersEnabled'] as bool?) ?? true;
-    if (!prayerEnabled) {
+  Future<Result<JsonReader, AppError>> _readSettings() {
+    return Result.guardAsync<JsonReader, AppError>(
+      () async => JsonReader(await _settings.getSettings(), source: ReligiousSettingsKeys.readerSource),
+      onError: (error, stackTrace) => _errorHandler.mapException(
+        error,
+        context: 'ReligiousTracker.readSettings',
+        stackTrace: stackTrace,
+      ),
+    );
+  }
+
+  Future<Result<Map<String, DateTime>, AppError>> _scrapeTimes(DateTime date) async {
+    final http.Response response;
+    try {
+      response = await _httpClient.get(
+        Uri.parse(_sourceUrl),
+        headers: const <String, String>{_userAgentHeader: _userAgent},
+      );
+    } catch (error, stackTrace) {
+      return Failure(
+        _errorHandler.mapException(error, context: 'ReligiousTracker.scrapeTimes', stackTrace: stackTrace),
+      );
+    }
+
+    if (response.statusCode != _httpOk) {
+      final error = NetworkError('Failed to fetch prayer times (status ${response.statusCode})');
+      _serviceLogger.warning('[ReligiousTracker] $error');
+      return Failure(error);
+    }
+
+    final parsed = _parsePrayerTimes(response.body, date);
+    if (parsed == null) {
+      final error = CorruptDataError('Unable to parse prayer times from source page', source: _sourceUrl);
+      _serviceLogger.warning('[ReligiousTracker] $error');
+      return Failure(error);
+    }
+    return Success(parsed);
+  }
+
+  Future<Result<Map<String, DateTime>, AppError>> _calculateAdhanTimes(
+    DateTime date,
+    JsonReader settings, {
+    double? latitude,
+    double? longitude,
+  }) {
+    return _prayerTimeService.calculatePrayerTimes(
+      date: date,
+      latitude: latitude ??
+          settings.readDouble(ReligiousSettingsKeys.prayerLocationLatitude, fallback: _defaultLatitude),
+      longitude: longitude ??
+          settings.readDouble(ReligiousSettingsKeys.prayerLocationLongitude, fallback: _defaultLongitude),
+      method: settings.readString(ReligiousSettingsKeys.prayerMethod, fallback: PrayerTimeService.defaultMethod),
+    );
+  }
+
+  Result<PrayerTimesSnapshot, AppError> _buildSnapshot({
+    required Map<String, DateTime> times,
+    required String dateKey,
+    required DateTime now,
+    required DateTime createdAt,
+    required String sourceLabel,
+  }) {
+    for (final prayer in PrayerName.values) {
+      if (!times.containsKey(prayer.name)) {
+        return Failure(
+          CorruptDataError(
+            'Prayer times from $sourceLabel are missing ${prayer.name}',
+            source: sourceLabel,
+            field: prayer.name,
+          ),
+        );
+      }
+    }
+
+    return Success(
+      PrayerTimesSnapshot(
+        id: dateKey,
+        createdAt: createdAt,
+        updatedAt: now,
+        dateKey: dateKey,
+        forDate: DateTime(now.year, now.month, now.day),
+        fetchedAt: now,
+        sourceUrl: sourceLabel,
+        fajr: times[PrayerName.fajr.name]!,
+        dhuhr: times[PrayerName.dhuhr.name]!,
+        asr: times[PrayerName.asr.name]!,
+        maghrib: times[PrayerName.maghrib.name]!,
+        isha: times[PrayerName.isha.name]!,
+      ),
+    );
+  }
+
+  Future<Result<void, AppError>> _scheduleReminder(ReminderPayload payload) {
+    return Result.guardAsync<void, AppError>(
+      () => _reminders.schedule(payload),
+      onError: (error, stackTrace) => _errorHandler.mapException(
+        error,
+        context: 'ReligiousTracker.scheduleReminder',
+        stackTrace: stackTrace,
+      ),
+    );
+  }
+
+  Future<void> _schedulePrayerTimeReminders(PrayerTimesSnapshot snapshot, JsonReader settings) async {
+    if (!settings.readBool(ReligiousSettingsKeys.prayerRemindersEnabled, fallback: true)) {
       return;
     }
+    final minutes = settings.readInt(
+      ReligiousSettingsKeys.defaultReminderMinutes,
+      fallback: _defaultReminderMinutes,
+    );
 
     final prayers = <String, DateTime>{
       'Fajr': snapshot.fajr,
@@ -321,7 +410,7 @@ class ReligiousTrackerService extends BaseServiceImpl<ReligiousEntry> {
       if (reminderAt.isBefore(DateTime.now())) {
         continue;
       }
-      await _reminders.schedule(
+      final scheduled = await _scheduleReminder(
         ReminderPayload(
           module: ReminderModule.religious,
           targetId: 'prayer-${snapshot.dateKey}-${entry.key.toLowerCase()}',
@@ -330,64 +419,65 @@ class ReligiousTrackerService extends BaseServiceImpl<ReligiousEntry> {
           scheduledAt: reminderAt,
         ),
       );
+      if (scheduled.isFailure) {
+        _serviceLogger.warning('[ReligiousTracker] ${entry.key} reminder for ${snapshot.dateKey} not scheduled');
+      }
     }
   }
 
   Future<void> _scheduleReminderIfEnabled(ReligiousEntry entry) async {
-    if (entry.reminderAt == null || entry.reminderAt!.isBefore(DateTime.now())) {
+    final reminderAt = entry.reminderAt;
+    if (reminderAt == null || reminderAt.isBefore(DateTime.now())) {
       return;
     }
 
-    final settings = await _settings.getSettings();
-    final notificationsEnabled = (settings['notificationsEnabled'] as bool?) ?? true;
-    final moduleEnabled = (settings['religiousRemindersEnabled'] as bool?) ?? true;
+    final settingsResult = await _readSettings();
+    if (settingsResult.isFailure) {
+      _serviceLogger.warning('[ReligiousTracker] reminder for ${entry.id} not scheduled: settings unavailable');
+      return;
+    }
+    final settings = settingsResult.data!;
 
+    final notificationsEnabled = settings.readBool(ReligiousSettingsKeys.notificationsEnabled, fallback: true);
+    final moduleEnabled = settings.readBool(ReligiousSettingsKeys.remindersEnabled, fallback: true);
     if (!notificationsEnabled || !moduleEnabled) {
       return;
     }
 
-    final typeEnabled = switch (entry.type) {
-      ReligiousEntryType.prayer => (settings['religiousPrayerRemindersEnabled'] as bool?) ?? true,
-      ReligiousEntryType.quranReading => (settings['religiousQuranRemindersEnabled'] as bool?) ?? true,
-      ReligiousEntryType.badEvent => (settings['religiousBadEventRemindersEnabled'] as bool?) ?? true,
-      ReligiousEntryType.athkar => (settings['religiousAthkarRemindersEnabled'] as bool?) ?? true,
-      ReligiousEntryType.nightPrayer => (settings['religiousNightRemindersEnabled'] as bool?) ?? true,
+    final typeKey = switch (entry.type) {
+      ReligiousEntryType.prayer => ReligiousSettingsKeys.prayerRemindersEnabled,
+      ReligiousEntryType.quranReading => ReligiousSettingsKeys.quranRemindersEnabled,
+      ReligiousEntryType.badEvent => ReligiousSettingsKeys.badEventRemindersEnabled,
+      ReligiousEntryType.athkar => ReligiousSettingsKeys.athkarRemindersEnabled,
+      ReligiousEntryType.nightPrayer => ReligiousSettingsKeys.nightRemindersEnabled,
     };
-
-    if (!typeEnabled) {
+    if (!settings.readBool(typeKey, fallback: true)) {
       return;
     }
 
-    await _reminders.schedule(
+    final scheduled = await _scheduleReminder(
       ReminderPayload(
         module: ReminderModule.religious,
         targetId: entry.id,
         title: 'Religious reminder',
         body: entry.title,
-        scheduledAt: entry.reminderAt!,
+        scheduledAt: reminderAt,
       ),
     );
+    if (scheduled.isFailure) {
+      _serviceLogger.warning('[ReligiousTracker] reminder for ${entry.id} not scheduled');
+    }
   }
 
   Map<String, DateTime>? _parsePrayerTimes(String html, DateTime date) {
     final result = <String, DateTime>{};
-
-    final labels = <String, String>{
-      'الفجر': 'fajr',
-      'الظهر': 'dhuhr',
-      'العصر': 'asr',
-      'المغرب': 'maghrib',
-      'العشاء': 'isha',
-    };
-
-    for (final entry in labels.entries) {
+    for (final entry in _prayerLabels.entries) {
       final time = _extractTimeForLabel(html, entry.key, date);
       if (time == null) {
         return null;
       }
-      result[entry.value] = time;
+      result[entry.value.name] = time;
     }
-
     return result;
   }
 
@@ -397,24 +487,24 @@ class ReligiousTrackerService extends BaseServiceImpl<ReligiousEntry> {
       return null;
     }
 
-    final from = index;
-    final to = (index + 240).clamp(0, html.length);
-    final window = html.substring(from, to);
-
-    final pattern = RegExp(r'(\d{1,2}):(\d{2})\s*([صم])');
-    final match = pattern.firstMatch(window);
+    final to = (index + _labelSearchWindow).clamp(0, html.length);
+    final match = RegExp(_timePattern).firstMatch(html.substring(index, to));
     if (match == null) {
       return null;
     }
 
-    var hour = int.parse(match.group(1)!);
-    final minute = int.parse(match.group(2)!);
-    final marker = match.group(3)!;
-
-    if (marker == 'م' && hour < 12) {
-      hour += 12;
+    final parsedHour = int.tryParse(match.group(1) ?? '');
+    final minute = int.tryParse(match.group(2) ?? '');
+    final marker = match.group(3);
+    if (parsedHour == null || minute == null || parsedHour > _hoursPerHalfDay || minute >= _minutesPerHour) {
+      return null;
     }
-    if (marker == 'ص' && hour == 12) {
+
+    var hour = parsedHour;
+    if (marker == _afternoonMarker && hour < _hoursPerHalfDay) {
+      hour += _hoursPerHalfDay;
+    }
+    if (marker == _morningMarker && hour == _hoursPerHalfDay) {
       hour = 0;
     }
 
@@ -427,20 +517,27 @@ class ReligiousTrackerService extends BaseServiceImpl<ReligiousEntry> {
     return '${date.year}-$m-$d';
   }
 
-  Future<void> _enforcePrayerTimesRetention() async {
-    final settings = await _settings.getSettings();
-    final configured = (settings['religiousPrayerTimesRetentionDays'] as int?) ?? 365;
-    final retentionDays = configured < 365 ? 365 : configured;
+  Future<void> _enforcePrayerTimesRetention(JsonReader settings) async {
+    final configured = settings.readInt(
+      ReligiousSettingsKeys.prayerTimesRetentionDays,
+      fallback: _minimumRetentionDays,
+    );
+    final retentionDays = configured < _minimumRetentionDays ? _minimumRetentionDays : configured;
 
     final all = await _timesRepo.getAll();
     if (all.isFailure) {
+      _serviceLogger.warning('[ReligiousTracker] prayer times retention skipped: ${all.error}');
       return;
     }
 
     final cutoff = DateTime.now().subtract(Duration(days: retentionDays));
     for (final snapshot in all.data!) {
-      if (snapshot.forDate.isBefore(cutoff)) {
-        await _timesRepo.delete(snapshot.id);
+      if (!snapshot.forDate.isBefore(cutoff)) {
+        continue;
+      }
+      final deleted = await _timesRepo.delete(snapshot.id);
+      if (deleted.isFailure) {
+        _serviceLogger.warning('[ReligiousTracker] failed to prune prayer times ${snapshot.id}: ${deleted.error}');
       }
     }
   }
@@ -456,7 +553,10 @@ class ReligiousPrayerSyncScheduler {
   void start() {
     _scheduleNext();
     Future<void>(() async {
-      await service.ensurePrayerTimesFresh();
+      final result = await service.ensurePrayerTimesFresh();
+      if (result.isFailure) {
+        logger.warning('[ReligiousSync] startup sync failed: ${result.error}');
+      }
     });
   }
 
@@ -467,13 +567,16 @@ class ReligiousPrayerSyncScheduler {
   void _scheduleNext() {
     _timer?.cancel();
     final now = DateTime.now();
-    final next = DateTime(now.year, now.month, now.day, 1);
+    final next = DateTime(now.year, now.month, now.day, ReligiousTrackerService.dailySyncHour);
     final target = now.isBefore(next) ? next : next.add(const Duration(days: 1));
     final delay = target.difference(now);
 
     logger.info('[ReligiousSync] next daily sync at ${target.toIso8601String()}');
     _timer = Timer(delay, () async {
-      await service.syncPrayerTimesForToday(force: true);
+      final result = await service.syncPrayerTimesForToday(force: true);
+      if (result.isFailure) {
+        logger.warning('[ReligiousSync] daily sync failed: ${result.error}');
+      }
       _scheduleNext();
     });
   }

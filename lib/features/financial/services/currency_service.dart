@@ -1,7 +1,14 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import '../../../core/errors/app_error.dart';
+import '../../../core/errors/financial_errors.dart';
+import '../../../core/json/json_reader.dart';
+import '../../../core/result/result.dart';
 import '../../../shared/infrastructure/logger_service.dart';
 import '../../../shared/infrastructure/storage_gateway.dart';
+import '../../../shared/services/error_handler.dart';
+import 'conversion_result.dart';
+import 'exchange_rate_quote.dart';
 
 enum Currency {
   ils('ILS', '₪', 'Israeli Shekel'),
@@ -18,113 +25,191 @@ enum Currency {
 class CurrencyService {
   final LoggerService _logger;
   final StorageGateway _storage;
-  
+  final http.Client _httpClient;
+  final ErrorHandler _errorHandler;
+
   static const String _ratesKey = 'currency_rates';
   static const String _lastUpdateKey = 'currency_rates_last_update';
-  
-  // Base currency is ILS
+  static const String _ratesApiUrl = 'https://api.exchangerate-api.com/v4/latest/ILS';
+  static const String _ratesApiField = 'rates';
+  static const String _ratesApiSource = 'exchangerate-api';
+  static const Duration _apiTimeout = Duration(seconds: 10);
+  static const int _httpStatusOk = 200;
+
   static const Currency baseCurrency = Currency.ils;
-  
-  // Cache exchange rates for 24 hours
+  static const double _baseRate = 1.0;
+  static const double _fallbackIlsToUsdRate = 0.27;
+  static const double _fallbackIlsToJodRate = 0.19;
+
   static const Duration _cacheExpiry = Duration(hours: 24);
-  
+
   Map<String, double> _cachedRates = {};
   DateTime? _lastUpdate;
 
-  CurrencyService(this._logger, this._storage);
+  CurrencyService(this._logger, this._storage, {http.Client? httpClient})
+      : _httpClient = httpClient ?? http.Client(),
+        _errorHandler = ErrorHandler(_logger);
 
-  /// Get exchange rate from base currency (ILS) to target currency
-  Future<double> getExchangeRate(Currency targetCurrency) async {
-    if (targetCurrency == baseCurrency) {
-      return 1.0;
-    }
-
-    // Check if cache is valid
-    if (_isCacheValid()) {
-      final rate = _cachedRates[targetCurrency.code];
-      if (rate != null) {
-        _logger.info('Using cached exchange rate for ${targetCurrency.code}: $rate');
-        return rate;
+  static Result<Currency, AppError> resolveCurrency(String code) {
+    for (final currency in Currency.values) {
+      if (currency.code == code) {
+        return Success(currency);
       }
     }
+    return Failure(FinancialError('Unsupported currency code: $code'));
+  }
 
-    // Fetch fresh rates
-    await _fetchExchangeRates();
-    
-    return _cachedRates[targetCurrency.code] ?? 1.0;
+  /// Get exchange rate from base currency (ILS) to target currency
+  Future<Result<ExchangeRateQuote, AppError>> getExchangeRate(Currency targetCurrency) async {
+    if (targetCurrency == baseCurrency) {
+      return Success(ExchangeRateQuote(rate: _baseRate, fetchedAt: DateTime.now(), isFallback: false));
+    }
+    try {
+      if (!_isCacheValid() || !_cachedRates.containsKey(targetCurrency.code)) {
+        final refreshResult = await _fetchExchangeRates();
+        if (refreshResult.isFailure) {
+          _logger.warning('Exchange rate refresh failed for ${targetCurrency.code}: ${refreshResult.error}');
+        }
+      }
+
+      final cachedRate = _cachedRates[targetCurrency.code];
+      if (cachedRate == null) {
+        return Success(_hardCodedFallbackQuote(targetCurrency));
+      }
+
+      final isStale = !_isCacheValid();
+      if (isStale) {
+        _logger.warning(
+          'Using stale stored exchange rate for ${targetCurrency.code}: $cachedRate (last update: $_lastUpdate)',
+        );
+      }
+      return Success(ExchangeRateQuote(rate: cachedRate, fetchedAt: _lastUpdate, isFallback: isStale));
+    } catch (error, stackTrace) {
+      return Failure(_errorHandler.mapException(
+        error,
+        context: 'CurrencyService.getExchangeRate',
+        stackTrace: stackTrace,
+      ));
+    }
+  }
+
+  ExchangeRateQuote _hardCodedFallbackQuote(Currency targetCurrency) {
+    final rate = _hardCodedRateFor(targetCurrency);
+    _logger.warning('Using hard-coded fallback exchange rate for ${targetCurrency.code}: $rate');
+    return ExchangeRateQuote(rate: rate, fetchedAt: null, isFallback: true);
+  }
+
+  static double _hardCodedRateFor(Currency currency) {
+    return switch (currency) {
+      Currency.ils => _baseRate,
+      Currency.usd => _fallbackIlsToUsdRate,
+      Currency.jod => _fallbackIlsToJodRate,
+    };
   }
 
   /// Convert amount from one currency to another
-  Future<double> convert({
+  Future<Result<ConversionResult, AppError>> convert({
     required double amount,
     required Currency from,
     required Currency to,
   }) async {
     if (from == to) {
-      return amount;
+      return Success(ConversionResult(
+        convertedAmount: amount,
+        rateUsed: _baseRate,
+        rateDate: DateTime.now(),
+        wasFallback: false,
+      ));
     }
 
-    // Convert to base currency (ILS) first
-    double amountInBase = amount;
-    if (from != baseCurrency) {
-      final fromRate = await getExchangeRate(from);
-      amountInBase = amount / fromRate;
+    final fromQuoteResult = await getExchangeRate(from);
+    if (fromQuoteResult.isFailure) {
+      return Failure(fromQuoteResult.error!);
+    }
+    final toQuoteResult = await getExchangeRate(to);
+    if (toQuoteResult.isFailure) {
+      return Failure(toQuoteResult.error!);
     }
 
-    // Convert from base to target currency
-    if (to != baseCurrency) {
-      final toRate = await getExchangeRate(to);
-      return amountInBase * toRate;
-    }
-
-    return amountInBase;
+    final fromQuote = fromQuoteResult.data!;
+    final toQuote = toQuoteResult.data!;
+    final rateUsed = toQuote.rate / fromQuote.rate;
+    return Success(ConversionResult(
+      convertedAmount: amount * rateUsed,
+      rateUsed: rateUsed,
+      rateDate: fromQuote.fetchedAt ?? toQuote.fetchedAt ?? DateTime.now(),
+      wasFallback: fromQuote.isFallback || toQuote.isFallback,
+    ));
   }
 
   /// Convert amount to base currency (ILS)
-  Future<double> convertToBase(double amount, Currency from) async {
+  Future<Result<ConversionResult, AppError>> convertToBase(double amount, Currency from) async {
     return convert(amount: amount, from: from, to: baseCurrency);
   }
 
-  /// Fetch exchange rates from API
-  Future<void> _fetchExchangeRates() async {
+  Future<Result<void, AppError>> _fetchExchangeRates() async {
     try {
       _logger.info('Fetching exchange rates from API');
-      
-      // Using exchangerate-api.com (free tier)
-      // Base currency is ILS
-      final url = Uri.parse('https://api.exchangerate-api.com/v4/latest/ILS');
-      
-      final response = await http.get(url).timeout(
-        const Duration(seconds: 10),
-        onTimeout: () {
-          _logger.warning('Exchange rate API timeout, using cached rates');
-          return http.Response('{}', 408);
-        },
-      );
+      final response = await _httpClient.get(Uri.parse(_ratesApiUrl)).timeout(_apiTimeout);
 
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body) as Map<String, dynamic>;
-        final rates = data['rates'] as Map<String, dynamic>;
-
-        _cachedRates = {
-          Currency.usd.code: (rates['USD'] as num?)?.toDouble() ?? 0.27,
-          Currency.jod.code: (rates['JOD'] as num?)?.toDouble() ?? 0.19,
-        };
-
-        _lastUpdate = DateTime.now();
-
-        // Save to storage
-        await _saveRatesToStorage();
-
-        _logger.info('Exchange rates updated: $_cachedRates');
-      } else {
-        _logger.warning('Failed to fetch exchange rates: ${response.statusCode}');
+      if (response.statusCode != _httpStatusOk) {
+        _logger.warning('Failed to fetch exchange rates: ${response.statusCode}, using stored rates');
         await _loadRatesFromStorage();
+        return Failure(NetworkError('Exchange rate API returned status ${response.statusCode}'));
       }
-    } catch (e, st) {
-      _logger.error('Error fetching exchange rates', error: e, stackTrace: st);
+
+      final fetchedRates = _parseApiRates(response.body);
+      if (fetchedRates.isEmpty) {
+        _logger.warning('Exchange rate API response had no usable rates, using stored rates');
+        await _loadRatesFromStorage();
+        return Failure(CorruptDataError(
+          'Exchange rate API response had no usable rates',
+          source: _ratesApiSource,
+          field: _ratesApiField,
+        ));
+      }
+
+      _cachedRates = fetchedRates;
+      _lastUpdate = DateTime.now();
+      await _saveRatesToStorage();
+      _logger.info('Exchange rates updated: $_cachedRates');
+      return const Success(null);
+    } catch (error, stackTrace) {
+      final mappedError = _errorHandler.mapException(
+        error,
+        context: 'CurrencyService.fetchExchangeRates',
+        stackTrace: stackTrace,
+      );
       await _loadRatesFromStorage();
+      return Failure(mappedError);
     }
+  }
+
+  Map<String, double> _parseApiRates(String body) {
+    final decoded = jsonDecode(body);
+    if (decoded is! Map<String, dynamic>) {
+      return {};
+    }
+    final rates = decoded[_ratesApiField];
+    if (rates is! Map<String, dynamic>) {
+      return {};
+    }
+    return _ratesFromJson(rates, source: _ratesApiSource);
+  }
+
+  Map<String, double> _ratesFromJson(Map<String, dynamic> json, {required String source}) {
+    final reader = JsonReader(json, source: source);
+    final rates = <String, double>{};
+    for (final currency in Currency.values) {
+      if (currency == baseCurrency) {
+        continue;
+      }
+      final rate = reader.optionalDouble(currency.code);
+      if (rate != null && rate > 0) {
+        rates[currency.code] = rate;
+      }
+    }
+    return rates;
   }
 
   /// Check if cached rates are still valid
@@ -135,7 +220,7 @@ class CurrencyService {
 
     final now = DateTime.now();
     final difference = now.difference(_lastUpdate!);
-    
+
     return difference < _cacheExpiry;
   }
 
@@ -155,52 +240,65 @@ class CurrencyService {
     }
   }
 
-  /// Load rates from storage
   Future<void> _loadRatesFromStorage() async {
+    final storedRates = await _readStoredRates();
+    if (storedRates.isNotEmpty) {
+      _cachedRates = storedRates;
+      _logger.info('Loaded cached rates from storage: $_cachedRates');
+    }
+
+    final storedLastUpdate = await _readStoredLastUpdate();
+    if (storedLastUpdate != null) {
+      _lastUpdate = storedLastUpdate;
+    }
+  }
+
+  Future<Map<String, double>> _readStoredRates() async {
     try {
-      final rates = await _storage.get<Map<String, dynamic>>(_ratesKey);
-      final lastUpdateStr = await _storage.get<String>(_lastUpdateKey);
-
-      if (rates != null) {
-        _cachedRates = rates.map((key, value) => MapEntry(key, (value as num).toDouble()));
-        _logger.info('Loaded cached rates from storage: $_cachedRates');
+      final stored = await _storage.get<Object>(_ratesKey);
+      if (stored == null) {
+        return {};
       }
-
-      if (lastUpdateStr != null) {
-        _lastUpdate = DateTime.parse(lastUpdateStr);
+      if (stored is! Map<String, dynamic>) {
+        _logger.warning('Ignoring stored exchange rates with unexpected type ${stored.runtimeType}');
+        return {};
       }
-
-      // If no cached rates, use fallback rates
-      if (_cachedRates.isEmpty) {
-        _cachedRates = {
-          Currency.usd.code: 0.27, // Approximate ILS to USD
-          Currency.jod.code: 0.19, // Approximate ILS to JOD
-        };
-        _logger.info('Using fallback exchange rates');
-      }
+      return _ratesFromJson(stored, source: _ratesKey);
     } catch (e, st) {
       _logger.error('Failed to load rates from storage', error: e, stackTrace: st);
-      // Use fallback rates
-      _cachedRates = {
-        Currency.usd.code: 0.27,
-        Currency.jod.code: 0.19,
-      };
+      return {};
+    }
+  }
+
+  Future<DateTime?> _readStoredLastUpdate() async {
+    try {
+      final stored = await _storage.get<Object>(_lastUpdateKey);
+      if (stored == null) {
+        return null;
+      }
+      final parsed = stored is String ? DateTime.tryParse(stored) : null;
+      if (parsed == null) {
+        _logger.warning('Ignoring unreadable stored exchange rate update time: $stored');
+      }
+      return parsed;
+    } catch (e, st) {
+      _logger.error('Failed to load exchange rate update time from storage', error: e, stackTrace: st);
+      return null;
     }
   }
 
   /// Initialize the service (load cached rates)
-  Future<void> initialize() async {
+  Future<Result<void, AppError>> initialize() async {
     await _loadRatesFromStorage();
-    
-    // Fetch fresh rates if cache is expired
-    if (!_isCacheValid()) {
-      await _fetchExchangeRates();
+    if (_isCacheValid()) {
+      return const Success(null);
     }
+    return _fetchExchangeRates();
   }
 
   /// Force refresh exchange rates
-  Future<void> refreshRates() async {
-    await _fetchExchangeRates();
+  Future<Result<void, AppError>> refreshRates() {
+    return _fetchExchangeRates();
   }
 
   /// Get all current rates

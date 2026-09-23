@@ -1,18 +1,22 @@
 import 'package:uuid/uuid.dart';
 
 import '../../../core/errors/app_error.dart';
+import '../../../core/json/json_reader.dart';
 import '../../../core/result/result.dart';
 import '../../../data/models/religious/athkar_content.dart';
 import '../../../data/models/religious/athkar_log.dart';
 import '../../../data/repositories/religious/athkar_content_repository.dart';
 import '../../../data/repositories/religious/athkar_log_repository.dart';
 import '../../../shared/services/base_service_impl.dart';
+import '../../../shared/services/error_handler.dart';
 import '../../../shared/services/reminder_service.dart';
 import '../../../shared/services/settings_service.dart';
 import 'athkar_content_loader.dart';
+import 'religious_settings_keys.dart';
 
 class AthkarService extends BaseServiceImpl<AthkarContent> {
   static const _uuid = Uuid();
+  static const _customSortOrder = 1000;
 
   final AthkarLogRepository _logsRepo;
   final AthkarContentLoader _loader;
@@ -29,11 +33,13 @@ class AthkarService extends BaseServiceImpl<AthkarContent> {
     required ReminderService reminders,
     required SettingsService settings,
     AthkarContentLoader? loader,
-  })  : _loader = loader ?? AthkarContentLoader(),
+  })  : _loader = loader ?? AthkarContentLoader(logger),
         _reminders = reminders,
         _settings = settings;
 
   AthkarContentRepository get _repo => repository as AthkarContentRepository;
+
+  ErrorHandler get _errorHandler => ErrorHandler(logger);
 
   @override
   String get serviceName => 'AthkarService';
@@ -44,18 +50,35 @@ class AthkarService extends BaseServiceImpl<AthkarContent> {
   @override
   AthkarContent fromJson(Map<String, dynamic> json) => AthkarContent.fromJson(json);
 
-  Future<void> ensureSeeded() async {
+  Future<Result<void, AppError>> ensureSeeded() async {
     if (_seeded) {
-      return;
+      return const Success(null);
     }
     final bundled = await _loader.loadBundled();
-    await _repo.seedFromAsset(bundled);
-    _timeWindows = await _loader.loadTimeWindows();
+    if (bundled.isFailure) {
+      logger.warning('[$serviceName] seeding skipped, bundled athkar unavailable: ${bundled.error}');
+      return Failure(bundled.error!);
+    }
+    final seeded = await _repo.seedFromAsset(bundled.data!);
+    if (seeded.isFailure) {
+      logger.warning('[$serviceName] seeding failed: ${seeded.error}');
+      return Failure(seeded.error!);
+    }
+    final windows = await _loader.loadTimeWindows();
+    if (windows.isFailure) {
+      logger.warning('[$serviceName] time windows unavailable: ${windows.error}');
+      return Failure(windows.error!);
+    }
+    _timeWindows = windows.data;
     _seeded = true;
+    return const Success(null);
   }
 
   Future<Result<List<AthkarContent>, AppError>> getMerged({AthkarCategory? category}) async {
-    await ensureSeeded();
+    final seeded = await ensureSeeded();
+    if (seeded.isFailure) {
+      return Failure(seeded.error!);
+    }
     if (category != null) {
       return _repo.getByCategory(category);
     }
@@ -89,7 +112,7 @@ class AthkarService extends BaseServiceImpl<AthkarContent> {
       reference: reference,
       isBuiltIn: false,
       isCustom: true,
-      sortOrder: 1000,
+      sortOrder: _customSortOrder,
     );
     return create(entity);
   }
@@ -114,8 +137,11 @@ class AthkarService extends BaseServiceImpl<AthkarContent> {
     return softDelete(id);
   }
 
-  Future<List<AthkarCategory>> getCategoriesForNow() async {
-    await ensureSeeded();
+  Future<Result<List<AthkarCategory>, AppError>> getCategoriesForNow() async {
+    final seeded = await ensureSeeded();
+    if (seeded.isFailure) {
+      return Failure(seeded.error!);
+    }
     final windows = _timeWindows ?? <String, ({String start, String end})>{};
     final now = TimeOfDayMinutes.fromDateTime(DateTime.now());
 
@@ -125,13 +151,17 @@ class AthkarService extends BaseServiceImpl<AthkarContent> {
       if (window == null) {
         continue;
       }
-      final start = TimeOfDayMinutes.parse(window.start);
-      final end = TimeOfDayMinutes.parse(window.end);
+      final start = TimeOfDayMinutes.tryParse(window.start);
+      final end = TimeOfDayMinutes.tryParse(window.end);
+      if (start == null || end == null) {
+        logger.warning('[$serviceName] ignoring invalid time window for ${category.name}');
+        continue;
+      }
       if (now.minutes >= start.minutes && now.minutes <= end.minutes) {
         due.add(category);
       }
     }
-    return due;
+    return Success(due);
   }
 
   Future<Result<AthkarLog, AppError>> logCompletion({
@@ -156,41 +186,63 @@ class AthkarService extends BaseServiceImpl<AthkarContent> {
     return _logsRepo.create(entity);
   }
 
-  Future<void> scheduleSuggestionReminders({required String userId}) async {
-    await ensureSeeded();
-    final settings = await _settings.getSettings();
-    final notificationsEnabled = (settings['notificationsEnabled'] as bool?) ?? true;
-    final athkarRemindersEnabled = (settings['religiousAthkarRemindersEnabled'] as bool?) ?? true;
+  Future<Result<void, AppError>> scheduleSuggestionReminders({required String userId}) async {
+    final seeded = await ensureSeeded();
+    if (seeded.isFailure) {
+      return Failure(seeded.error!);
+    }
+
+    final Map<String, dynamic> storedSettings;
+    try {
+      storedSettings = await _settings.getSettings();
+    } catch (error, stackTrace) {
+      return Failure(
+        _errorHandler.mapException(error, context: '$serviceName.scheduleSuggestionReminders', stackTrace: stackTrace),
+      );
+    }
+    final settings = JsonReader(storedSettings, source: ReligiousSettingsKeys.readerSource);
+    final notificationsEnabled = settings.readBool(ReligiousSettingsKeys.notificationsEnabled, fallback: true);
+    final athkarRemindersEnabled = settings.readBool(ReligiousSettingsKeys.athkarRemindersEnabled, fallback: true);
     if (!notificationsEnabled || !athkarRemindersEnabled) {
-      return;
+      return const Success(null);
     }
 
     final windows = _timeWindows ?? <String, ({String start, String end})>{};
     final today = DateTime.now();
 
     for (final entry in windows.entries) {
-      final start = TimeOfDayMinutes.parse(entry.value.start);
+      final start = TimeOfDayMinutes.tryParse(entry.value.start);
+      final category = AthkarCategory.values.asNameMap()[entry.key];
+      if (start == null || category == null) {
+        logger.warning('[$serviceName] ignoring invalid reminder window "${entry.key}"');
+        continue;
+      }
       final scheduledAt = DateTime(
         today.year,
         today.month,
         today.day,
-        start.minutes ~/ 60,
-        start.minutes % 60,
+        start.hour,
+        start.minute,
       );
       if (scheduledAt.isBefore(DateTime.now())) {
         continue;
       }
-      final category = AthkarCategory.values.byName(entry.key);
-      await _reminders.schedule(
-        ReminderPayload(
-          module: ReminderModule.religious,
-          targetId: 'athkar-${entry.key}-${today.year}${today.month}${today.day}',
-          title: '${_categoryLabel(category)} Athkar',
-          body: 'Time for your ${_categoryLabel(category).toLowerCase()} athkar',
-          scheduledAt: scheduledAt,
-        ),
+      final payload = ReminderPayload(
+        module: ReminderModule.religious,
+        targetId: 'athkar-${entry.key}-${today.year}${today.month}${today.day}',
+        title: '${_categoryLabel(category)} Athkar',
+        body: 'Time for your ${_categoryLabel(category).toLowerCase()} athkar',
+        scheduledAt: scheduledAt,
       );
+      try {
+        await _reminders.schedule(payload);
+      } catch (error, stackTrace) {
+        return Failure(
+          _errorHandler.mapException(error, context: '$serviceName.scheduleSuggestionReminders', stackTrace: stackTrace),
+        );
+      }
     }
+    return const Success(null);
   }
 
   String _categoryLabel(AthkarCategory category) {
@@ -245,18 +297,35 @@ class AthkarService extends BaseServiceImpl<AthkarContent> {
 }
 
 class TimeOfDayMinutes {
+  static const _separator = ':';
+  static const _minutesPerHour = 60;
+  static const _hoursPerDay = 24;
+
   final int minutes;
 
   const TimeOfDayMinutes(this.minutes);
 
-  factory TimeOfDayMinutes.parse(String value) {
-    final parts = value.split(':');
-    final hour = int.parse(parts[0]);
-    final minute = int.parse(parts[1]);
-    return TimeOfDayMinutes(hour * 60 + minute);
+  int get hour => minutes ~/ _minutesPerHour;
+
+  int get minute => minutes % _minutesPerHour;
+
+  static TimeOfDayMinutes? tryParse(String value) {
+    final parts = value.split(_separator);
+    if (parts.length != 2) {
+      return null;
+    }
+    final hour = int.tryParse(parts[0].trim());
+    final minute = int.tryParse(parts[1].trim());
+    if (hour == null || minute == null) {
+      return null;
+    }
+    if (hour < 0 || hour >= _hoursPerDay || minute < 0 || minute >= _minutesPerHour) {
+      return null;
+    }
+    return TimeOfDayMinutes(hour * _minutesPerHour + minute);
   }
 
   factory TimeOfDayMinutes.fromDateTime(DateTime dateTime) {
-    return TimeOfDayMinutes(dateTime.hour * 60 + dateTime.minute);
+    return TimeOfDayMinutes(dateTime.hour * _minutesPerHour + dateTime.minute);
   }
 }

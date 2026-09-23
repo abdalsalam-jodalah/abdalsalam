@@ -180,6 +180,10 @@ final healthReportServiceProvider = Provider<HealthReportService>((ref) {
     healthMetricService: ref.watch(healthMetricServiceProvider),
     bloodTestService: ref.watch(bloodTestServiceProvider),
     doctorVisitService: ref.watch(doctorVisitServiceProvider),
+    logger: LoggerService.forModule(
+      'HealthReportService',
+      moduleType: logic.ModuleType.service,
+    ),
   );
 });
 

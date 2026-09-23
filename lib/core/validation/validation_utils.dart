@@ -47,6 +47,30 @@ class ValidationUtils {
     return null;
   }
 
+  static String? positiveNumber({
+    required num? value,
+    required String fieldName,
+  }) {
+    if (value == null) {
+      return null;
+    }
+    if (value <= 0) {
+      return '$fieldName must be greater than 0';
+    }
+    return null;
+  }
+
+  static String? selfReference({
+    required String id,
+    required String? referenceId,
+    required String fieldName,
+  }) {
+    if (referenceId != null && referenceId == id) {
+      return '$fieldName cannot reference itself';
+    }
+    return null;
+  }
+
   static String? enumValue({
     required String? value,
     required String fieldName,

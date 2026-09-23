@@ -13,24 +13,34 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
+import 'package:abdalsalam/core/errors/app_error.dart';
+
+import '../support/failing_writes.dart';
+import '../support/throwing_reminder_service.dart';
+import '../support/validation_expectations.dart';
+
+class _FailingHabitsRepository = HabitsRepositoryImpl with FailingWrites<Habit>;
 
 Habit buildHabit({
   required bool isGoodHabit,
   HabitFrequency frequency = HabitFrequency.daily,
   int targetCount = 1,
   List<int>? customWeekdays,
+  String userId = 'u1',
+  String name = 'Test Habit',
+  String? reminderTime,
 }) {
   final now = DateTime.now();
   return Habit(
     id: 'habit-1',
     createdAt: now,
     updatedAt: now,
-    userId: 'u1',
-    name: 'Test Habit',
+    userId: userId,
+    name: name,
     description: '',
     frequency: frequency,
     targetCount: targetCount,
-    reminderTime: null,
+    reminderTime: reminderTime,
     icon: 'star',
     color: '#FFFFFF',
     category: 'Health',
@@ -59,6 +69,7 @@ void main() {
   group('HabitsService', () {
     late HabitsService service;
     late HabitLogRepositoryImpl logRepository;
+    late LoggerService logger;
 
     setUp(() async {
       SharedPreferences.setMockInitialValues({});
@@ -68,7 +79,7 @@ void main() {
       await StorageGateway.instance.clearTable('habits');
       await StorageGateway.instance.clearTable('habit_logs');
 
-      final logger = LoggerService.forModule('HabitsServiceTest');
+      logger = LoggerService.forModule('HabitsServiceTest');
       final repository = HabitsRepositoryImpl(StorageGateway.instance, logger);
       logRepository = HabitLogRepositoryImpl(StorageGateway.instance, logger);
       final notifications = NotificationService(
@@ -82,6 +93,81 @@ void main() {
         settings: SettingsService(StorageGateway.instance),
       );
       service = HabitsService(repository, logger, reminders: reminders);
+    });
+
+    test('validate should succeed for a well-formed habit', () {
+      expect(service.validate(buildHabit(isGoodHabit: true)).isSuccess, isTrue);
+    });
+
+    test('validate should report userId when userId is blank', () {
+      expectFieldError(service.validate(buildHabit(isGoodHabit: true, userId: '')), HabitsService.userIdField);
+    });
+
+    test('validate should report name when name is blank', () {
+      expectFieldError(service.validate(buildHabit(isGoodHabit: true, name: ' ')), HabitsService.nameField);
+    });
+
+    test('validate should report targetCount when targetCount is zero', () {
+      expectFieldError(
+        service.validate(buildHabit(isGoodHabit: true, targetCount: 0)),
+        HabitsService.targetCountField,
+      );
+    });
+
+    test('create should persist a valid habit', () async {
+      final result = await service.create(buildHabit(isGoodHabit: true));
+
+      expect(result.isSuccess, isTrue);
+      final stored = await service.getById('habit-1');
+      expect(stored.data?.name, 'Test Habit');
+    });
+
+    test('update should persist a renamed habit', () async {
+      await service.create(buildHabit(isGoodHabit: true));
+
+      final result = await service.update(buildHabit(isGoodHabit: true, name: 'Read daily'));
+
+      expect(result.isSuccess, isTrue);
+      final stored = await service.getById('habit-1');
+      expect(stored.data?.name, 'Read daily');
+    });
+
+    test('create should propagate a repository failure', () async {
+      final failingService = HabitsService(
+        _FailingHabitsRepository(StorageGateway.instance, logger),
+        logger,
+        reminders: ThrowingReminderService(logger),
+      );
+
+      expectWriteFailure(await failingService.create(buildHabit(isGoodHabit: true)));
+    });
+
+    test('scheduleHabitReminder should return a failure instead of throwing', () async {
+      final throwingService = HabitsService(
+        HabitsRepositoryImpl(StorageGateway.instance, logger),
+        logger,
+        reminders: ThrowingReminderService(logger),
+      );
+
+      final result = await throwingService.scheduleHabitReminder(
+        buildHabit(isGoodHabit: true, reminderTime: '08:00'),
+      );
+
+      expect(result.isFailure, isTrue);
+      expect(result.error, isA<ServiceError>());
+    });
+
+    test('handleReminderTap should return a failure instead of throwing', () async {
+      final throwingService = HabitsService(
+        HabitsRepositoryImpl(StorageGateway.instance, logger),
+        logger,
+        reminders: ThrowingReminderService(logger),
+      );
+
+      final result = await throwingService.handleReminderTap(buildHabit(isGoodHabit: true));
+
+      expect(result.isFailure, isTrue);
+      expect(result.error, isA<ServiceError>());
     });
 
     test('streakFromLogs returns 0 for empty logs', () {

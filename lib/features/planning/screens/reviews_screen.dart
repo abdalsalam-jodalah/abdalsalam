@@ -149,10 +149,10 @@ class _ReviewsScreenState extends ConsumerState<ReviewsScreen> {
     if (result == null) return;
 
     final range = _rangeForPeriod(result.period);
-    final repo = ref.read(reviewRepositoryProvider);
+    final service = ref.read(reviewServiceProvider);
     final now = DateTime.now();
 
-    final saveResult = await repo.create(
+    final saveResult = await service.create(
       Review(
         id: _uuid.v4(),
         createdAt: now,

@@ -3,14 +3,19 @@ import '../../../core/result/result.dart';
 import '../../../data/models/religious/prayer_log.dart';
 import '../../../data/repositories/religious/prayer_repository.dart';
 import '../../../shared/services/base_service_impl.dart';
+import '../../../shared/services/error_handler.dart';
 import '../../../shared/services/reminder_service.dart';
 
 class ReligiousService extends BaseServiceImpl<PrayerLog> {
+  static const _reminderLeadTime = Duration(minutes: 10);
+
   final ReminderService reminders;
 
   ReligiousService(super.repository, super.logger, {required this.reminders});
 
   PrayerRepository get _repo => repository as PrayerRepository;
+
+  ErrorHandler get _errorHandler => ErrorHandler(logger);
 
   @override
   String get serviceName => 'ReligiousService';
@@ -83,30 +88,42 @@ class ReligiousService extends BaseServiceImpl<PrayerLog> {
     required String prayerName,
     required DateTime prayerTime,
     required String targetId,
-  }) async {
-    await reminders.schedule(
-      ReminderPayload(
-        module: ReminderModule.religious,
-        targetId: targetId,
-        title: 'Prayer reminder',
-        body: '$prayerName in 10 minutes',
-        scheduledAt: prayerTime.subtract(const Duration(minutes: 10)),
+  }) {
+    return Result.guardAsync<void, AppError>(
+      () => reminders.schedule(
+        ReminderPayload(
+          module: ReminderModule.religious,
+          targetId: targetId,
+          title: 'Prayer reminder',
+          body: '$prayerName in ${_reminderLeadTime.inMinutes} minutes',
+          scheduledAt: prayerTime.subtract(_reminderLeadTime),
+        ),
+      ),
+      onError: (error, stackTrace) => _errorHandler.mapException(
+        error,
+        context: '$serviceName.schedulePrayerReminder',
+        stackTrace: stackTrace,
       ),
     );
-    return const Success(null);
   }
 
   Future<Result<void, AppError>> handlePrayerReminderTap(String prayerLogId) async {
-    reminders.handleNotificationTap(
-      ReminderPayload(
-        module: ReminderModule.religious,
-        targetId: prayerLogId,
-        title: 'Open prayer log',
-        body: 'Navigate to prayer log details',
-        scheduledAt: DateTime.now(),
+    return Result.guard<void, AppError>(
+      () => reminders.handleNotificationTap(
+        ReminderPayload(
+          module: ReminderModule.religious,
+          targetId: prayerLogId,
+          title: 'Open prayer log',
+          body: 'Navigate to prayer log details',
+          scheduledAt: DateTime.now(),
+        ),
+      ),
+      onError: (error, stackTrace) => _errorHandler.mapException(
+        error,
+        context: '$serviceName.handlePrayerReminderTap',
+        stackTrace: stackTrace,
       ),
     );
-    return const Success(null);
   }
 
   @override
