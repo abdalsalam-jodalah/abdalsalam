@@ -52,7 +52,7 @@ count_unlogged_catch() {
   echo "$files" | xargs awk '
     FNR == 1 { pending = 0 }
     pending > 0 {
-      if ($0 ~ /log|rethrow|throw |Failure\(|ErrorHandler|reportError|onError/) { pending = 0 }
+      if ($0 ~ /log|rethrow|throw |Failure\(|ErrorHandler|report[A-Z]|onError/) { pending = 0 }
       else if (--pending == 0) { total++ }
     }
     /catch *\(/ { pending = 4 }

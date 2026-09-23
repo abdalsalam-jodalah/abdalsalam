@@ -23,7 +23,7 @@ Legend: ⬜ Todo · 🔄 In progress · ✅ Done. Each phase is marked Done only
 | Metric | Baseline (P0) | P1 | P2 |
 |---|---|---|---|
 | Raw exception text used as error message | 70 | 68 | 68 |
-| Unlogged catch blocks | 10 | 10 | 11 |
+| Unlogged catch blocks | 10 | 10 | 10 |
 | Providers masking failures (`?? []`) | 63 | 63 | 63 |
 | Ignored write results (heuristic) | 126 | 126 | 127 |
 | `DateTime.parse` in models | 186 | 186 | 186 |
