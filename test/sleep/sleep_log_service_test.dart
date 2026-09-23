@@ -45,7 +45,7 @@ void main() {
     setUp(() async {
       SharedPreferences.setMockInitialValues({});
       await LoggerService.initialize();
-      await StorageGateway.instance.initialize(databaseName: 'test_abdalsalam.db');
+      await StorageGateway.instance.initialize(databaseName: 'test_sleep_log_service_test.db');
       await DatabaseSchemaInitializer.initialize(StorageGateway.instance);
       await StorageGateway.instance.clearTable('sleep_logs');
       final logger = LoggerService.forModule('SleepLogServiceTest');

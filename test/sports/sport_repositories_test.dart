@@ -39,7 +39,7 @@ void main() {
   setUp(() async {
     SharedPreferences.setMockInitialValues({});
     await LoggerService.initialize();
-    await StorageGateway.instance.initialize(databaseName: 'test_abdalsalam.db');
+    await StorageGateway.instance.initialize(databaseName: 'test_sport_repositories_test.db');
     await DatabaseSchemaInitializer.initialize(StorageGateway.instance);
     for (final table in [
       'sport_exercise_categories',

@@ -19,7 +19,7 @@ void main() {
     setUp(() async {
       SharedPreferences.setMockInitialValues({});
       await LoggerService.initialize();
-      await StorageGateway.instance.initialize(databaseName: 'test_abdalsalam.db');
+      await StorageGateway.instance.initialize(databaseName: 'test_prayer_service_test.db');
       await DatabaseSchemaInitializer.initialize(StorageGateway.instance);
       await StorageGateway.instance.clearTable('prayer_logs');
       final logger = LoggerService.forModule('PrayerServiceTest');

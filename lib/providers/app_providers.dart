@@ -23,9 +23,19 @@ import '../shared/services/state_aware_service.dart';
 import '../shared/services/sync_queue_service.dart';
 import '../shared/services/reminder_service.dart';
 import '../shared/services/attachment_storage_service.dart';
+import '../shared/services/error_handler.dart';
+import '../shared/services/user_error_message_mapper.dart';
 
 final loggerProvider = Provider<LoggerService>((ref) {
   return LoggerService.forModule('App', moduleType: logic.ModuleType.service);
+});
+
+final errorHandlerProvider = Provider<ErrorHandler>((ref) {
+  return ErrorHandler(ref.watch(loggerProvider));
+});
+
+final userErrorMessageMapperProvider = Provider<UserErrorMessageMapper>((ref) {
+  return const UserErrorMessageMapper();
 });
 
 final storageGatewayProvider = Provider<StorageGateway>((ref) {

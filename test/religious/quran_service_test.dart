@@ -18,7 +18,7 @@ void main() {
     setUp(() async {
       SharedPreferences.setMockInitialValues({});
       await LoggerService.initialize();
-      await StorageGateway.instance.initialize(databaseName: 'test_abdalsalam.db');
+      await StorageGateway.instance.initialize(databaseName: 'test_quran_service_test.db');
       await DatabaseSchemaInitializer.initialize(StorageGateway.instance);
       await StorageGateway.instance.clearTable('quran_progress');
       await StorageGateway.instance.clearTable('quran_readings');

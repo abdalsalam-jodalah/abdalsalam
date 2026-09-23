@@ -78,7 +78,7 @@ void main() {
     setUp(() async {
       SharedPreferences.setMockInitialValues({});
       await LoggerService.initialize();
-      await StorageGateway.instance.initialize(databaseName: 'test_abdalsalam.db');
+      await StorageGateway.instance.initialize(databaseName: 'test_reminder_service_test.db');
       await StorageGateway.instance.delete('scheduled_reminders');
       await StorageGateway.instance.delete('reminder_settings');
       final logger = LoggerService.forModule('ReminderServiceTest');

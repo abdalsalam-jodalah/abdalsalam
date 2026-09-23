@@ -11,7 +11,7 @@ void main() {
 
     setUp(() async {
       SharedPreferences.setMockInitialValues({});
-      await StorageGateway.instance.initialize(databaseName: 'test_abdalsalam.db');
+      await StorageGateway.instance.initialize(databaseName: 'test_settings_service_test.db');
       await StorageGateway.instance.delete('app_settings_v1');
       service = SettingsService(StorageGateway.instance);
     });
