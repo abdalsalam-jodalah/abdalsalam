@@ -5,6 +5,8 @@ import '../infrastructure/logger_service.dart';
 
 /// Log Viewer Screen for viewing app logs
 class LogViewerScreen extends StatefulWidget {
+  static const routeName = '/dev/logs';
+
   const LogViewerScreen({super.key});
 
   @override

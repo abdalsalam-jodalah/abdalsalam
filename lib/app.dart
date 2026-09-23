@@ -11,6 +11,7 @@ import 'core/theme/app_theme.dart';
 import 'features/dashboard/screens/app_shell_screen.dart';
 import 'providers/app_providers.dart';
 import 'shared/services/reminder_service.dart';
+import 'shared/widgets/data_integrity_banner.dart';
 import 'shared/widgets/dev_tools_overlay.dart';
 
 ThemeMode _themeModeFromSetting(String? value) {
@@ -76,6 +77,7 @@ class _AbdalsalamAppState extends ConsumerState<AbdalsalamApp> {
       builder: (context, child) => Column(
         children: [
           const StartupStatusBanner(),
+          DataIntegrityBanner(navigatorKey: _navigatorKey),
           Expanded(child: child ?? const SizedBox.shrink()),
         ],
       ),

@@ -43,6 +43,12 @@ final storageGatewayProvider = Provider<StorageGateway>((ref) {
   return StorageGateway.instance;
 });
 
+final corruptRecordCountProvider = StreamProvider<int>((ref) async* {
+  final reporter = ref.watch(storageGatewayProvider).integrityReporter;
+  yield reporter.corruptRecordCount;
+  yield* reporter.corruptRecordCountChanges;
+});
+
 final appStateManagerProvider = Provider<logic.AppStateManager>((ref) {
   throw UnimplementedError('appStateManagerProvider must be overridden in main.dart');
 });

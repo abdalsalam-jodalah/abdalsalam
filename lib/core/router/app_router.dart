@@ -537,7 +537,7 @@ class AppRouter {
           builder: (_) => const RestoreScreen(),
           settings: settings,
         );
-      case '/dev/logs':
+      case LogViewerScreen.routeName:
         return MaterialPageRoute<void>(
           builder: (_) => const LogViewerScreen(),
           settings: settings,
