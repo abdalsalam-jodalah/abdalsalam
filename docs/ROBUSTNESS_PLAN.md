@@ -8,7 +8,7 @@
 | 1 | Core foundation — Result helpers, AppError cause/stack, ErrorHandler, JsonReader, test DB isolation | ✅ Done | `b7b2245` |
 | 2 | Infrastructure — StorageGateway hardening, schema tables, crash log | ✅ Done | `5262db5` |
 | 3 | Bootstrap & global error handlers | ✅ Done | `a09c87d` |
-| 4 | Data layer — tolerant row parsing, 46 models → JsonReader, financial error unification | ⬜ Todo | |
+| 4 | Data layer — tolerant row parsing, 46 models → JsonReader, financial error unification | ✅ Done | `7f90c6b` |
 | 5 | Services — handled Results, bug fixes, planning/sports services | ⬜ Todo | |
 | 6 | Providers — no masking, AsyncValue.guard, autoDispose | ⬜ Todo | |
 | 7 | UI — shared error/feedback widgets, mounted guards, form validation | ⬜ Todo | |
@@ -20,24 +20,24 @@ Legend: ⬜ Todo · 🔄 In progress · ✅ Done. Each phase is marked Done only
 
 ## Scorecard History
 
-| Metric | Baseline (P0) | P1 | P2 | P3 |
-|---|---|---|---|---|
-| Raw exception text used as error message | 70 | 68 | 68 | 68 |
-| Unlogged catch blocks | 10 | 10 | 10 | 10 |
-| Providers masking failures (`?? []`) | 63 | 63 | 63 | 63 |
-| Ignored write results (heuristic) | 126 | 126 | 127 | 127 |
-| `DateTime.parse` in models | 186 | 186 | 186 | 186 |
-| `byName` without fallback | 23 | 23 | 23 | 23 |
-| Hard casts in models | 413 | 413 | 413 | 413 |
-| Error branches without shared view | 93 | 93 | 93 | 93 |
-| Raw error text in UI | 90 | 90 | 90 | 89 |
-| Unguarded UI after `await` (heuristic) | 114 | 114 | 114 | 114 |
-| Raw `TextField` | 40 | 40 | 40 | 40 |
-| Silent `?? 0` coercion | 9 | 9 | 9 | 9 |
-| `TextFormField` without validator | 27 | 27 | 27 | 27 |
-| App-wide checks passing | 0 / 15 | 1 / 15 | 1 / 15 | 8 / 15 |
-| `flutter analyze` issues | 8 | 8 | 8 | 8 |
-| `flutter test` | 70 total · 8 fail in parallel, all pass with `-j 1` | 113 · all pass in parallel | 129 · all pass | 137 · all pass |
+| Metric | Baseline (P0) | P1 | P2 | P3 | P4 |
+|---|---|---|---|---|---|
+| Raw exception text used as error message | 70 | 68 | 68 | 68 | 24 |
+| Unlogged catch blocks | 10 | 10 | 10 | 10 | 10 |
+| Providers masking failures (`?? []`) | 63 | 63 | 63 | 63 | 63 |
+| Ignored write results (heuristic) | 126 | 126 | 127 | 127 | 121 |
+| `DateTime.parse` in models | 186 | 186 | 186 | 186 | 0 |
+| `byName` without fallback | 23 | 23 | 23 | 23 | 0 |
+| Hard casts in models | 413 | 413 | 413 | 413 | 0 |
+| Error branches without shared view | 93 | 93 | 93 | 93 | 93 |
+| Raw error text in UI | 90 | 90 | 90 | 89 | 66 |
+| Unguarded UI after `await` (heuristic) | 114 | 114 | 114 | 114 | 114 |
+| Raw `TextField` | 40 | 40 | 40 | 40 | 40 |
+| Silent `?? 0` coercion | 9 | 9 | 9 | 9 | 9 |
+| `TextFormField` without validator | 27 | 27 | 27 | 27 | 27 |
+| App-wide checks passing | 0 / 15 | 1 / 15 | 1 / 15 | 8 / 15 | 8 / 15 |
+| `flutter analyze` issues | 8 | 8 | 8 | 8 | 8 |
+| `flutter test` | 70 total · 8 fail in parallel, all pass with `-j 1` | 113 · all pass in parallel | 129 · all pass | 137 · all pass | 461 · all pass |
 
 ## Context
 Goal: fewer bugs, fewer crashes, every failure caught → logged → shown to the user as a clear, actionable message, and no silent data loss. Covers **every section** (core, shared, all 14 feature modules). Judged against the measurable scorecard below: baseline now, re-scored after every phase, done when every cell is ✓.
