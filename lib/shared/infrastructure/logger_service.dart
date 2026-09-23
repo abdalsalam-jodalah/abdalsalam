@@ -1,6 +1,8 @@
 import 'package:flutter/foundation.dart';
 import 'package:abdalsalam_logic_flutter/abdalsalam_logic_flutter.dart';
 
+import 'crash_log_recorder.dart';
+
 class LoggerService {
   final Logger _logger;
 
@@ -14,9 +16,9 @@ class LoggerService {
     }
 
     LoggerImpl.initialize(
-      const LogConfig(
+      LogConfig(
         coreConfig: LoggerCoreConfig(
-          environment: LogEnvironment.development,
+          environment: _currentEnvironment,
           environmentLevels: <LogEnvironment, LogLevel>{
             LogEnvironment.development: LogLevel.debug,
             LogEnvironment.profile: LogLevel.info,
@@ -39,6 +41,16 @@ class LoggerService {
     );
 
     _initialized = true;
+  }
+
+  static LogEnvironment get _currentEnvironment {
+    if (kReleaseMode) {
+      return LogEnvironment.release;
+    }
+    if (kProfileMode) {
+      return LogEnvironment.profile;
+    }
+    return LogEnvironment.development;
   }
 
   factory LoggerService.forModule(
@@ -72,6 +84,12 @@ class LoggerService {
 
   void error(String message, {Object? error, StackTrace? stackTrace}) {
     _logger.error(() => message, error, stackTrace);
+    CrashLogRecorder.instance.record(
+      moduleName: _logger.module.moduleName,
+      message: message,
+      error: error,
+      stackTrace: stackTrace,
+    );
   }
 
   List<String> exportLogs({int? recentCount}) {

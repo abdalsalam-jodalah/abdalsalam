@@ -46,6 +46,11 @@ class CorruptDataError extends AppError {
   }) : super(code: AppErrorCode.corruptData);
 }
 
+class StorageUnavailableError extends AppError {
+  StorageUnavailableError(super.message, {super.cause, super.causeStackTrace})
+      : super(code: AppErrorCode.storageUnavailable);
+}
+
 class ServiceError extends AppError {
   ServiceError(super.message, {super.cause, super.causeStackTrace})
       : super(code: AppErrorCode.service);

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../infrastructure/crash_log_recorder.dart';
 import '../infrastructure/logger_service.dart';
 
 /// Log Viewer Screen for viewing app logs
@@ -13,6 +14,26 @@ class LogViewerScreen extends StatefulWidget {
 class _LogViewerScreenState extends State<LogViewerScreen> {
   String _searchQuery = '';
   final TextEditingController _searchController = TextEditingController();
+  bool _isShowingPersistedErrors = false;
+  List<String> _persistedErrors = const <String>[];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadPersistedErrors();
+  }
+
+  Future<void> _loadPersistedErrors() async {
+    final entries = await CrashLogRecorder.instance.readEntries();
+    if (!mounted) {
+      return;
+    }
+    setState(() => _persistedErrors = entries);
+  }
+
+  List<String> get _visibleLogs {
+    return _isShowingPersistedErrors ? _persistedErrors : LoggerService.getAllLogs();
+  }
 
   @override
   void dispose() {
@@ -24,8 +45,13 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Log Viewer'),
+        title: Text(_isShowingPersistedErrors ? 'Saved Errors' : 'Log Viewer'),
         actions: [
+          IconButton(
+            icon: Icon(_isShowingPersistedErrors ? Icons.list_alt : Icons.history),
+            onPressed: () => setState(() => _isShowingPersistedErrors = !_isShowingPersistedErrors),
+            tooltip: _isShowingPersistedErrors ? 'Show Session Logs' : 'Show Saved Errors',
+          ),
           IconButton(
             icon: const Icon(Icons.delete_outline),
             onPressed: _confirmClearLogs,
@@ -84,10 +110,7 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
   }
 
   Widget _buildLogList() {
-    // Get logs from LoggerService
-    final logs = LoggerService.getAllLogs();
-    
-    // Filter logs
+    final logs = _visibleLogs;
     final filteredLogs = logs.where((log) {
       return _searchQuery.isEmpty || log.toLowerCase().contains(_searchQuery);
     }).toList();
@@ -292,18 +315,26 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
   void _confirmClearLogs() {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         title: const Text('Clear Logs'),
         content: const Text('Are you sure you want to clear all logs?'),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(dialogContext),
             child: const Text('Cancel'),
           ),
           TextButton(
-            onPressed: () {
-              LoggerService.clearLogs();
-              Navigator.pop(context);
+            onPressed: () async {
+              Navigator.pop(dialogContext);
+              if (_isShowingPersistedErrors) {
+                await CrashLogRecorder.instance.clearEntries();
+                _persistedErrors = const <String>[];
+              } else {
+                LoggerService.clearLogs();
+              }
+              if (!mounted) {
+                return;
+              }
               setState(() {});
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(content: Text('Logs cleared')),
@@ -317,7 +348,7 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
   }
 
   void _exportLogs() {
-    final logs = LoggerService.getAllLogs();
+    final logs = _visibleLogs;
     final text = logs.join('\n');
 
     Clipboard.setData(ClipboardData(text: text));

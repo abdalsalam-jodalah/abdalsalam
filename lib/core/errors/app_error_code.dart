@@ -6,6 +6,7 @@ class AppErrorCode {
   static const String notFound = 'NOT_FOUND';
   static const String database = 'DATABASE_ERROR';
   static const String corruptData = 'CORRUPT_DATA';
+  static const String storageUnavailable = 'STORAGE_UNAVAILABLE';
   static const String service = 'SERVICE_ERROR';
   static const String export = 'EXPORT_ERROR';
   static const String import = 'IMPORT_ERROR';

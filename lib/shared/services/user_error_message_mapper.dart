@@ -21,6 +21,8 @@ class UserErrorMessageMapper {
         return UserErrorMessages.database;
       case AppErrorCode.corruptData:
         return UserErrorMessages.corruptData;
+      case AppErrorCode.storageUnavailable:
+        return UserErrorMessages.storageUnavailable;
       case AppErrorCode.network:
         return UserErrorMessages.network;
       case AppErrorCode.auth:
