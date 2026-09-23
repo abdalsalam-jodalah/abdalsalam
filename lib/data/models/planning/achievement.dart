@@ -1,3 +1,4 @@
+import '../../../core/json/json_reader.dart';
 import '../../models/base_model.dart';
 import 'goal.dart';
 
@@ -23,17 +24,19 @@ class Achievement extends BaseModel {
   });
 
   factory Achievement.fromJson(Map<String, dynamic> json) {
+    final reader = JsonReader(json, source: 'Achievement');
+    final createdAt = reader.requireDate('createdAt');
     return Achievement(
-      id: json['id'] as String,
-      createdAt: DateTime.parse(json['createdAt'] as String),
-      updatedAt: DateTime.parse(json['updatedAt'] as String),
-      deletedAt: json['deletedAt'] == null ? null : DateTime.parse(json['deletedAt'] as String),
-      userId: json['userId'] as String,
-      goalId: json['goalId'] as String?,
-      title: json['title'] as String,
-      description: json['description'] as String?,
-      achievedAt: DateTime.parse(json['achievedAt'] as String),
-      scope: json['scope'] == null ? null : GoalScope.values.byName(json['scope'] as String),
+      id: reader.requireString('id'),
+      createdAt: createdAt,
+      updatedAt: reader.readDate('updatedAt', fallback: createdAt),
+      deletedAt: reader.optionalDate('deletedAt'),
+      userId: reader.readString('userId'),
+      goalId: reader.optionalString('goalId'),
+      title: reader.readString('title'),
+      description: reader.optionalString('description'),
+      achievedAt: reader.readDate('achievedAt', fallback: createdAt),
+      scope: reader.optionalEnum('scope', GoalScope.values),
     );
   }
 

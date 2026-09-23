@@ -1,5 +1,7 @@
 import 'package:equatable/equatable.dart';
 
+import '../../../core/json/json_reader.dart';
+
 class WeatherModel extends Equatable {
   final String cityName;
   final double temperature;
@@ -24,19 +26,18 @@ class WeatherModel extends Equatable {
   });
 
   factory WeatherModel.fromJson(Map<String, dynamic> json) {
-    final main = json['main'] as Map<String, dynamic>;
-    final weather = (json['weather'] as List).first as Map<String, dynamic>;
-    final wind = json['wind'] as Map<String, dynamic>;
-
+    final reader = JsonReader(json, source: 'WeatherModel');
+    final temperature = reader.requireDouble('temperature');
     return WeatherModel(
-      cityName: json['name'] as String,
-      temperature: (main['temp'] as num).toDouble(),
-      feelsLike: (main['feels_like'] as num).toDouble(),
-      humidity: main['humidity'] as int,
-      windSpeed: (wind['speed'] as num).toDouble(),
-      description: weather['description'] as String,
-      icon: weather['icon'] as String,
-      timestamp: DateTime.now(),
+      cityName: reader.readString('cityName'),
+      temperature: temperature,
+      feelsLike: reader.readDouble('feelsLike', fallback: temperature),
+      humidity: reader.readInt('humidity'),
+      windSpeed: reader.readDouble('windSpeed'),
+      description: reader.readString('description'),
+      icon: reader.readString('icon'),
+      timestamp: reader.requireDate('timestamp'),
+      hourlyForecast: reader.readObjectList('hourlyForecast', HourlyForecast.fromJson),
     );
   }
 
@@ -49,6 +50,7 @@ class WeatherModel extends Equatable {
         'description': description,
         'icon': icon,
         'timestamp': timestamp.toIso8601String(),
+        'hourlyForecast': hourlyForecast.map((forecast) => forecast.toJson()).toList(growable: false),
       };
 
   @override
@@ -83,19 +85,25 @@ class HourlyForecast extends Equatable {
   });
 
   factory HourlyForecast.fromJson(Map<String, dynamic> json) {
-    final main = json['main'] as Map<String, dynamic>;
-    final weather = (json['weather'] as List).first as Map<String, dynamic>;
-    final wind = json['wind'] as Map<String, dynamic>;
-
+    final reader = JsonReader(json, source: 'HourlyForecast');
     return HourlyForecast(
-      time: DateTime.fromMillisecondsSinceEpoch((json['dt'] as int) * 1000),
-      temperature: (main['temp'] as num).toDouble(),
-      description: weather['description'] as String,
-      icon: weather['icon'] as String,
-      humidity: main['humidity'] as int,
-      windSpeed: (wind['speed'] as num).toDouble(),
+      time: reader.requireDate('time'),
+      temperature: reader.requireDouble('temperature'),
+      description: reader.readString('description'),
+      icon: reader.readString('icon'),
+      humidity: reader.readInt('humidity'),
+      windSpeed: reader.readDouble('windSpeed'),
     );
   }
+
+  Map<String, dynamic> toJson() => {
+        'time': time.toIso8601String(),
+        'temperature': temperature,
+        'description': description,
+        'icon': icon,
+        'humidity': humidity,
+        'windSpeed': windSpeed,
+      };
 
   @override
   List<Object?> get props => [

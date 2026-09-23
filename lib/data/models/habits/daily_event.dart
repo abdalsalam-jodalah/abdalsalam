@@ -1,3 +1,4 @@
+import '../../../core/json/json_reader.dart';
 import '../../models/base_model.dart';
 
 class DailyEvent extends BaseModel {
@@ -28,20 +29,22 @@ class DailyEvent extends BaseModel {
   });
 
   factory DailyEvent.fromJson(Map<String, dynamic> json) {
+    final reader = JsonReader(json, source: 'DailyEvent');
+    final createdAt = reader.requireDate('createdAt');
     return DailyEvent(
-      id: json['id'] as String,
-      createdAt: DateTime.parse(json['createdAt'] as String),
-      updatedAt: DateTime.parse(json['updatedAt'] as String),
-      deletedAt: json['deletedAt'] == null ? null : DateTime.parse(json['deletedAt'] as String),
-      userId: json['userId'] as String,
-      eventType: json['eventType'] as String,
-      title: json['title'] as String,
-      description: json['description'] as String,
-      occurredAt: DateTime.parse(json['occurredAt'] as String),
-      durationMinutes: json['durationMinutes'] as int?,
-      tags: (json['tags'] as List<dynamic>? ?? const <dynamic>[]).cast<String>(),
-      mood: json['mood'] as String?,
-      relatedHabits: (json['relatedHabits'] as List<dynamic>? ?? const <dynamic>[]).cast<String>(),
+      id: reader.requireString('id'),
+      createdAt: createdAt,
+      updatedAt: reader.readDate('updatedAt', fallback: createdAt),
+      deletedAt: reader.optionalDate('deletedAt'),
+      userId: reader.readString('userId'),
+      eventType: reader.readString('eventType'),
+      title: reader.readString('title'),
+      description: reader.readString('description'),
+      occurredAt: reader.readDate('occurredAt', fallback: createdAt),
+      durationMinutes: reader.optionalInt('durationMinutes'),
+      tags: reader.readStringList('tags'),
+      mood: reader.optionalString('mood'),
+      relatedHabits: reader.readStringList('relatedHabits'),
     );
   }
 

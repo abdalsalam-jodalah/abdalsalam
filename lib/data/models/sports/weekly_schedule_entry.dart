@@ -1,3 +1,4 @@
+import '../../../core/json/json_reader.dart';
 import '../base_model.dart';
 
 class WeeklyScheduleEntry extends BaseModel {
@@ -20,16 +21,18 @@ class WeeklyScheduleEntry extends BaseModel {
   });
 
   factory WeeklyScheduleEntry.fromJson(Map<String, dynamic> json) {
+    final reader = JsonReader(json, source: 'WeeklyScheduleEntry');
+    final createdAt = reader.requireDate('createdAt');
     return WeeklyScheduleEntry(
-      id: json['id'] as String,
-      createdAt: DateTime.parse(json['createdAt'] as String),
-      updatedAt: DateTime.parse(json['updatedAt'] as String),
-      deletedAt: json['deletedAt'] == null ? null : DateTime.parse(json['deletedAt'] as String),
-      userId: json['userId'] as String,
-      dayOfWeek: (json['dayOfWeek'] as num).toInt(),
-      exerciseId: json['exerciseId'] as String,
-      order: (json['order'] as num?)?.toInt() ?? 0,
-      enabled: json['enabled'] as bool? ?? true,
+      id: reader.requireString('id'),
+      createdAt: createdAt,
+      updatedAt: reader.readDate('updatedAt', fallback: createdAt),
+      deletedAt: reader.optionalDate('deletedAt'),
+      userId: reader.readString('userId'),
+      dayOfWeek: reader.requireInt('dayOfWeek'),
+      exerciseId: reader.requireString('exerciseId'),
+      order: reader.readInt('order'),
+      enabled: reader.readBool('enabled', fallback: true),
     );
   }
 

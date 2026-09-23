@@ -1,3 +1,5 @@
+import '../../../core/errors/app_error.dart';
+import '../../../core/json/json_reader.dart';
 import '../../models/base_model.dart';
 
 enum MedicationTiming {
@@ -19,6 +21,8 @@ enum WeekDay {
 }
 
 class Medication extends BaseModel {
+  static const String _weekDaysKey = 'weekDays';
+
   final String userId;
   final String name;
   final String dosage;
@@ -56,38 +60,45 @@ class Medication extends BaseModel {
     this.weekDays = const [],
   });
 
-  factory Medication.fromJson(Map<String, dynamic> json) => Medication(
-        id: json['id'] as String,
-        createdAt: DateTime.parse(json['createdAt'] as String),
-        updatedAt: DateTime.parse(json['updatedAt'] as String),
-        deletedAt: json['deletedAt'] == null ? null : DateTime.parse(json['deletedAt'] as String),
-        userId: json['userId'] as String,
-        name: json['name'] as String,
-        dosage: json['dosage'] as String,
-        frequency: json['frequency'] as String,
-        startDate: DateTime.parse(json['startDate'] as String),
-        endDate: json['endDate'] == null ? null : DateTime.parse(json['endDate'] as String),
-        reminderTimes: (json['reminderTimes'] as List<dynamic>? ?? const <dynamic>[]).cast<String>(),
-        prescribedBy: json['prescribedBy'] as String?,
-        notes: json['notes'] as String?,
-        refillDate: json['refillDate'] == null ? null : DateTime.parse(json['refillDate'] as String),
-        displayOrder: json['displayOrder'] as int? ?? 0,
-        isActive: json['isActive'] as bool? ?? true,
-        timing: json['timing'] != null 
-            ? MedicationTiming.values.firstWhere(
-                (e) => e.name == json['timing'],
-                orElse: () => MedicationTiming.anytime,
-              )
-            : MedicationTiming.anytime,
-        weekDays: json['weekDays'] != null
-            ? (json['weekDays'] as List<dynamic>)
-                .map((e) => WeekDay.values.firstWhere(
-                      (day) => day.name == e,
-                      orElse: () => WeekDay.monday,
-                    ))
-                .toList()
-            : const [],
+  factory Medication.fromJson(Map<String, dynamic> json) {
+    final reader = JsonReader(json, source: 'Medication');
+    final createdAt = reader.requireDate('createdAt');
+    return Medication(
+      id: reader.requireString('id'),
+      createdAt: createdAt,
+      updatedAt: reader.readDate('updatedAt', fallback: createdAt),
+      deletedAt: reader.optionalDate('deletedAt'),
+      userId: reader.readString('userId'),
+      name: reader.requireString('name'),
+      dosage: reader.readString('dosage'),
+      frequency: reader.readString('frequency'),
+      startDate: reader.readDate('startDate', fallback: createdAt),
+      endDate: reader.optionalDate('endDate'),
+      reminderTimes: reader.readStringList('reminderTimes'),
+      prescribedBy: reader.optionalString('prescribedBy'),
+      notes: reader.optionalString('notes'),
+      refillDate: reader.optionalDate('refillDate'),
+      displayOrder: reader.readInt('displayOrder'),
+      isActive: reader.readBool('isActive', fallback: true),
+      timing: reader.readEnum('timing', MedicationTiming.values, fallback: MedicationTiming.anytime),
+      weekDays: _readWeekDays(reader),
+    );
+  }
+
+  static List<WeekDay> _readWeekDays(JsonReader reader) {
+    final names = reader.readStringList(_weekDaysKey);
+    final days = [
+      for (final name in names) ...WeekDay.values.where((day) => day.name == name),
+    ];
+    if (days.length != names.length) {
+      throw CorruptDataError(
+        'Medication: unknown value in "$_weekDaysKey"',
+        source: 'Medication',
+        field: _weekDaysKey,
       );
+    }
+    return days;
+  }
 
   Medication copyWith({
     String? id,

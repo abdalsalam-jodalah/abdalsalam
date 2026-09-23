@@ -1,9 +1,11 @@
+import '../../../core/errors/app_error.dart';
 import '../../../core/result/result.dart';
-import '../../../core/errors/financial_errors.dart';
 import '../../../shared/infrastructure/logger_service.dart';
 import '../../../shared/infrastructure/storage_gateway.dart';
 import '../../../data/models/financial/financial_activity_log_model.dart';
 import '../../../data/repositories/financial/financial_activity_log_repository.dart';
+import '../../../data/repositories/record_parser.dart';
+import '../../../data/repositories/repository_operation_guard.dart';
 
 class FinancialActivityLogRepositoryImpl implements FinancialActivityLogRepository {
   final StorageGateway _storage;
@@ -12,66 +14,54 @@ class FinancialActivityLogRepositoryImpl implements FinancialActivityLogReposito
 
   FinancialActivityLogRepositoryImpl(this._storage, this._logger);
 
+  RepositoryOperationGuard get _guard => RepositoryOperationGuard(table: _tableName, logger: _logger);
+
+  RecordParser<FinancialActivityLogModel> get _parser => RecordParser<FinancialActivityLogModel>(
+        table: _tableName,
+        fromJson: FinancialActivityLogModel.fromJson,
+        integrityReporter: _storage.integrityReporter,
+      );
+
   @override
-  Future<Result<FinancialActivityLogModel, Error>> create(
+  Future<Result<FinancialActivityLogModel, AppError>> create(
     FinancialActivityLogModel entry,
-  ) async {
-    try {
+  ) {
+    return _guard.run('create', () async {
       await _storage.upsertRecord(
         table: _tableName,
         id: entry.id,
         record: entry.toJson(),
         userId: entry.userId,
       );
-      return Success(entry);
-    } catch (e, st) {
-      _logger.error('Failed to create activity log entry', error: e, stackTrace: st);
-      return Failure(DatabaseError(e.toString()));
-    }
+      return entry;
+    });
   }
 
   @override
-  Future<Result<List<FinancialActivityLogModel>, Error>> getAll() async {
-    try {
-      final records = await _storage.getAllRecords(table: _tableName);
-      final entries = records.map(FinancialActivityLogModel.fromJson).toList()
-        ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
-      return Success(entries);
-    } catch (e, st) {
-      _logger.error('Failed to get activity log', error: e, stackTrace: st);
-      return Failure(DatabaseError(e.toString()));
-    }
+  Future<Result<List<FinancialActivityLogModel>, AppError>> getAll() {
+    return _guard.run('getAll', _readAllNewestFirst);
   }
 
   @override
-  Future<Result<List<FinancialActivityLogModel>, Error>> getByEntityType(
+  Future<Result<List<FinancialActivityLogModel>, AppError>> getByEntityType(
     FinancialEntityType entityType,
-  ) async {
-    try {
-      final allResult = await getAll();
-      if (allResult.isFailure) {
-        return Failure(allResult.error!);
-      }
-      final filtered =
-          allResult.data!.where((e) => e.entityType == entityType).toList();
-      return Success(filtered);
-    } catch (e, st) {
-      _logger.error('Failed to get activity log by entity type', error: e, stackTrace: st);
-      return Failure(DatabaseError(e.toString()));
-    }
+  ) {
+    return _guard.run('getByEntityType', () async {
+      final entries = await _readAllNewestFirst();
+      return entries.where((e) => e.entityType == entityType).toList();
+    });
   }
 
   @override
-  Future<Result<List<FinancialActivityLogModel>, Error>> getRecent(int limit) async {
-    try {
-      final allResult = await getAll();
-      if (allResult.isFailure) {
-        return Failure(allResult.error!);
-      }
-      return Success(allResult.data!.take(limit).toList());
-    } catch (e, st) {
-      _logger.error('Failed to get recent activity log', error: e, stackTrace: st);
-      return Failure(DatabaseError(e.toString()));
-    }
+  Future<Result<List<FinancialActivityLogModel>, AppError>> getRecent(int limit) {
+    return _guard.run('getRecent', () async {
+      final entries = await _readAllNewestFirst();
+      return entries.take(limit).toList();
+    });
+  }
+
+  Future<List<FinancialActivityLogModel>> _readAllNewestFirst() async {
+    final records = await _storage.getAllRecords(table: _tableName);
+    return _parser.parseAll(records)..sort((a, b) => b.createdAt.compareTo(a.createdAt));
   }
 }

@@ -1,3 +1,4 @@
+import '../../../core/json/json_reader.dart';
 import '../../models/base_model.dart';
 
 enum NoteCategoryType { note, todo }
@@ -23,18 +24,22 @@ class NoteCategory extends BaseModel {
     required this.parentId,
   });
 
-  factory NoteCategory.fromJson(Map<String, dynamic> json) => NoteCategory(
-        id: json['id'] as String,
-        createdAt: DateTime.parse(json['createdAt'] as String),
-        updatedAt: DateTime.parse(json['updatedAt'] as String),
-        deletedAt: json['deletedAt'] == null ? null : DateTime.parse(json['deletedAt'] as String),
-        userId: json['userId'] as String,
-        name: json['name'] as String,
-        icon: json['icon'] as String,
-        color: json['color'] as String,
-        type: NoteCategoryType.values.byName(json['type'] as String),
-        parentId: json['parentId'] as String?,
-      );
+  factory NoteCategory.fromJson(Map<String, dynamic> json) {
+    final reader = JsonReader(json, source: 'NoteCategory');
+    final createdAt = reader.requireDate('createdAt');
+    return NoteCategory(
+      id: reader.requireString('id'),
+      createdAt: createdAt,
+      updatedAt: reader.readDate('updatedAt', fallback: createdAt),
+      deletedAt: reader.optionalDate('deletedAt'),
+      userId: reader.readString('userId'),
+      name: reader.readString('name'),
+      icon: reader.readString('icon'),
+      color: reader.readString('color'),
+      type: reader.readEnum('type', NoteCategoryType.values, fallback: NoteCategoryType.note),
+      parentId: reader.optionalString('parentId'),
+    );
+  }
 
   @override
   Map<String, dynamic> toJson() => <String, dynamic>{

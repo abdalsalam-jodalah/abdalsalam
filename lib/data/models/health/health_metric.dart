@@ -1,3 +1,4 @@
+import '../../../core/json/json_reader.dart';
 import '../../models/base_model.dart';
 
 class HealthMetric extends BaseModel {
@@ -43,18 +44,22 @@ class HealthMetric extends BaseModel {
         notes: notes ?? this.notes,
       );
 
-  factory HealthMetric.fromJson(Map<String, dynamic> json) => HealthMetric(
-        id: json['id'] as String,
-        createdAt: DateTime.parse(json['createdAt'] as String),
-        updatedAt: DateTime.parse(json['updatedAt'] as String),
-        deletedAt: json['deletedAt'] == null ? null : DateTime.parse(json['deletedAt'] as String),
-        userId: json['userId'] as String,
-        metricType: json['metricType'] as String,
-        value: (json['value'] as num).toDouble(),
-        unit: json['unit'] as String,
-        measuredAt: DateTime.parse(json['measuredAt'] as String),
-        notes: json['notes'] as String?,
-      );
+  factory HealthMetric.fromJson(Map<String, dynamic> json) {
+    final reader = JsonReader(json, source: 'HealthMetric');
+    final createdAt = reader.requireDate('createdAt');
+    return HealthMetric(
+      id: reader.requireString('id'),
+      createdAt: createdAt,
+      updatedAt: reader.readDate('updatedAt', fallback: createdAt),
+      deletedAt: reader.optionalDate('deletedAt'),
+      userId: reader.readString('userId'),
+      metricType: reader.requireString('metricType'),
+      value: reader.requireDouble('value'),
+      unit: reader.readString('unit'),
+      measuredAt: reader.readDate('measuredAt', fallback: createdAt),
+      notes: reader.optionalString('notes'),
+    );
+  }
 
   @override
   Map<String, dynamic> toJson() => <String, dynamic>{

@@ -1,9 +1,11 @@
+import '../../../core/errors/app_error.dart';
 import '../../../core/result/result.dart';
-import '../../../core/errors/financial_errors.dart';
 import '../../../shared/infrastructure/logger_service.dart';
 import '../../../shared/infrastructure/storage_gateway.dart';
 import '../../../data/models/financial/category_model.dart';
 import '../../../data/repositories/financial/category_repository.dart';
+import '../../../data/repositories/record_parser.dart';
+import '../../../data/repositories/repository_operation_guard.dart';
 
 class CategoryRepositoryImpl implements CategoryRepository {
   final StorageGateway _storage;
@@ -12,9 +14,17 @@ class CategoryRepositoryImpl implements CategoryRepository {
 
   CategoryRepositoryImpl(this._storage, this._logger);
 
+  RepositoryOperationGuard get _guard => RepositoryOperationGuard(table: _tableName, logger: _logger);
+
+  RecordParser<CategoryModel> get _parser => RecordParser<CategoryModel>(
+        table: _tableName,
+        fromJson: CategoryModel.fromJson,
+        integrityReporter: _storage.integrityReporter,
+      );
+
   @override
-  Future<Result<CategoryModel, Error>> create(CategoryModel category) async {
-    try {
+  Future<Result<CategoryModel, AppError>> create(CategoryModel category) {
+    return _guard.run('create', () async {
       await _storage.upsertRecord(
         table: _tableName,
         id: category.id,
@@ -22,61 +32,37 @@ class CategoryRepositoryImpl implements CategoryRepository {
         userId: category.userId,
       );
       _logger.info('Category created: ${category.id}');
-      return Success(category);
-    } catch (e, st) {
-      _logger.error('Failed to create category', error: e, stackTrace: st);
-      return Failure(DatabaseError(e.toString()));
-    }
+      return category;
+    });
   }
 
   @override
-  Future<Result<CategoryModel?, Error>> getById(String id) async {
-    try {
+  Future<Result<CategoryModel?, AppError>> getById(String id) {
+    return _guard.run('getById', () async {
       final record = await _storage.getRecord(table: _tableName, id: id);
       if (record == null) {
-        return const Success(null);
+        return null;
       }
-      return Success(CategoryModel.fromJson(record));
-    } catch (e, st) {
-      _logger.error('Failed to get category', error: e, stackTrace: st);
-      return Failure(DatabaseError(e.toString()));
-    }
+      return _parser.parseOne(record);
+    });
   }
 
   @override
-  Future<Result<List<CategoryModel>, Error>> getAll() async {
-    try {
-      final records = await _storage.getAllRecords(table: _tableName);
-      final categories = records
-          .map((r) => CategoryModel.fromJson(r))
-          .where((c) => c.deletedAt == null)
-          .toList();
-      return Success(categories);
-    } catch (e, st) {
-      _logger.error('Failed to get all categories', error: e, stackTrace: st);
-      return Failure(DatabaseError(e.toString()));
-    }
+  Future<Result<List<CategoryModel>, AppError>> getAll() {
+    return _guard.run('getAll', _readAll);
   }
 
   @override
-  Future<Result<List<CategoryModel>, Error>> getByType(CategoryType type) async {
-    try {
-      final allResult = await getAll();
-      if (allResult.isFailure) {
-        return Failure(allResult.error!);
-      }
-
-      final filtered = allResult.data!.where((c) => c.type == type).toList();
-      return Success(filtered);
-    } catch (e, st) {
-      _logger.error('Failed to get categories by type', error: e, stackTrace: st);
-      return Failure(DatabaseError(e.toString()));
-    }
+  Future<Result<List<CategoryModel>, AppError>> getByType(CategoryType type) {
+    return _guard.run('getByType', () async {
+      final categories = await _readAll();
+      return categories.where((c) => c.type == type).toList();
+    });
   }
 
   @override
-  Future<Result<void, Error>> update(CategoryModel category) async {
-    try {
+  Future<Result<void, AppError>> update(CategoryModel category) {
+    return _guard.run('update', () async {
       final updated = category.copyWith(updatedAt: DateTime.now());
       await _storage.upsertRecord(
         table: _tableName,
@@ -85,22 +71,19 @@ class CategoryRepositoryImpl implements CategoryRepository {
         userId: updated.userId,
       );
       _logger.info('Category updated: ${category.id}');
-      return const Success(null);
-    } catch (e, st) {
-      _logger.error('Failed to update category', error: e, stackTrace: st);
-      return Failure(DatabaseError(e.toString()));
-    }
+    });
   }
 
   @override
-  Future<Result<void, Error>> delete(String id) async {
-    try {
+  Future<Result<void, AppError>> delete(String id) {
+    return _guard.run('delete', () async {
       await _storage.deleteRecord(table: _tableName, id: id);
       _logger.info('Category deleted: $id');
-      return const Success(null);
-    } catch (e, st) {
-      _logger.error('Failed to delete category', error: e, stackTrace: st);
-      return Failure(DatabaseError(e.toString()));
-    }
+    });
+  }
+
+  Future<List<CategoryModel>> _readAll() async {
+    final records = await _storage.getAllRecords(table: _tableName);
+    return _parser.parseAll(records).where((c) => c.deletedAt == null).toList();
   }
 }

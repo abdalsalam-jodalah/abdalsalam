@@ -1,3 +1,4 @@
+import '../../../core/json/json_reader.dart';
 import '../../models/base_model.dart';
 
 class Note extends BaseModel {
@@ -29,22 +30,26 @@ class Note extends BaseModel {
     this.order = 0,
   });
 
-  factory Note.fromJson(Map<String, dynamic> json) => Note(
-        id: json['id'] as String,
-        createdAt: DateTime.parse(json['createdAt'] as String),
-        updatedAt: DateTime.parse(json['updatedAt'] as String),
-        deletedAt: json['deletedAt'] == null ? null : DateTime.parse(json['deletedAt'] as String),
-        userId: json['userId'] as String,
-        title: json['title'] as String,
-        content: json['content'] as String,
-        tags: (json['tags'] as List<dynamic>? ?? const <dynamic>[]).cast<String>(),
-        categoryId: json['categoryId'] as String?,
-        pinned: json['pinned'] as bool? ?? false,
-        archived: json['archived'] as bool? ?? false,
-        attachments: (json['attachments'] as List<dynamic>? ?? const <dynamic>[]).cast<String>(),
-        color: json['color'] as String?,
-        order: (json['order'] as num?)?.toInt() ?? 0,
-      );
+  factory Note.fromJson(Map<String, dynamic> json) {
+    final reader = JsonReader(json, source: 'Note');
+    final createdAt = reader.requireDate('createdAt');
+    return Note(
+      id: reader.requireString('id'),
+      createdAt: createdAt,
+      updatedAt: reader.readDate('updatedAt', fallback: createdAt),
+      deletedAt: reader.optionalDate('deletedAt'),
+      userId: reader.readString('userId'),
+      title: reader.readString('title'),
+      content: reader.readString('content'),
+      tags: reader.readStringList('tags'),
+      categoryId: reader.optionalString('categoryId'),
+      pinned: reader.readBool('pinned'),
+      archived: reader.readBool('archived'),
+      attachments: reader.readStringList('attachments'),
+      color: reader.optionalString('color'),
+      order: reader.readInt('order'),
+    );
+  }
 
   Note copyWith({
     DateTime? updatedAt,

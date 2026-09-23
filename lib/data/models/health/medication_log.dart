@@ -1,3 +1,4 @@
+import '../../../core/json/json_reader.dart';
 import '../../models/base_model.dart';
 
 class MedicationLog extends BaseModel {
@@ -30,21 +31,25 @@ class MedicationLog extends BaseModel {
   bool get isTaken => takenAt != null;
   bool get isPending => takenAt == null && !skipped;
 
-  factory MedicationLog.fromJson(Map<String, dynamic> json) => MedicationLog(
-        id: json['id'] as String,
-        createdAt: DateTime.parse(json['createdAt'] as String),
-        updatedAt: DateTime.parse(json['updatedAt'] as String),
-        deletedAt: json['deletedAt'] == null ? null : DateTime.parse(json['deletedAt'] as String),
-        userId: json['userId'] as String,
-        medicationId: json['medicationId'] as String,
-        scheduledFor: DateTime.parse(json['scheduledFor'] as String),
-        scheduledTime: json['scheduledTime'] as String,
-        takenAt: json['takenAt'] == null ? null : DateTime.parse(json['takenAt'] as String),
-        skipped: json['skipped'] as bool? ?? false,
-        skipReason: json['skipReason'] as String?,
-        sideEffects: json['sideEffects'] as String?,
-        notes: json['notes'] as String?,
-      );
+  factory MedicationLog.fromJson(Map<String, dynamic> json) {
+    final reader = JsonReader(json, source: 'MedicationLog');
+    final createdAt = reader.requireDate('createdAt');
+    return MedicationLog(
+      id: reader.requireString('id'),
+      createdAt: createdAt,
+      updatedAt: reader.readDate('updatedAt', fallback: createdAt),
+      deletedAt: reader.optionalDate('deletedAt'),
+      userId: reader.readString('userId'),
+      medicationId: reader.requireString('medicationId'),
+      scheduledFor: reader.requireDate('scheduledFor'),
+      scheduledTime: reader.requireString('scheduledTime'),
+      takenAt: reader.optionalDate('takenAt'),
+      skipped: reader.readBool('skipped'),
+      skipReason: reader.optionalString('skipReason'),
+      sideEffects: reader.optionalString('sideEffects'),
+      notes: reader.optionalString('notes'),
+    );
+  }
 
   MedicationLog copyWith({
     String? id,

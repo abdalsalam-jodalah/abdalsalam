@@ -1,5 +1,6 @@
 import 'package:uuid/uuid.dart';
 
+import '../../../core/errors/app_error.dart';
 import '../../../core/result/result.dart';
 import '../../../core/errors/financial_errors.dart';
 import '../../../data/models/financial/recurrence_pattern.dart';
@@ -42,7 +43,7 @@ class RecurringTransactionGenerator {
     }
   }
 
-  Future<Result<int, Error>> catchUpDueRecurrences({DateTime? now}) async {
+  Future<Result<int, AppError>> catchUpDueRecurrences({DateTime? now}) async {
     final effectiveNow = now ?? DateTime.now();
     try {
       final allResult = await _transactionRepo.getAll();

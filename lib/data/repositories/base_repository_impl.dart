@@ -7,12 +7,10 @@ import '../../shared/infrastructure/storage_gateway.dart';
 import '../models/base_model.dart';
 import 'base_repository.dart';
 import 'record_parser.dart';
-import 'repository_error_mapper.dart';
+import 'repository_operation_guard.dart';
 
 abstract class BaseRepositoryImpl<T extends BaseModel>
     implements BaseRepository<T> {
-  static const RepositoryErrorMapper _errorMapper = RepositoryErrorMapper();
-
   final LoggerService logger;
   final StorageGateway storage;
 
@@ -30,15 +28,7 @@ abstract class BaseRepositoryImpl<T extends BaseModel>
   List<T> parseRecords(Iterable<Map<String, dynamic>> rows) => recordParser.parseAll(rows);
 
   Future<Result<R, AppError>> guardStorage<R>(String operation, Future<R> Function() body) {
-    return Result.guardAsync<R, AppError>(body, onError: (error, stackTrace) {
-      logger.error('[$tableName] $operation failed', error: error, stackTrace: stackTrace);
-      return _errorMapper.toAppError(
-        table: tableName,
-        operation: operation,
-        error: error,
-        stackTrace: stackTrace,
-      );
-    });
+    return RepositoryOperationGuard(table: tableName, logger: logger).run(operation, body);
   }
 
   @override

@@ -1,12 +1,13 @@
+import '../../../core/errors/app_error.dart';
 import '../../../core/result/result.dart';
 import '../../models/financial/budget_model.dart';
 
 abstract class BudgetRepository {
-  Future<Result<BudgetModel, Error>> create(BudgetModel budget);
-  Future<Result<BudgetModel?, Error>> getById(String id);
-  Future<Result<List<BudgetModel>, Error>> getAll();
-  Future<Result<List<BudgetModel>, Error>> getActive();
-  Future<Result<List<BudgetModel>, Error>> getByPeriod(BudgetPeriod period);
-  Future<Result<void, Error>> update(BudgetModel budget);
-  Future<Result<void, Error>> delete(String id);
+  Future<Result<BudgetModel, AppError>> create(BudgetModel budget);
+  Future<Result<BudgetModel?, AppError>> getById(String id);
+  Future<Result<List<BudgetModel>, AppError>> getAll();
+  Future<Result<List<BudgetModel>, AppError>> getActive();
+  Future<Result<List<BudgetModel>, AppError>> getByPeriod(BudgetPeriod period);
+  Future<Result<void, AppError>> update(BudgetModel budget);
+  Future<Result<void, AppError>> delete(String id);
 }

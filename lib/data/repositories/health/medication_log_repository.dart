@@ -26,61 +26,41 @@ class MedicationLogRepositoryImpl extends BaseRepositoryImpl<MedicationLog>
   MedicationLog fromJson(Map<String, dynamic> json) => MedicationLog.fromJson(json);
 
   @override
-  Future<Result<List<MedicationLog>, AppError>> getByMedicationId(String medicationId) async {
-    try {
-      final result = await storage.query(
+  Future<Result<List<MedicationLog>, AppError>> getByMedicationId(String medicationId) {
+    return guardStorage('getByMedicationId', () async {
+      final rows = await storage.query(
         table: tableName,
         filters: {'medicationId': medicationId},
       );
-      final logs = result.map((json) => fromJson(json)).toList();
+      final logs = parseRecords(rows);
       logger.info('[$tableName] Found ${logs.length} logs for medication $medicationId');
-      return Success(logs);
-    } catch (e, st) {
-      logger.error('[$tableName] getByMedicationId failed', error: e, stackTrace: st);
-      return Failure(DatabaseError(e.toString()));
-    }
+      return logs;
+    });
   }
 
   @override
   Future<Result<List<MedicationLog>, AppError>> getByDate(DateTime date) async {
-    try {
-      final allLogs = await getAll();
-      if (allLogs.isFailure) {
-        return Failure(allLogs.error!);
-      }
-
-      final startOfDay = DateTime(date.year, date.month, date.day);
-      final endOfDay = startOfDay.add(const Duration(days: 1));
-
-      final filtered = allLogs.data!
-          .where((log) =>
-              !log.scheduledFor.isBefore(startOfDay) && log.scheduledFor.isBefore(endOfDay))
-          .toList();
-
-      filtered.sort((a, b) => a.scheduledTime.compareTo(b.scheduledTime));
-      logger.info('[$tableName] Found ${filtered.length} logs for date $date');
-      return Success(filtered);
-    } catch (e, st) {
-      logger.error('[$tableName] getByDate failed', error: e, stackTrace: st);
-      return Failure(DatabaseError(e.toString()));
+    final allLogs = await getAll();
+    if (allLogs.isFailure) {
+      return Failure(allLogs.error!);
     }
+
+    final filtered = allLogs.data!.where((log) => _isScheduledOnDay(log, date)).toList()
+      ..sort((a, b) => a.scheduledTime.compareTo(b.scheduledTime));
+    logger.info('[$tableName] Found ${filtered.length} logs for date $date');
+    return Success(filtered);
   }
 
   @override
   Future<Result<List<MedicationLog>, AppError>> getPendingForDate(DateTime date) async {
-    try {
-      final logsResult = await getByDate(date);
-      if (logsResult.isFailure) {
-        return Failure(logsResult.error!);
-      }
-
-      final pending = logsResult.data!.where((log) => log.isPending).toList();
-      logger.info('[$tableName] Found ${pending.length} pending logs for date $date');
-      return Success(pending);
-    } catch (e, st) {
-      logger.error('[$tableName] getPendingForDate failed', error: e, stackTrace: st);
-      return Failure(DatabaseError(e.toString()));
+    final logsResult = await getByDate(date);
+    if (logsResult.isFailure) {
+      return Failure(logsResult.error!);
     }
+
+    final pending = logsResult.data!.where((log) => log.isPending).toList();
+    logger.info('[$tableName] Found ${pending.length} pending logs for date $date');
+    return Success(pending);
   }
 
   @override
@@ -89,32 +69,20 @@ class MedicationLogRepositoryImpl extends BaseRepositoryImpl<MedicationLog>
     DateTime date,
     String time,
   ) async {
-    try {
-      final logsResult = await getByMedicationId(medicationId);
-      if (logsResult.isFailure) {
-        return Failure(logsResult.error!);
-      }
-
-      final startOfDay = DateTime(date.year, date.month, date.day);
-      final endOfDay = startOfDay.add(const Duration(days: 1));
-
-      MedicationLog? log;
-      try {
-        log = logsResult.data!.firstWhere(
-          (log) =>
-              !log.scheduledFor.isBefore(startOfDay) &&
-              log.scheduledFor.isBefore(endOfDay) &&
-              log.scheduledTime == time,
-        );
-      } catch (e) {
-        // No log found for this time
-        log = null;
-      }
-
-      return Success(log);
-    } catch (e, st) {
-      logger.error('[$tableName] getLogForMedicationAndTime failed', error: e, stackTrace: st);
-      return Failure(DatabaseError(e.toString()));
+    final logsResult = await getByMedicationId(medicationId);
+    if (logsResult.isFailure) {
+      return Failure(logsResult.error!);
     }
+
+    final match = logsResult.data!
+        .where((log) => _isScheduledOnDay(log, date) && log.scheduledTime == time)
+        .firstOrNull;
+    return Success(match);
+  }
+
+  bool _isScheduledOnDay(MedicationLog log, DateTime date) {
+    final startOfDay = DateTime(date.year, date.month, date.day);
+    final endOfDay = startOfDay.add(const Duration(days: 1));
+    return !log.scheduledFor.isBefore(startOfDay) && log.scheduledFor.isBefore(endOfDay);
   }
 }

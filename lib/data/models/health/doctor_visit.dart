@@ -1,3 +1,4 @@
+import '../../../core/json/json_reader.dart';
 import '../base_model.dart';
 
 class DoctorVisit extends BaseModel {
@@ -29,22 +30,26 @@ class DoctorVisit extends BaseModel {
     this.notes,
   });
 
-  factory DoctorVisit.fromJson(Map<String, dynamic> json) => DoctorVisit(
-        id: json['id'] as String,
-        createdAt: DateTime.parse(json['createdAt'] as String),
-        updatedAt: DateTime.parse(json['updatedAt'] as String),
-        deletedAt: json['deletedAt'] == null ? null : DateTime.parse(json['deletedAt'] as String),
-        userId: json['userId'] as String,
-        doctorName: json['doctorName'] as String,
-        specialty: json['specialty'] as String?,
-        visitDate: DateTime.parse(json['visitDate'] as String),
-        reason: json['reason'] as String,
-        diagnosis: json['diagnosis'] as String?,
-        medicationIds: (json['medicationIds'] as List<dynamic>? ?? const <dynamic>[]).cast<String>(),
-        attachmentPaths: (json['attachmentPaths'] as List<dynamic>? ?? const <dynamic>[]).cast<String>(),
-        followUpDate: json['followUpDate'] == null ? null : DateTime.parse(json['followUpDate'] as String),
-        notes: json['notes'] as String?,
-      );
+  factory DoctorVisit.fromJson(Map<String, dynamic> json) {
+    final reader = JsonReader(json, source: 'DoctorVisit');
+    final createdAt = reader.requireDate('createdAt');
+    return DoctorVisit(
+      id: reader.requireString('id'),
+      createdAt: createdAt,
+      updatedAt: reader.readDate('updatedAt', fallback: createdAt),
+      deletedAt: reader.optionalDate('deletedAt'),
+      userId: reader.readString('userId'),
+      doctorName: reader.readString('doctorName'),
+      specialty: reader.optionalString('specialty'),
+      visitDate: reader.readDate('visitDate', fallback: createdAt),
+      reason: reader.readString('reason'),
+      diagnosis: reader.optionalString('diagnosis'),
+      medicationIds: reader.readStringList('medicationIds'),
+      attachmentPaths: reader.readStringList('attachmentPaths'),
+      followUpDate: reader.optionalDate('followUpDate'),
+      notes: reader.optionalString('notes'),
+    );
+  }
 
   DoctorVisit copyWith({
     String? userId,

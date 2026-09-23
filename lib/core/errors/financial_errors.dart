@@ -1,21 +1,11 @@
-class FinancialError extends Error {
-  final String message;
-  final String? code;
+import 'app_error.dart';
+import 'app_error_code.dart';
 
-  FinancialError(this.message, {this.code});
-
-  @override
-  String toString() => 'FinancialError: $message${code != null ? ' ($code)' : ''}';
-}
-
-class DatabaseError extends FinancialError {
-  DatabaseError(super.message) : super(code: 'DATABASE_ERROR');
-}
-
-class NotFoundError extends FinancialError {
-  NotFoundError(super.message) : super(code: 'NOT_FOUND');
-}
-
-class ValidationError extends FinancialError {
-  ValidationError(super.message) : super(code: 'VALIDATION_ERROR');
+class FinancialError extends AppError {
+  FinancialError(
+    super.message, {
+    super.code = AppErrorCode.financial,
+    super.cause,
+    super.causeStackTrace,
+  });
 }

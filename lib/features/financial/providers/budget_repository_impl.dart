@@ -1,9 +1,11 @@
+import '../../../core/errors/app_error.dart';
 import '../../../core/result/result.dart';
-import '../../../core/errors/financial_errors.dart';
 import '../../../shared/infrastructure/logger_service.dart';
 import '../../../shared/infrastructure/storage_gateway.dart';
 import '../../../data/models/financial/budget_model.dart';
 import '../../../data/repositories/financial/budget_repository.dart';
+import '../../../data/repositories/record_parser.dart';
+import '../../../data/repositories/repository_operation_guard.dart';
 
 class BudgetRepositoryImpl implements BudgetRepository {
   final StorageGateway _storage;
@@ -12,9 +14,17 @@ class BudgetRepositoryImpl implements BudgetRepository {
 
   BudgetRepositoryImpl(this._storage, this._logger);
 
+  RepositoryOperationGuard get _guard => RepositoryOperationGuard(table: _tableName, logger: _logger);
+
+  RecordParser<BudgetModel> get _parser => RecordParser<BudgetModel>(
+        table: _tableName,
+        fromJson: BudgetModel.fromJson,
+        integrityReporter: _storage.integrityReporter,
+      );
+
   @override
-  Future<Result<BudgetModel, Error>> create(BudgetModel budget) async {
-    try {
+  Future<Result<BudgetModel, AppError>> create(BudgetModel budget) {
+    return _guard.run('create', () async {
       await _storage.upsertRecord(
         table: _tableName,
         id: budget.id,
@@ -22,84 +32,51 @@ class BudgetRepositoryImpl implements BudgetRepository {
         userId: budget.userId,
       );
       _logger.info('Budget created: ${budget.id}');
-      return Success(budget);
-    } catch (e, st) {
-      _logger.error('Failed to create budget', error: e, stackTrace: st);
-      return Failure(DatabaseError(e.toString()));
-    }
+      return budget;
+    });
   }
 
   @override
-  Future<Result<BudgetModel?, Error>> getById(String id) async {
-    try {
+  Future<Result<BudgetModel?, AppError>> getById(String id) {
+    return _guard.run('getById', () async {
       final record = await _storage.getRecord(table: _tableName, id: id);
       if (record == null) {
-        return const Success(null);
+        return null;
       }
-      return Success(BudgetModel.fromJson(record));
-    } catch (e, st) {
-      _logger.error('Failed to get budget', error: e, stackTrace: st);
-      return Failure(DatabaseError(e.toString()));
-    }
+      return _parser.parseOne(record);
+    });
   }
 
   @override
-  Future<Result<List<BudgetModel>, Error>> getAll() async {
-    try {
-      final records = await _storage.getAllRecords(table: _tableName);
-      final budgets = records
-          .map((r) => BudgetModel.fromJson(r))
-          .where((b) => b.deletedAt == null)
-          .toList();
-      return Success(budgets);
-    } catch (e, st) {
-      _logger.error('Failed to get all budgets', error: e, stackTrace: st);
-      return Failure(DatabaseError(e.toString()));
-    }
+  Future<Result<List<BudgetModel>, AppError>> getAll() {
+    return _guard.run('getAll', _readAll);
   }
 
   @override
-  Future<Result<List<BudgetModel>, Error>> getActive() async {
-    try {
-      final allResult = await getAll();
-      if (allResult.isFailure) {
-        return Failure(allResult.error!);
-      }
-
+  Future<Result<List<BudgetModel>, AppError>> getActive() {
+    return _guard.run('getActive', () async {
+      final budgets = await _readAll();
       final now = DateTime.now();
-      final active = allResult.data!
+      return budgets
           .where((b) =>
               b.isActive &&
               b.startDate.isBefore(now) &&
               b.endDate.isAfter(now))
           .toList();
-
-      return Success(active);
-    } catch (e, st) {
-      _logger.error('Failed to get active budgets', error: e, stackTrace: st);
-      return Failure(DatabaseError(e.toString()));
-    }
+    });
   }
 
   @override
-  Future<Result<List<BudgetModel>, Error>> getByPeriod(BudgetPeriod period) async {
-    try {
-      final allResult = await getAll();
-      if (allResult.isFailure) {
-        return Failure(allResult.error!);
-      }
-
-      final filtered = allResult.data!.where((b) => b.period == period).toList();
-      return Success(filtered);
-    } catch (e, st) {
-      _logger.error('Failed to get budgets by period', error: e, stackTrace: st);
-      return Failure(DatabaseError(e.toString()));
-    }
+  Future<Result<List<BudgetModel>, AppError>> getByPeriod(BudgetPeriod period) {
+    return _guard.run('getByPeriod', () async {
+      final budgets = await _readAll();
+      return budgets.where((b) => b.period == period).toList();
+    });
   }
 
   @override
-  Future<Result<void, Error>> update(BudgetModel budget) async {
-    try {
+  Future<Result<void, AppError>> update(BudgetModel budget) {
+    return _guard.run('update', () async {
       final updated = budget.copyWith(updatedAt: DateTime.now());
       await _storage.upsertRecord(
         table: _tableName,
@@ -108,22 +85,19 @@ class BudgetRepositoryImpl implements BudgetRepository {
         userId: updated.userId,
       );
       _logger.info('Budget updated: ${budget.id}');
-      return const Success(null);
-    } catch (e, st) {
-      _logger.error('Failed to update budget', error: e, stackTrace: st);
-      return Failure(DatabaseError(e.toString()));
-    }
+    });
   }
 
   @override
-  Future<Result<void, Error>> delete(String id) async {
-    try {
+  Future<Result<void, AppError>> delete(String id) {
+    return _guard.run('delete', () async {
       await _storage.deleteRecord(table: _tableName, id: id);
       _logger.info('Budget deleted: $id');
-      return const Success(null);
-    } catch (e, st) {
-      _logger.error('Failed to delete budget', error: e, stackTrace: st);
-      return Failure(DatabaseError(e.toString()));
-    }
+    });
+  }
+
+  Future<List<BudgetModel>> _readAll() async {
+    final records = await _storage.getAllRecords(table: _tableName);
+    return _parser.parseAll(records).where((b) => b.deletedAt == null).toList();
   }
 }

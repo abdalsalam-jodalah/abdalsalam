@@ -1,3 +1,4 @@
+import '../../../core/json/json_reader.dart';
 import '../../models/base_model.dart';
 
 enum GoalScope { life, yearly, quarterly, monthly, weekly, daily }
@@ -36,21 +37,23 @@ class Goal extends BaseModel {
   });
 
   factory Goal.fromJson(Map<String, dynamic> json) {
+    final reader = JsonReader(json, source: 'Goal');
+    final createdAt = reader.requireDate('createdAt');
     return Goal(
-      id: json['id'] as String,
-      createdAt: DateTime.parse(json['createdAt'] as String),
-      updatedAt: DateTime.parse(json['updatedAt'] as String),
-      deletedAt: json['deletedAt'] == null ? null : DateTime.parse(json['deletedAt'] as String),
-      userId: json['userId'] as String,
-      title: json['title'] as String,
-      description: json['description'] as String?,
-      scope: GoalScope.values.byName(json['scope'] as String),
-      status: GoalStatus.values.byName(json['status'] as String),
-      targetDate: json['targetDate'] == null ? null : DateTime.parse(json['targetDate'] as String),
-      parentGoalId: json['parentGoalId'] as String?,
-      progress: (json['progress'] as num?)?.toDouble() ?? 0.0,
-      area: json['area'] == null ? null : LifeArea.values.byName(json['area'] as String),
-      topicId: json['topicId'] as String?,
+      id: reader.requireString('id'),
+      createdAt: createdAt,
+      updatedAt: reader.readDate('updatedAt', fallback: createdAt),
+      deletedAt: reader.optionalDate('deletedAt'),
+      userId: reader.readString('userId'),
+      title: reader.readString('title'),
+      description: reader.optionalString('description'),
+      scope: reader.readEnum('scope', GoalScope.values, fallback: GoalScope.life),
+      status: reader.readEnum('status', GoalStatus.values, fallback: GoalStatus.notStarted),
+      targetDate: reader.optionalDate('targetDate'),
+      parentGoalId: reader.optionalString('parentGoalId'),
+      progress: reader.readDouble('progress'),
+      area: reader.optionalEnum('area', LifeArea.values),
+      topicId: reader.optionalString('topicId'),
     );
   }
 

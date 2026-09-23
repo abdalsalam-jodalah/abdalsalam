@@ -1,3 +1,4 @@
+import 'package:abdalsalam/core/errors/app_error.dart';
 import 'package:abdalsalam/core/result/result.dart';
 import 'package:abdalsalam/data/models/financial/account_model.dart';
 import 'package:abdalsalam/data/models/financial/budget_model.dart';
@@ -18,26 +19,26 @@ class FakeTransactionRepository implements TransactionRepository {
   FakeTransactionRepository([List<TransactionModel>? seed]) : transactions = seed ?? [];
 
   @override
-  Future<Result<TransactionModel, Error>> create(TransactionModel transaction) async {
+  Future<Result<TransactionModel, AppError>> create(TransactionModel transaction) async {
     transactions.add(transaction);
     return Success(transaction);
   }
 
   @override
-  Future<Result<void, Error>> update(TransactionModel transaction) async {
+  Future<Result<void, AppError>> update(TransactionModel transaction) async {
     final index = transactions.indexWhere((t) => t.id == transaction.id);
     if (index != -1) transactions[index] = transaction;
     return const Success(null);
   }
 
   @override
-  Future<Result<void, Error>> delete(String id) async {
+  Future<Result<void, AppError>> delete(String id) async {
     transactions.removeWhere((t) => t.id == id);
     return const Success(null);
   }
 
   @override
-  Future<Result<TransactionModel?, Error>> getById(String id) async {
+  Future<Result<TransactionModel?, AppError>> getById(String id) async {
     try {
       return Success(transactions.firstWhere((t) => t.id == id));
     } catch (_) {
@@ -46,10 +47,10 @@ class FakeTransactionRepository implements TransactionRepository {
   }
 
   @override
-  Future<Result<List<TransactionModel>, Error>> getAll() async => Success(List.of(transactions));
+  Future<Result<List<TransactionModel>, AppError>> getAll() async => Success(List.of(transactions));
 
   @override
-  Future<Result<List<TransactionModel>, Error>> getByDateRange(
+  Future<Result<List<TransactionModel>, AppError>> getByDateRange(
     DateTime start,
     DateTime end,
   ) async {
@@ -61,12 +62,12 @@ class FakeTransactionRepository implements TransactionRepository {
   }
 
   @override
-  Future<Result<List<TransactionModel>, Error>> getByCategory(String categoryId) async {
+  Future<Result<List<TransactionModel>, AppError>> getByCategory(String categoryId) async {
     return Success(transactions.where((t) => t.categoryId == categoryId).toList());
   }
 
   @override
-  Future<Result<List<TransactionModel>, Error>> getByCategoryAndDateRange(
+  Future<Result<List<TransactionModel>, AppError>> getByCategoryAndDateRange(
     String categoryId,
     DateTime start,
     DateTime end,
@@ -76,17 +77,17 @@ class FakeTransactionRepository implements TransactionRepository {
   }
 
   @override
-  Future<Result<List<TransactionModel>, Error>> getByAccount(String accountId) async {
+  Future<Result<List<TransactionModel>, AppError>> getByAccount(String accountId) async {
     return Success(transactions.where((t) => t.accountId == accountId).toList());
   }
 
   @override
-  Future<Result<List<TransactionModel>, Error>> getByType(TransactionType type) async {
+  Future<Result<List<TransactionModel>, AppError>> getByType(TransactionType type) async {
     return Success(transactions.where((t) => t.type == type).toList());
   }
 
   @override
-  Future<Result<double, Error>> getTotalByType(
+  Future<Result<double, AppError>> getTotalByType(
     TransactionType type,
     DateTime start,
     DateTime end,
@@ -99,7 +100,7 @@ class FakeTransactionRepository implements TransactionRepository {
   }
 
   @override
-  Future<Result<Map<String, double>, Error>> getTotalByCategory(
+  Future<Result<Map<String, double>, AppError>> getTotalByCategory(
     DateTime start,
     DateTime end,
   ) async {
@@ -112,7 +113,7 @@ class FakeTransactionRepository implements TransactionRepository {
   }
 
   @override
-  Future<Result<List<TransactionModel>, Error>> getRecent(int limit) async {
+  Future<Result<List<TransactionModel>, AppError>> getRecent(int limit) async {
     final sorted = List.of(transactions)..sort((a, b) => b.date.compareTo(a.date));
     return Success(sorted.take(limit).toList());
   }
@@ -124,13 +125,13 @@ class FakeExchangeRateRepository implements ExchangeRateRepository {
   FakeExchangeRateRepository([List<ExchangeRateModel>? seed]) : rates = seed ?? [];
 
   @override
-  Future<Result<ExchangeRateModel, Error>> create(ExchangeRateModel rate) async {
+  Future<Result<ExchangeRateModel, AppError>> create(ExchangeRateModel rate) async {
     rates.add(rate);
     return Success(rate);
   }
 
   @override
-  Future<Result<ExchangeRateModel?, Error>> getById(String id) async {
+  Future<Result<ExchangeRateModel?, AppError>> getById(String id) async {
     try {
       return Success(rates.firstWhere((r) => r.id == id));
     } catch (_) {
@@ -139,10 +140,10 @@ class FakeExchangeRateRepository implements ExchangeRateRepository {
   }
 
   @override
-  Future<Result<List<ExchangeRateModel>, Error>> getAll() async => Success(List.of(rates));
+  Future<Result<List<ExchangeRateModel>, AppError>> getAll() async => Success(List.of(rates));
 
   @override
-  Future<Result<ExchangeRateModel?, Error>> getLatestRate(
+  Future<Result<ExchangeRateModel?, AppError>> getLatestRate(
     String fromCurrency,
     String toCurrency,
   ) async {
@@ -154,7 +155,7 @@ class FakeExchangeRateRepository implements ExchangeRateRepository {
   }
 
   @override
-  Future<Result<ExchangeRateModel?, Error>> getRateForDate(
+  Future<Result<ExchangeRateModel?, AppError>> getRateForDate(
     String fromCurrency,
     String toCurrency,
     DateTime date,
@@ -168,7 +169,7 @@ class FakeExchangeRateRepository implements ExchangeRateRepository {
   }
 
   @override
-  Future<Result<ExchangeRateModel?, Error>> getNearestRateOnOrBefore(
+  Future<Result<ExchangeRateModel?, AppError>> getNearestRateOnOrBefore(
     String fromCurrency,
     String toCurrency,
     DateTime date,
@@ -185,7 +186,7 @@ class FakeExchangeRateRepository implements ExchangeRateRepository {
   }
 
   @override
-  Future<Result<List<ExchangeRateModel>, Error>> getRatesForDateRange(
+  Future<Result<List<ExchangeRateModel>, AppError>> getRatesForDateRange(
     String fromCurrency,
     String toCurrency,
     DateTime start,
@@ -201,7 +202,7 @@ class FakeExchangeRateRepository implements ExchangeRateRepository {
   }
 
   @override
-  Future<Result<void, Error>> deleteOldRates(DateTime before) async {
+  Future<Result<void, AppError>> deleteOldRates(DateTime before) async {
     rates.removeWhere((r) => r.date.isBefore(before));
     return const Success(null);
   }
@@ -211,7 +212,7 @@ class FakeFinancialActivityLogRepository implements FinancialActivityLogReposito
   final List<FinancialActivityLogModel> entries = [];
 
   @override
-  Future<Result<FinancialActivityLogModel, Error>> create(
+  Future<Result<FinancialActivityLogModel, AppError>> create(
     FinancialActivityLogModel entry,
   ) async {
     entries.add(entry);
@@ -219,18 +220,18 @@ class FakeFinancialActivityLogRepository implements FinancialActivityLogReposito
   }
 
   @override
-  Future<Result<List<FinancialActivityLogModel>, Error>> getAll() async =>
+  Future<Result<List<FinancialActivityLogModel>, AppError>> getAll() async =>
       Success(List.of(entries));
 
   @override
-  Future<Result<List<FinancialActivityLogModel>, Error>> getByEntityType(
+  Future<Result<List<FinancialActivityLogModel>, AppError>> getByEntityType(
     FinancialEntityType entityType,
   ) async {
     return Success(entries.where((e) => e.entityType == entityType).toList());
   }
 
   @override
-  Future<Result<List<FinancialActivityLogModel>, Error>> getRecent(int limit) async {
+  Future<Result<List<FinancialActivityLogModel>, AppError>> getRecent(int limit) async {
     return Success(entries.take(limit).toList());
   }
 }
@@ -239,26 +240,26 @@ class FakeCategoryRepository implements CategoryRepository {
   final List<CategoryModel> categories = [];
 
   @override
-  Future<Result<CategoryModel, Error>> create(CategoryModel category) async {
+  Future<Result<CategoryModel, AppError>> create(CategoryModel category) async {
     categories.add(category);
     return Success(category);
   }
 
   @override
-  Future<Result<void, Error>> update(CategoryModel category) async {
+  Future<Result<void, AppError>> update(CategoryModel category) async {
     final index = categories.indexWhere((c) => c.id == category.id);
     if (index != -1) categories[index] = category;
     return const Success(null);
   }
 
   @override
-  Future<Result<void, Error>> delete(String id) async {
+  Future<Result<void, AppError>> delete(String id) async {
     categories.removeWhere((c) => c.id == id);
     return const Success(null);
   }
 
   @override
-  Future<Result<CategoryModel?, Error>> getById(String id) async {
+  Future<Result<CategoryModel?, AppError>> getById(String id) async {
     try {
       return Success(categories.firstWhere((c) => c.id == id));
     } catch (_) {
@@ -267,10 +268,10 @@ class FakeCategoryRepository implements CategoryRepository {
   }
 
   @override
-  Future<Result<List<CategoryModel>, Error>> getAll() async => Success(List.of(categories));
+  Future<Result<List<CategoryModel>, AppError>> getAll() async => Success(List.of(categories));
 
   @override
-  Future<Result<List<CategoryModel>, Error>> getByType(CategoryType type) async {
+  Future<Result<List<CategoryModel>, AppError>> getByType(CategoryType type) async {
     return Success(categories.where((c) => c.type == type).toList());
   }
 }
@@ -279,26 +280,26 @@ class FakeBudgetRepository implements BudgetRepository {
   final List<BudgetModel> budgets = [];
 
   @override
-  Future<Result<BudgetModel, Error>> create(BudgetModel budget) async {
+  Future<Result<BudgetModel, AppError>> create(BudgetModel budget) async {
     budgets.add(budget);
     return Success(budget);
   }
 
   @override
-  Future<Result<void, Error>> update(BudgetModel budget) async {
+  Future<Result<void, AppError>> update(BudgetModel budget) async {
     final index = budgets.indexWhere((b) => b.id == budget.id);
     if (index != -1) budgets[index] = budget;
     return const Success(null);
   }
 
   @override
-  Future<Result<void, Error>> delete(String id) async {
+  Future<Result<void, AppError>> delete(String id) async {
     budgets.removeWhere((b) => b.id == id);
     return const Success(null);
   }
 
   @override
-  Future<Result<BudgetModel?, Error>> getById(String id) async {
+  Future<Result<BudgetModel?, AppError>> getById(String id) async {
     try {
       return Success(budgets.firstWhere((b) => b.id == id));
     } catch (_) {
@@ -307,15 +308,15 @@ class FakeBudgetRepository implements BudgetRepository {
   }
 
   @override
-  Future<Result<List<BudgetModel>, Error>> getAll() async => Success(List.of(budgets));
+  Future<Result<List<BudgetModel>, AppError>> getAll() async => Success(List.of(budgets));
 
   @override
-  Future<Result<List<BudgetModel>, Error>> getActive() async {
+  Future<Result<List<BudgetModel>, AppError>> getActive() async {
     return Success(budgets.where((b) => b.isActive).toList());
   }
 
   @override
-  Future<Result<List<BudgetModel>, Error>> getByPeriod(BudgetPeriod period) async {
+  Future<Result<List<BudgetModel>, AppError>> getByPeriod(BudgetPeriod period) async {
     return Success(budgets.where((b) => b.period == period).toList());
   }
 }
@@ -324,26 +325,26 @@ class FakeAccountRepository implements AccountRepository {
   final List<AccountModel> accounts = [];
 
   @override
-  Future<Result<AccountModel, Error>> create(AccountModel account) async {
+  Future<Result<AccountModel, AppError>> create(AccountModel account) async {
     accounts.add(account);
     return Success(account);
   }
 
   @override
-  Future<Result<void, Error>> update(AccountModel account) async {
+  Future<Result<void, AppError>> update(AccountModel account) async {
     final index = accounts.indexWhere((a) => a.id == account.id);
     if (index != -1) accounts[index] = account;
     return const Success(null);
   }
 
   @override
-  Future<Result<void, Error>> delete(String id) async {
+  Future<Result<void, AppError>> delete(String id) async {
     accounts.removeWhere((a) => a.id == id);
     return const Success(null);
   }
 
   @override
-  Future<Result<AccountModel?, Error>> getById(String id) async {
+  Future<Result<AccountModel?, AppError>> getById(String id) async {
     try {
       return Success(accounts.firstWhere((a) => a.id == id));
     } catch (_) {
@@ -352,10 +353,10 @@ class FakeAccountRepository implements AccountRepository {
   }
 
   @override
-  Future<Result<List<AccountModel>, Error>> getAll() async => Success(List.of(accounts));
+  Future<Result<List<AccountModel>, AppError>> getAll() async => Success(List.of(accounts));
 
   @override
-  Future<Result<List<AccountModel>, Error>> getActive() async {
+  Future<Result<List<AccountModel>, AppError>> getActive() async {
     return Success(accounts.where((a) => a.isActive).toList());
   }
 }

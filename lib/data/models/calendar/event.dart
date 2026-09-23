@@ -1,6 +1,10 @@
+import '../../../core/json/json_reader.dart';
 import '../base_model.dart';
 
 class Event extends BaseModel {
+  static const String _defaultColor = '#00897B';
+  static const String _defaultCategory = 'general';
+
   final String userId;
   final String title;
   final String? description;
@@ -34,29 +38,26 @@ class Event extends BaseModel {
   });
 
   factory Event.fromJson(Map<String, dynamic> json) {
+    final reader = JsonReader(json, source: 'Event');
+    final createdAt = reader.requireDate('createdAt');
+    final startTime = reader.requireDate('startTime');
     return Event(
-      id: json['id'] as String,
-      createdAt: DateTime.parse(json['createdAt'] as String),
-      updatedAt: DateTime.parse(json['updatedAt'] as String),
-      deletedAt: json['deletedAt'] == null
-          ? null
-          : DateTime.parse(json['deletedAt'] as String),
-      userId: json['userId'] as String,
-      title: json['title'] as String,
-      description: json['description'] as String?,
-      startTime: DateTime.parse(json['startTime'] as String),
-      endTime: DateTime.parse(json['endTime'] as String),
-      allDay: json['allDay'] as bool? ?? false,
-      location: json['location'] as String?,
-      attendees: (json['attendees'] as List<dynamic>? ?? const <dynamic>[])
-          .cast<String>(),
-      reminderMinutes:
-          (json['reminderMinutes'] as List<dynamic>? ?? const <dynamic>[])
-              .map((item) => item as int)
-              .toList(growable: false),
-      googleEventId: json['googleEventId'] as String?,
-      color: json['color'] as String? ?? '#00897B',
-      category: json['category'] as String? ?? 'general',
+      id: reader.requireString('id'),
+      createdAt: createdAt,
+      updatedAt: reader.readDate('updatedAt', fallback: createdAt),
+      deletedAt: reader.optionalDate('deletedAt'),
+      userId: reader.readString('userId'),
+      title: reader.readString('title'),
+      description: reader.optionalString('description'),
+      startTime: startTime,
+      endTime: reader.readDate('endTime', fallback: startTime),
+      allDay: reader.readBool('allDay'),
+      location: reader.optionalString('location'),
+      attendees: reader.readStringList('attendees'),
+      reminderMinutes: reader.readIntList('reminderMinutes'),
+      googleEventId: reader.optionalString('googleEventId'),
+      color: reader.readString('color', fallback: _defaultColor),
+      category: reader.readString('category', fallback: _defaultCategory),
     );
   }
 

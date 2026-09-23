@@ -1,8 +1,12 @@
+import '../../../core/json/json_reader.dart';
 import '../../models/base_model.dart';
 
 enum ReligiousEntryType { prayer, quranReading, badEvent, athkar, nightPrayer }
 
 class ReligiousEntry extends BaseModel {
+  static const String _jsonSource = 'ReligiousEntry';
+  static const int _defaultCount = 1;
+
   final String userId;
   final ReligiousEntryType type;
   final DateTime loggedAt;
@@ -28,23 +32,21 @@ class ReligiousEntry extends BaseModel {
   });
 
   factory ReligiousEntry.fromJson(Map<String, dynamic> json) {
+    final reader = JsonReader(json, source: _jsonSource);
+    final createdAt = reader.requireDate('createdAt');
     return ReligiousEntry(
-      id: json['id'] as String,
-      createdAt: DateTime.parse(json['createdAt'] as String),
-      updatedAt: DateTime.parse(json['updatedAt'] as String),
-      deletedAt: json['deletedAt'] == null
-          ? null
-          : DateTime.parse(json['deletedAt'] as String),
-      userId: json['userId'] as String,
-      type: ReligiousEntryType.values.byName(json['type'] as String),
-      loggedAt: DateTime.parse(json['loggedAt'] as String),
-      title: json['title'] as String,
-      details: json['details'] as String?,
-      count: (json['count'] as num?)?.toInt() ?? 1,
-      reminderAt: json['reminderAt'] == null
-          ? null
-          : DateTime.parse(json['reminderAt'] as String),
-      prayerName: json['prayerName'] as String?,
+      id: reader.requireString('id'),
+      createdAt: createdAt,
+      updatedAt: reader.readDate('updatedAt', fallback: createdAt),
+      deletedAt: reader.optionalDate('deletedAt'),
+      userId: reader.readString('userId'),
+      type: reader.requireEnum('type', ReligiousEntryType.values),
+      loggedAt: reader.readDate('loggedAt', fallback: createdAt),
+      title: reader.readString('title'),
+      details: reader.optionalString('details'),
+      count: reader.readInt('count', fallback: _defaultCount),
+      reminderAt: reader.optionalDate('reminderAt'),
+      prayerName: reader.optionalString('prayerName'),
     );
   }
 

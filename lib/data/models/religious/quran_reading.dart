@@ -1,6 +1,9 @@
+import '../../../core/json/json_reader.dart';
 import '../../models/base_model.dart';
 
 class QuranReading extends BaseModel {
+  static const String _jsonSource = 'QuranReading';
+
   final String userId;
   final int surahNumber;
   final int ayahFrom;
@@ -28,22 +31,22 @@ class QuranReading extends BaseModel {
   });
 
   factory QuranReading.fromJson(Map<String, dynamic> json) {
+    final reader = JsonReader(json, source: _jsonSource);
+    final createdAt = reader.requireDate('createdAt');
     return QuranReading(
-      id: json['id'] as String,
-      createdAt: DateTime.parse(json['createdAt'] as String),
-      updatedAt: DateTime.parse(json['updatedAt'] as String),
-      deletedAt: json['deletedAt'] == null
-          ? null
-          : DateTime.parse(json['deletedAt'] as String),
-      userId: json['userId'] as String,
-      surahNumber: json['surahNumber'] as int,
-      ayahFrom: json['ayahFrom'] as int,
-      ayahTo: json['ayahTo'] as int,
-      readAt: DateTime.parse(json['readAt'] as String),
-      durationMinutes: json['durationMinutes'] as int,
-      memorized: json['memorized'] as bool,
-      pagesRead: json['pagesRead'] as int? ?? 0,
-      place: json['place'] as String?,
+      id: reader.requireString('id'),
+      createdAt: createdAt,
+      updatedAt: reader.readDate('updatedAt', fallback: createdAt),
+      deletedAt: reader.optionalDate('deletedAt'),
+      userId: reader.readString('userId'),
+      surahNumber: reader.requireInt('surahNumber'),
+      ayahFrom: reader.requireInt('ayahFrom'),
+      ayahTo: reader.requireInt('ayahTo'),
+      readAt: reader.readDate('readAt', fallback: createdAt),
+      durationMinutes: reader.readInt('durationMinutes'),
+      memorized: reader.readBool('memorized'),
+      pagesRead: reader.readInt('pagesRead'),
+      place: reader.optionalString('place'),
     );
   }
 

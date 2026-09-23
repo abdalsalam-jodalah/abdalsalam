@@ -1,7 +1,9 @@
-sealed class Result<T, E extends Error> {
+import '../errors/app_error.dart';
+
+sealed class Result<T, E extends AppError> {
   const Result();
 
-  static Future<Result<T, E>> guardAsync<T, E extends Error>(
+  static Future<Result<T, E>> guardAsync<T, E extends AppError>(
     Future<T> Function() body, {
     required E Function(Object error, StackTrace stackTrace) onError,
   }) async {
@@ -12,7 +14,7 @@ sealed class Result<T, E extends Error> {
     }
   }
 
-  static Result<T, E> guard<T, E extends Error>(
+  static Result<T, E> guard<T, E extends AppError>(
     T Function() body, {
     required E Function(Object error, StackTrace stackTrace) onError,
   }) {
@@ -83,13 +85,13 @@ sealed class Result<T, E extends Error> {
   }
 }
 
-final class Success<T, E extends Error> extends Result<T, E> {
+final class Success<T, E extends AppError> extends Result<T, E> {
   final T value;
 
   const Success(this.value);
 }
 
-final class Failure<T, E extends Error> extends Result<T, E> {
+final class Failure<T, E extends AppError> extends Result<T, E> {
   @override
   final E error;
 

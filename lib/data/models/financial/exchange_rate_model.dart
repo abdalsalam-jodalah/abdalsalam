@@ -1,3 +1,4 @@
+import '../../../core/json/json_reader.dart';
 import '../base_model.dart';
 
 class ExchangeRateModel extends BaseModel {
@@ -30,17 +31,17 @@ class ExchangeRateModel extends BaseModel {
       };
 
   factory ExchangeRateModel.fromJson(Map<String, dynamic> json) {
+    final reader = JsonReader(json, source: 'ExchangeRateModel');
+    final createdAt = reader.requireDate('createdAt');
     return ExchangeRateModel(
-      id: json['id'] as String,
-      fromCurrency: json['fromCurrency'] as String,
-      toCurrency: json['toCurrency'] as String,
-      rate: (json['rate'] as num).toDouble(),
-      date: DateTime.parse(json['date'] as String),
-      createdAt: DateTime.parse(json['createdAt'] as String),
-      updatedAt: DateTime.parse(json['updatedAt'] as String),
-      deletedAt: json['deletedAt'] != null
-          ? DateTime.parse(json['deletedAt'] as String)
-          : null,
+      id: reader.requireString('id'),
+      fromCurrency: reader.requireString('fromCurrency'),
+      toCurrency: reader.requireString('toCurrency'),
+      rate: reader.requireDouble('rate'),
+      date: reader.requireDate('date'),
+      createdAt: createdAt,
+      updatedAt: reader.readDate('updatedAt', fallback: createdAt),
+      deletedAt: reader.optionalDate('deletedAt'),
     );
   }
 

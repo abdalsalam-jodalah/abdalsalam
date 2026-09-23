@@ -1,3 +1,4 @@
+import '../../../core/json/json_reader.dart';
 import '../base_model.dart';
 
 class FoodLog extends BaseModel {
@@ -67,24 +68,28 @@ class FoodLog extends BaseModel {
         carbGrams: carbGrams ?? this.carbGrams,
       );
 
-  factory FoodLog.fromJson(Map<String, dynamic> json) => FoodLog(
-        id: json['id'] as String,
-        createdAt: DateTime.parse(json['createdAt'] as String),
-        updatedAt: DateTime.parse(json['updatedAt'] as String),
-        deletedAt: json['deletedAt'] == null ? null : DateTime.parse(json['deletedAt'] as String),
-        userId: json['userId'] as String,
-        category: json['category'] as String,
-        dishName: json['dishName'] as String,
-        quantity: json['quantity'] as String,
-        imagePath: json['imagePath'] as String?,
-        components: json['components'] as String?,
-        description: json['description'] as String?,
-        loggedAt: DateTime.parse(json['loggedAt'] as String),
-        calories: (json['calories'] as num?)?.toDouble(),
-        proteinGrams: (json['proteinGrams'] as num?)?.toDouble(),
-        fatGrams: (json['fatGrams'] as num?)?.toDouble(),
-        carbGrams: (json['carbGrams'] as num?)?.toDouble(),
-      );
+  factory FoodLog.fromJson(Map<String, dynamic> json) {
+    final reader = JsonReader(json, source: 'FoodLog');
+    final createdAt = reader.requireDate('createdAt');
+    return FoodLog(
+      id: reader.requireString('id'),
+      createdAt: createdAt,
+      updatedAt: reader.readDate('updatedAt', fallback: createdAt),
+      deletedAt: reader.optionalDate('deletedAt'),
+      userId: reader.readString('userId'),
+      category: reader.readString('category'),
+      dishName: reader.readString('dishName'),
+      quantity: reader.readString('quantity'),
+      imagePath: reader.optionalString('imagePath'),
+      components: reader.optionalString('components'),
+      description: reader.optionalString('description'),
+      loggedAt: reader.readDate('loggedAt', fallback: createdAt),
+      calories: reader.optionalDouble('calories'),
+      proteinGrams: reader.optionalDouble('proteinGrams'),
+      fatGrams: reader.optionalDouble('fatGrams'),
+      carbGrams: reader.optionalDouble('carbGrams'),
+    );
+  }
 
   @override
   Map<String, dynamic> toJson() => <String, dynamic>{

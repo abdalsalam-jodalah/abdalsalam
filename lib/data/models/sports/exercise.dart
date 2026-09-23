@@ -1,3 +1,4 @@
+import '../../../core/json/json_reader.dart';
 import '../base_model.dart';
 
 enum ExerciseTrackingType { reps, cardio }
@@ -38,25 +39,29 @@ class Exercise extends BaseModel {
   });
 
   factory Exercise.fromJson(Map<String, dynamic> json) {
+    final reader = JsonReader(json, source: 'Exercise');
+    final createdAt = reader.requireDate('createdAt');
     return Exercise(
-      id: json['id'] as String,
-      createdAt: DateTime.parse(json['createdAt'] as String),
-      updatedAt: DateTime.parse(json['updatedAt'] as String),
-      deletedAt: json['deletedAt'] == null ? null : DateTime.parse(json['deletedAt'] as String),
-      userId: json['userId'] as String,
-      name: json['name'] as String,
-      categoryId: json['categoryId'] as String,
-      trackingType: ExerciseTrackingType.values.byName(json['trackingType'] as String),
-      difficulty: json['difficulty'] == null
-          ? ExerciseDifficulty.intermediate
-          : ExerciseDifficulty.values.byName(json['difficulty'] as String),
-      equipment: json['equipment'] as String?,
-      defaultSets: (json['defaultSets'] as num?)?.toInt(),
-      defaultReps: (json['defaultReps'] as num?)?.toInt(),
-      defaultWeightKg: (json['defaultWeightKg'] as num?)?.toDouble(),
-      instructions: json['instructions'] as String?,
-      notes: json['notes'] as String?,
-      order: (json['order'] as num?)?.toInt() ?? 0,
+      id: reader.requireString('id'),
+      createdAt: createdAt,
+      updatedAt: reader.readDate('updatedAt', fallback: createdAt),
+      deletedAt: reader.optionalDate('deletedAt'),
+      userId: reader.readString('userId'),
+      name: reader.readString('name'),
+      categoryId: reader.requireString('categoryId'),
+      trackingType: reader.requireEnum('trackingType', ExerciseTrackingType.values),
+      difficulty: reader.readEnum(
+        'difficulty',
+        ExerciseDifficulty.values,
+        fallback: ExerciseDifficulty.intermediate,
+      ),
+      equipment: reader.optionalString('equipment'),
+      defaultSets: reader.optionalInt('defaultSets'),
+      defaultReps: reader.optionalInt('defaultReps'),
+      defaultWeightKg: reader.optionalDouble('defaultWeightKg'),
+      instructions: reader.optionalString('instructions'),
+      notes: reader.optionalString('notes'),
+      order: reader.readInt('order'),
     );
   }
 

@@ -1,3 +1,4 @@
+import '../../../core/errors/app_error.dart';
 import '../../../core/result/result.dart';
 import '../../../core/errors/financial_errors.dart';
 import '../../../data/models/financial/account_model.dart';
@@ -37,7 +38,7 @@ class FinancialService {
 
   // Transaction methods
 
-  Future<Result<TransactionModel, Error>> createTransaction(
+  Future<Result<TransactionModel, AppError>> createTransaction(
     TransactionModel transaction,
   ) async {
     final result = await _transactionRepo.create(transaction);
@@ -48,7 +49,7 @@ class FinancialService {
     return result;
   }
 
-  Future<Result<void, Error>> updateTransaction(TransactionModel transaction) async {
+  Future<Result<void, AppError>> updateTransaction(TransactionModel transaction) async {
     final result = await _transactionRepo.update(transaction);
     if (result.isSuccess) {
       final conversion = await _conversionForLog(transaction);
@@ -57,7 +58,7 @@ class FinancialService {
     return result;
   }
 
-  Future<Result<void, Error>> deleteTransaction(String id) async {
+  Future<Result<void, AppError>> deleteTransaction(String id) async {
     final existingResult = await _transactionRepo.getById(id);
     final result = await _transactionRepo.delete(id);
     if (result.isSuccess && existingResult.data != null) {
@@ -77,14 +78,14 @@ class FinancialService {
     );
   }
 
-  Future<Result<List<TransactionModel>, Error>> getTransactionsByDateRange(
+  Future<Result<List<TransactionModel>, AppError>> getTransactionsByDateRange(
     DateTime start,
     DateTime end,
   ) async {
     return await _transactionRepo.getByDateRange(start, end);
   }
 
-  Future<Result<List<TransactionModel>, Error>> getRecentTransactions(
+  Future<Result<List<TransactionModel>, AppError>> getRecentTransactions(
     int limit,
   ) async {
     return await _transactionRepo.getRecent(limit);
@@ -93,7 +94,7 @@ class FinancialService {
   // Financial statistics — every sum below is currency-conversion-aware so
   // transactions recorded in different currencies never get silently mixed.
 
-  Future<Result<Map<String, double>, Error>> getFinancialSummary(
+  Future<Result<Map<String, double>, AppError>> getFinancialSummary(
     DateTime start,
     DateTime end,
   ) async {
@@ -128,7 +129,7 @@ class FinancialService {
     }
   }
 
-  Future<Result<Map<String, double>, Error>> getCategoryTotals(
+  Future<Result<Map<String, double>, AppError>> getCategoryTotals(
     DateTime start,
     DateTime end,
   ) async {
@@ -156,11 +157,11 @@ class FinancialService {
 
   // Budget methods
 
-  Future<Result<List<BudgetModel>, Error>> getActiveBudgets() async {
+  Future<Result<List<BudgetModel>, AppError>> getActiveBudgets() async {
     return await _budgetRepo.getActive();
   }
 
-  Future<Result<BudgetModel, Error>> createBudget(BudgetModel budget) async {
+  Future<Result<BudgetModel, AppError>> createBudget(BudgetModel budget) async {
     final result = await _budgetRepo.create(budget);
     if (result.isSuccess) {
       await _activityLogger.logBudget(budget, FinancialActionType.created);
@@ -168,7 +169,7 @@ class FinancialService {
     return result;
   }
 
-  Future<Result<void, Error>> updateBudget(BudgetModel budget) async {
+  Future<Result<void, AppError>> updateBudget(BudgetModel budget) async {
     final result = await _budgetRepo.update(budget);
     if (result.isSuccess) {
       await _activityLogger.logBudget(budget, FinancialActionType.updated);
@@ -176,7 +177,7 @@ class FinancialService {
     return result;
   }
 
-  Future<Result<void, Error>> deleteBudget(BudgetModel budget) async {
+  Future<Result<void, AppError>> deleteBudget(BudgetModel budget) async {
     final result = await _budgetRepo.delete(budget.id);
     if (result.isSuccess) {
       await _activityLogger.logBudget(budget, FinancialActionType.deleted);
@@ -187,7 +188,7 @@ class FinancialService {
   /// Spend is filtered to [budget.categoryId] and converted to base currency
   /// before summing — fixes the previous bug where progress reflected total
   /// household spending instead of this budget's category.
-  Future<Result<Map<String, dynamic>, Error>> getBudgetProgress(
+  Future<Result<Map<String, dynamic>, AppError>> getBudgetProgress(
     BudgetModel budget,
   ) async {
     try {
@@ -228,17 +229,17 @@ class FinancialService {
 
   // Category methods
 
-  Future<Result<List<CategoryModel>, Error>> getAllCategories() async {
+  Future<Result<List<CategoryModel>, AppError>> getAllCategories() async {
     return await _categoryRepo.getAll();
   }
 
-  Future<Result<List<CategoryModel>, Error>> getCategoriesByType(
+  Future<Result<List<CategoryModel>, AppError>> getCategoriesByType(
     CategoryType type,
   ) async {
     return await _categoryRepo.getByType(type);
   }
 
-  Future<Result<CategoryModel, Error>> createCategory(CategoryModel category) async {
+  Future<Result<CategoryModel, AppError>> createCategory(CategoryModel category) async {
     final result = await _categoryRepo.create(category);
     if (result.isSuccess) {
       await _activityLogger.logCategory(category, FinancialActionType.created);
@@ -246,7 +247,7 @@ class FinancialService {
     return result;
   }
 
-  Future<Result<void, Error>> updateCategory(CategoryModel category) async {
+  Future<Result<void, AppError>> updateCategory(CategoryModel category) async {
     final result = await _categoryRepo.update(category);
     if (result.isSuccess) {
       await _activityLogger.logCategory(category, FinancialActionType.updated);
@@ -254,7 +255,7 @@ class FinancialService {
     return result;
   }
 
-  Future<Result<void, Error>> deleteCategory(CategoryModel category) async {
+  Future<Result<void, AppError>> deleteCategory(CategoryModel category) async {
     final result = await _categoryRepo.delete(category.id);
     if (result.isSuccess) {
       await _activityLogger.logCategory(category, FinancialActionType.deleted);
@@ -264,15 +265,15 @@ class FinancialService {
 
   // Account methods
 
-  Future<Result<List<AccountModel>, Error>> getAllAccounts() async {
+  Future<Result<List<AccountModel>, AppError>> getAllAccounts() async {
     return await _accountRepo.getAll();
   }
 
-  Future<Result<List<AccountModel>, Error>> getActiveAccounts() async {
+  Future<Result<List<AccountModel>, AppError>> getActiveAccounts() async {
     return await _accountRepo.getActive();
   }
 
-  Future<Result<AccountModel, Error>> createAccount(AccountModel account) async {
+  Future<Result<AccountModel, AppError>> createAccount(AccountModel account) async {
     final result = await _accountRepo.create(account);
     if (result.isSuccess) {
       await _activityLogger.logAccount(account, FinancialActionType.created);
@@ -280,7 +281,7 @@ class FinancialService {
     return result;
   }
 
-  Future<Result<void, Error>> updateAccount(AccountModel account) async {
+  Future<Result<void, AppError>> updateAccount(AccountModel account) async {
     final result = await _accountRepo.update(account);
     if (result.isSuccess) {
       await _activityLogger.logAccount(account, FinancialActionType.updated);
@@ -288,7 +289,7 @@ class FinancialService {
     return result;
   }
 
-  Future<Result<void, Error>> deleteAccount(AccountModel account) async {
+  Future<Result<void, AppError>> deleteAccount(AccountModel account) async {
     final result = await _accountRepo.delete(account.id);
     if (result.isSuccess) {
       await _activityLogger.logAccount(account, FinancialActionType.deleted);
@@ -299,7 +300,7 @@ class FinancialService {
   /// Current balance = initial balance + all of the account's transactions,
   /// each converted into the account's own currency. Derived on read rather
   /// than stored, so edits/deletes to transactions can never cause drift.
-  Future<Result<double, Error>> getAccountBalance(AccountModel account) async {
+  Future<Result<double, AppError>> getAccountBalance(AccountModel account) async {
     try {
       final transactionsResult = await _transactionRepo.getByAccount(account.id);
       if (transactionsResult.isFailure) {
@@ -326,7 +327,7 @@ class FinancialService {
   /// One-stop net summary for the dashboard: net worth across all active
   /// accounts (converted to base currency), how many active budgets are
   /// near/over their limit, and the next few upcoming recurring transactions.
-  Future<Result<Map<String, dynamic>, Error>> getNetWorthSummary() async {
+  Future<Result<Map<String, dynamic>, AppError>> getNetWorthSummary() async {
     try {
       final accountsResult = await _accountRepo.getActive();
       if (accountsResult.isFailure) {

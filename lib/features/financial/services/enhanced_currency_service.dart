@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:uuid/uuid.dart';
+import '../../../core/errors/app_error.dart';
 import '../../../core/result/result.dart';
 import '../../../data/models/financial/exchange_rate_model.dart';
 import '../../../data/repositories/financial/exchange_rate_repository.dart';
@@ -22,7 +23,7 @@ class EnhancedCurrencyService {
   );
 
   /// Sync exchange rates daily
-  Future<Result<void, Error>> syncDailyRates() async {
+  Future<Result<void, AppError>> syncDailyRates() async {
     try {
       _logger.info('Starting daily exchange rate sync');
 
@@ -68,7 +69,7 @@ class EnhancedCurrencyService {
       return Success(null);
     } catch (e, st) {
       _logger.error('Failed to sync daily rates', error: e, stackTrace: st);
-      return Failure(StateError(e.toString()));
+      return Failure(ServiceError('Daily exchange rate sync failed', cause: e, causeStackTrace: st));
     }
   }
 

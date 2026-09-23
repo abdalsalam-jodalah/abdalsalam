@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/json/json_reader.dart';
 import '../base_model.dart';
 import 'financial_icon_palette.dart';
 
@@ -54,24 +55,25 @@ class CategoryModel extends BaseModel {
       };
 
   factory CategoryModel.fromJson(Map<String, dynamic> json) {
+    final reader = JsonReader(json, source: 'CategoryModel');
+    final createdAt = reader.requireDate('createdAt');
+    final iconKey = reader.optionalString('iconKey');
     return CategoryModel(
-      id: json['id'] as String,
-      userId: json['userId'] as String,
-      name: json['name'] as String,
-      type: CategoryType.values.byName(json['type'] as String),
-      icon: json['iconKey'] != null
-          ? financialIconForKey(json['iconKey'] as String)
+      id: reader.requireString('id'),
+      userId: reader.readString('userId'),
+      name: reader.readString('name'),
+      type: reader.requireEnum('type', CategoryType.values),
+      icon: iconKey != null
+          ? financialIconForKey(iconKey)
           : financialIconForLegacyCodePoint(
-              json['iconCodePoint'] as int?,
-              json['iconFontFamily'] as String?,
+              reader.optionalInt('iconCodePoint'),
+              reader.optionalString('iconFontFamily'),
             ),
-      color: Color(json['colorValue'] as int),
-      parentCategoryId: json['parentCategoryId'] as String?,
-      createdAt: DateTime.parse(json['createdAt'] as String),
-      updatedAt: DateTime.parse(json['updatedAt'] as String),
-      deletedAt: json['deletedAt'] != null
-          ? DateTime.parse(json['deletedAt'] as String)
-          : null,
+      color: Color(reader.readInt('colorValue', fallback: financialDefaultColorValue)),
+      parentCategoryId: reader.optionalString('parentCategoryId'),
+      createdAt: createdAt,
+      updatedAt: reader.readDate('updatedAt', fallback: createdAt),
+      deletedAt: reader.optionalDate('deletedAt'),
     );
   }
 

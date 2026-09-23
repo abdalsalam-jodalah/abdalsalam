@@ -1,8 +1,11 @@
+import '../../../core/json/json_reader.dart';
 import '../base_model.dart';
 
 enum BudgetPeriod { daily, weekly, monthly, yearly, custom }
 
 class BudgetModel extends BaseModel {
+  static const double defaultAlertThreshold = 80.0;
+
   final String userId;
   final String categoryId;
   final double amount;
@@ -23,7 +26,7 @@ class BudgetModel extends BaseModel {
     required this.period,
     required this.startDate,
     required this.endDate,
-    this.alertThreshold = 80.0,
+    this.alertThreshold = defaultAlertThreshold,
     this.isActive = true,
     required super.createdAt,
     required super.updatedAt,
@@ -48,22 +51,22 @@ class BudgetModel extends BaseModel {
       };
 
   factory BudgetModel.fromJson(Map<String, dynamic> json) {
+    final reader = JsonReader(json, source: 'BudgetModel');
+    final createdAt = reader.requireDate('createdAt');
     return BudgetModel(
-      id: json['id'] as String,
-      userId: json['userId'] as String,
-      categoryId: json['categoryId'] as String,
-      amount: (json['amount'] as num).toDouble(),
-      currency: json['currency'] as String?,
-      period: BudgetPeriod.values.byName(json['period'] as String),
-      startDate: DateTime.parse(json['startDate'] as String),
-      endDate: DateTime.parse(json['endDate'] as String),
-      alertThreshold: (json['alertThreshold'] as num?)?.toDouble() ?? 80.0,
-      isActive: json['isActive'] as bool? ?? true,
-      createdAt: DateTime.parse(json['createdAt'] as String),
-      updatedAt: DateTime.parse(json['updatedAt'] as String),
-      deletedAt: json['deletedAt'] != null
-          ? DateTime.parse(json['deletedAt'] as String)
-          : null,
+      id: reader.requireString('id'),
+      userId: reader.readString('userId'),
+      categoryId: reader.requireString('categoryId'),
+      amount: reader.requireDouble('amount'),
+      currency: reader.optionalString('currency'),
+      period: reader.readEnum('period', BudgetPeriod.values, fallback: BudgetPeriod.custom),
+      startDate: reader.requireDate('startDate'),
+      endDate: reader.requireDate('endDate'),
+      alertThreshold: reader.readDouble('alertThreshold', fallback: defaultAlertThreshold),
+      isActive: reader.readBool('isActive', fallback: true),
+      createdAt: createdAt,
+      updatedAt: reader.readDate('updatedAt', fallback: createdAt),
+      deletedAt: reader.optionalDate('deletedAt'),
     );
   }
 

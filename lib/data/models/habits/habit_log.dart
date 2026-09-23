@@ -1,3 +1,4 @@
+import '../../../core/json/json_reader.dart';
 import '../../models/base_model.dart';
 
 class HabitLog extends BaseModel {
@@ -40,26 +41,28 @@ class HabitLog extends BaseModel {
   });
 
   factory HabitLog.fromJson(Map<String, dynamic> json) {
+    final reader = JsonReader(json, source: 'HabitLog');
+    final createdAt = reader.requireDate('createdAt');
     return HabitLog(
-      id: json['id'] as String,
-      createdAt: DateTime.parse(json['createdAt'] as String),
-      updatedAt: DateTime.parse(json['updatedAt'] as String),
-      deletedAt: json['deletedAt'] == null ? null : DateTime.parse(json['deletedAt'] as String),
-      userId: json['userId'] as String,
-      habitId: json['habitId'] as String,
-      completedAt: DateTime.parse(json['completedAt'] as String),
-      value: (json['value'] as num?)?.toDouble(),
-      notes: json['notes'] as String?,
-      mood: json['mood'] as String?,
-      skipReason: json['skipReason'] as String?,
-      situation: json['situation'] as String?,
-      cause: json['cause'] as String?,
-      trigger: json['trigger'] as String?,
-      location: json['location'] as String?,
-      thoughtsBefore: json['thoughtsBefore'] as String?,
-      thoughtsAfter: json['thoughtsAfter'] as String?,
-      intensity: json['intensity'] as int?,
-      recoveryAction: json['recoveryAction'] as String?,
+      id: reader.requireString('id'),
+      createdAt: createdAt,
+      updatedAt: reader.readDate('updatedAt', fallback: createdAt),
+      deletedAt: reader.optionalDate('deletedAt'),
+      userId: reader.readString('userId'),
+      habitId: reader.requireString('habitId'),
+      completedAt: reader.requireDate('completedAt'),
+      value: reader.optionalDouble('value'),
+      notes: reader.optionalString('notes'),
+      mood: reader.optionalString('mood'),
+      skipReason: reader.optionalString('skipReason'),
+      situation: reader.optionalString('situation'),
+      cause: reader.optionalString('cause'),
+      trigger: reader.optionalString('trigger'),
+      location: reader.optionalString('location'),
+      thoughtsBefore: reader.optionalString('thoughtsBefore'),
+      thoughtsAfter: reader.optionalString('thoughtsAfter'),
+      intensity: reader.optionalInt('intensity'),
+      recoveryAction: reader.optionalString('recoveryAction'),
     );
   }
 

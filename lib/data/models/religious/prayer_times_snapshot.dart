@@ -1,6 +1,9 @@
+import '../../../core/json/json_reader.dart';
 import '../../models/base_model.dart';
 
 class PrayerTimesSnapshot extends BaseModel {
+  static const String _jsonSource = 'PrayerTimesSnapshot';
+
   final String dateKey;
   final DateTime forDate;
   final DateTime fetchedAt;
@@ -28,22 +31,22 @@ class PrayerTimesSnapshot extends BaseModel {
   });
 
   factory PrayerTimesSnapshot.fromJson(Map<String, dynamic> json) {
+    final reader = JsonReader(json, source: _jsonSource);
+    final createdAt = reader.requireDate('createdAt');
     return PrayerTimesSnapshot(
-      id: json['id'] as String,
-      createdAt: DateTime.parse(json['createdAt'] as String),
-      updatedAt: DateTime.parse(json['updatedAt'] as String),
-      deletedAt: json['deletedAt'] == null
-          ? null
-          : DateTime.parse(json['deletedAt'] as String),
-      dateKey: json['dateKey'] as String,
-      forDate: DateTime.parse(json['forDate'] as String),
-      fetchedAt: DateTime.parse(json['fetchedAt'] as String),
-      sourceUrl: json['sourceUrl'] as String,
-      fajr: DateTime.parse(json['fajr'] as String),
-      dhuhr: DateTime.parse(json['dhuhr'] as String),
-      asr: DateTime.parse(json['asr'] as String),
-      maghrib: DateTime.parse(json['maghrib'] as String),
-      isha: DateTime.parse(json['isha'] as String),
+      id: reader.requireString('id'),
+      createdAt: createdAt,
+      updatedAt: reader.readDate('updatedAt', fallback: createdAt),
+      deletedAt: reader.optionalDate('deletedAt'),
+      dateKey: reader.requireString('dateKey'),
+      forDate: reader.requireDate('forDate'),
+      fetchedAt: reader.readDate('fetchedAt', fallback: createdAt),
+      sourceUrl: reader.readString('sourceUrl'),
+      fajr: reader.requireDate('fajr'),
+      dhuhr: reader.requireDate('dhuhr'),
+      asr: reader.requireDate('asr'),
+      maghrib: reader.requireDate('maghrib'),
+      isha: reader.requireDate('isha'),
     );
   }
 

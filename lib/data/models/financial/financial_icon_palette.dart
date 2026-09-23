@@ -22,6 +22,8 @@ const financialIconPalette = <String, IconData>{
 
 const _defaultFinancialIconKey = 'category';
 
+const int financialDefaultColorValue = 0xFF9E9E9E;
+
 String financialIconKeyFor(IconData icon) {
   for (final entry in financialIconPalette.entries) {
     if (entry.value.codePoint == icon.codePoint && entry.value.fontFamily == icon.fontFamily) {

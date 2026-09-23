@@ -1,3 +1,4 @@
+import '../../../core/json/json_reader.dart';
 import '../base_model.dart';
 
 class ExerciseSetLog extends BaseModel {
@@ -20,16 +21,18 @@ class ExerciseSetLog extends BaseModel {
   });
 
   factory ExerciseSetLog.fromJson(Map<String, dynamic> json) {
+    final reader = JsonReader(json, source: 'ExerciseSetLog');
+    final createdAt = reader.requireDate('createdAt');
     return ExerciseSetLog(
-      id: json['id'] as String,
-      createdAt: DateTime.parse(json['createdAt'] as String),
-      updatedAt: DateTime.parse(json['updatedAt'] as String),
-      deletedAt: json['deletedAt'] == null ? null : DateTime.parse(json['deletedAt'] as String),
-      userId: json['userId'] as String,
-      exerciseLogId: json['exerciseLogId'] as String,
-      setNumber: (json['setNumber'] as num).toInt(),
-      reps: (json['reps'] as num).toInt(),
-      weightKg: (json['weightKg'] as num?)?.toDouble(),
+      id: reader.requireString('id'),
+      createdAt: createdAt,
+      updatedAt: reader.readDate('updatedAt', fallback: createdAt),
+      deletedAt: reader.optionalDate('deletedAt'),
+      userId: reader.readString('userId'),
+      exerciseLogId: reader.requireString('exerciseLogId'),
+      setNumber: reader.readInt('setNumber'),
+      reps: reader.requireInt('reps'),
+      weightKg: reader.optionalDouble('weightKg'),
     );
   }
 

@@ -1,3 +1,4 @@
+import '../../../core/json/json_reader.dart';
 import '../base_model.dart';
 
 class CredentialCategory extends BaseModel {
@@ -18,17 +19,17 @@ class CredentialCategory extends BaseModel {
   });
 
   factory CredentialCategory.fromJson(Map<String, dynamic> json) {
+    final reader = JsonReader(json, source: 'CredentialCategory');
+    final createdAt = reader.requireDate('createdAt');
     return CredentialCategory(
-      id: json['id'] as String,
-      createdAt: DateTime.parse(json['createdAt'] as String),
-      updatedAt: DateTime.parse(json['updatedAt'] as String),
-      deletedAt: json['deletedAt'] == null
-          ? null
-          : DateTime.parse(json['deletedAt'] as String),
-      userId: json['userId'] as String,
-      name: json['name'] as String,
-      color: json['color'] as String,
-      icon: json['icon'] as String,
+      id: reader.requireString('id'),
+      createdAt: createdAt,
+      updatedAt: reader.readDate('updatedAt', fallback: createdAt),
+      deletedAt: reader.optionalDate('deletedAt'),
+      userId: reader.readString('userId'),
+      name: reader.readString('name'),
+      color: reader.readString('color'),
+      icon: reader.readString('icon'),
     );
   }
 

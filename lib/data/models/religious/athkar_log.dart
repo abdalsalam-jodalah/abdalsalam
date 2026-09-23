@@ -1,7 +1,11 @@
+import '../../../core/json/json_reader.dart';
 import '../../models/base_model.dart';
 import 'athkar_content.dart';
 
 class AthkarLog extends BaseModel {
+  static const String _jsonSource = 'AthkarLog';
+  static const int _defaultTargetCount = 1;
+
   final String userId;
   final String athkarContentId;
   final AthkarCategory category;
@@ -25,20 +29,20 @@ class AthkarLog extends BaseModel {
   });
 
   factory AthkarLog.fromJson(Map<String, dynamic> json) {
+    final reader = JsonReader(json, source: _jsonSource);
+    final createdAt = reader.requireDate('createdAt');
     return AthkarLog(
-      id: json['id'] as String,
-      createdAt: DateTime.parse(json['createdAt'] as String),
-      updatedAt: DateTime.parse(json['updatedAt'] as String),
-      deletedAt: json['deletedAt'] == null
-          ? null
-          : DateTime.parse(json['deletedAt'] as String),
-      userId: json['userId'] as String,
-      athkarContentId: json['athkarContentId'] as String,
-      category: AthkarCategory.values.byName(json['category'] as String),
-      countDone: (json['countDone'] as num).toInt(),
-      targetCount: (json['targetCount'] as num).toInt(),
-      completedAt: DateTime.parse(json['completedAt'] as String),
-      notes: json['notes'] as String?,
+      id: reader.requireString('id'),
+      createdAt: createdAt,
+      updatedAt: reader.readDate('updatedAt', fallback: createdAt),
+      deletedAt: reader.optionalDate('deletedAt'),
+      userId: reader.readString('userId'),
+      athkarContentId: reader.requireString('athkarContentId'),
+      category: reader.readEnum('category', AthkarCategory.values, fallback: AthkarCategory.custom),
+      countDone: reader.readInt('countDone'),
+      targetCount: reader.readInt('targetCount', fallback: _defaultTargetCount),
+      completedAt: reader.readDate('completedAt', fallback: createdAt),
+      notes: reader.optionalString('notes'),
     );
   }
 

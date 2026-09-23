@@ -1,3 +1,4 @@
+import '../../../core/json/json_reader.dart';
 import '../../models/base_model.dart';
 
 enum HabitFrequency { daily, weekly, custom }
@@ -5,6 +6,11 @@ enum HabitFrequency { daily, weekly, custom }
 enum BadHabitCategory { sex, badMeal, badReaction, custom }
 
 class Habit extends BaseModel {
+  static const int _fallbackTargetCount = 1;
+  static const String _fallbackIcon = 'star';
+  static const String _fallbackColor = '#2196F3';
+  static const String _customWeekdaysKey = 'customWeekdays';
+
   final String userId;
   final String name;
   final String description;
@@ -40,26 +46,26 @@ class Habit extends BaseModel {
   });
 
   factory Habit.fromJson(Map<String, dynamic> json) {
+    final reader = JsonReader(json, source: 'Habit');
+    final createdAt = reader.requireDate('createdAt');
     return Habit(
-      id: json['id'] as String,
-      createdAt: DateTime.parse(json['createdAt'] as String),
-      updatedAt: DateTime.parse(json['updatedAt'] as String),
-      deletedAt: json['deletedAt'] == null ? null : DateTime.parse(json['deletedAt'] as String),
-      userId: json['userId'] as String,
-      name: json['name'] as String,
-      description: json['description'] as String,
-      frequency: HabitFrequency.values.byName(json['frequency'] as String),
-      targetCount: json['targetCount'] as int,
-      reminderTime: json['reminderTime'] as String?,
-      icon: json['icon'] as String,
-      color: json['color'] as String,
-      category: json['category'] as String,
-      badHabitCategory: json['badHabitCategory'] == null
-          ? null
-          : BadHabitCategory.values.byName(json['badHabitCategory'] as String),
-      customBadHabitCategoryName: json['customBadHabitCategoryName'] as String?,
-      isGoodHabit: json['isGoodHabit'] as bool? ?? true,
-      customWeekdays: (json['customWeekdays'] as List<dynamic>?)?.cast<int>(),
+      id: reader.requireString('id'),
+      createdAt: createdAt,
+      updatedAt: reader.readDate('updatedAt', fallback: createdAt),
+      deletedAt: reader.optionalDate('deletedAt'),
+      userId: reader.readString('userId'),
+      name: reader.readString('name'),
+      description: reader.readString('description'),
+      frequency: reader.readEnum('frequency', HabitFrequency.values, fallback: HabitFrequency.daily),
+      targetCount: reader.readInt('targetCount', fallback: _fallbackTargetCount),
+      reminderTime: reader.optionalString('reminderTime'),
+      icon: reader.readString('icon', fallback: _fallbackIcon),
+      color: reader.readString('color', fallback: _fallbackColor),
+      category: reader.readString('category'),
+      badHabitCategory: reader.optionalEnum('badHabitCategory', BadHabitCategory.values),
+      customBadHabitCategoryName: reader.optionalString('customBadHabitCategoryName'),
+      isGoodHabit: reader.readBool('isGoodHabit', fallback: true),
+      customWeekdays: json[_customWeekdaysKey] is List ? reader.readIntList(_customWeekdaysKey) : null,
     );
   }
 

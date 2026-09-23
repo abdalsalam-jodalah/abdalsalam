@@ -1,3 +1,4 @@
+import '../../../core/json/json_reader.dart';
 import '../../models/base_model.dart';
 
 class PlanningTask extends BaseModel {
@@ -24,18 +25,20 @@ class PlanningTask extends BaseModel {
   });
 
   factory PlanningTask.fromJson(Map<String, dynamic> json) {
+    final reader = JsonReader(json, source: 'PlanningTask');
+    final createdAt = reader.requireDate('createdAt');
     return PlanningTask(
-      id: json['id'] as String,
-      createdAt: DateTime.parse(json['createdAt'] as String),
-      updatedAt: DateTime.parse(json['updatedAt'] as String),
-      deletedAt: json['deletedAt'] == null ? null : DateTime.parse(json['deletedAt'] as String),
-      userId: json['userId'] as String,
-      title: json['title'] as String,
-      description: json['description'] as String?,
-      isCompleted: json['isCompleted'] as bool? ?? false,
-      order: (json['order'] as num?)?.toInt() ?? 0,
-      date: json['date'] == null ? null : DateTime.parse(json['date'] as String),
-      goalId: json['goalId'] as String?,
+      id: reader.requireString('id'),
+      createdAt: createdAt,
+      updatedAt: reader.readDate('updatedAt', fallback: createdAt),
+      deletedAt: reader.optionalDate('deletedAt'),
+      userId: reader.readString('userId'),
+      title: reader.readString('title'),
+      description: reader.optionalString('description'),
+      isCompleted: reader.readBool('isCompleted'),
+      order: reader.readInt('order'),
+      date: reader.optionalDate('date'),
+      goalId: reader.optionalString('goalId'),
     );
   }
 

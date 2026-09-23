@@ -1,6 +1,9 @@
+import '../../../core/json/json_reader.dart';
 import '../../models/base_model.dart';
 
 class BadPracticeLog extends BaseModel {
+  static const String _jsonSource = 'BadPracticeLog';
+
   final String userId;
   final String title;
   final DateTime occurredAt;
@@ -24,20 +27,20 @@ class BadPracticeLog extends BaseModel {
   });
 
   factory BadPracticeLog.fromJson(Map<String, dynamic> json) {
+    final reader = JsonReader(json, source: _jsonSource);
+    final createdAt = reader.requireDate('createdAt');
     return BadPracticeLog(
-      id: json['id'] as String,
-      createdAt: DateTime.parse(json['createdAt'] as String),
-      updatedAt: DateTime.parse(json['updatedAt'] as String),
-      deletedAt: json['deletedAt'] == null
-          ? null
-          : DateTime.parse(json['deletedAt'] as String),
-      userId: json['userId'] as String,
-      title: json['title'] as String,
-      occurredAt: DateTime.parse(json['occurredAt'] as String),
-      feelingBefore: json['feelingBefore'] as String?,
-      feelingAfter: json['feelingAfter'] as String?,
-      consequences: json['consequences'] as String?,
-      notes: json['notes'] as String?,
+      id: reader.requireString('id'),
+      createdAt: createdAt,
+      updatedAt: reader.readDate('updatedAt', fallback: createdAt),
+      deletedAt: reader.optionalDate('deletedAt'),
+      userId: reader.readString('userId'),
+      title: reader.readString('title'),
+      occurredAt: reader.readDate('occurredAt', fallback: createdAt),
+      feelingBefore: reader.optionalString('feelingBefore'),
+      feelingAfter: reader.optionalString('feelingAfter'),
+      consequences: reader.optionalString('consequences'),
+      notes: reader.optionalString('notes'),
     );
   }
 

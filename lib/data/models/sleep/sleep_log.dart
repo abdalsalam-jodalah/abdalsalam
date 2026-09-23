@@ -1,3 +1,4 @@
+import '../../../core/json/json_reader.dart';
 import '../base_model.dart';
 
 class SleepLog extends BaseModel {
@@ -69,25 +70,28 @@ class SleepLog extends BaseModel {
         notes: notes ?? this.notes,
       );
 
-  factory SleepLog.fromJson(Map<String, dynamic> json) => SleepLog(
-        id: json['id'] as String,
-        createdAt: DateTime.parse(json['createdAt'] as String),
-        updatedAt: DateTime.parse(json['updatedAt'] as String),
-        deletedAt: json['deletedAt'] == null ? null : DateTime.parse(json['deletedAt'] as String),
-        userId: json['userId'] as String,
-        sleepStart: DateTime.parse(json['sleepStart'] as String),
-        sleepEnd: DateTime.parse(json['sleepEnd'] as String),
-        nightWakeCount: (json['nightWakeCount'] as num?)?.toInt() ?? 0,
-        feelingBeforeSleep: (json['feelingBeforeSleep'] as num?)?.toInt(),
-        feelingBeforeSleepNote: json['feelingBeforeSleepNote'] as String?,
-        feelingOnWakeup: (json['feelingOnWakeup'] as num?)?.toInt(),
-        feelingOnWakeupNote: json['feelingOnWakeupNote'] as String?,
-        feelingDuringDay: (json['feelingDuringDay'] as num?)?.toInt(),
-        feelingDuringDayNote: json['feelingDuringDayNote'] as String?,
-        lastCaffeineTime:
-            json['lastCaffeineTime'] == null ? null : DateTime.parse(json['lastCaffeineTime'] as String),
-        notes: json['notes'] as String?,
-      );
+  factory SleepLog.fromJson(Map<String, dynamic> json) {
+    final reader = JsonReader(json, source: 'SleepLog');
+    final createdAt = reader.requireDate('createdAt');
+    return SleepLog(
+      id: reader.requireString('id'),
+      createdAt: createdAt,
+      updatedAt: reader.readDate('updatedAt', fallback: createdAt),
+      deletedAt: reader.optionalDate('deletedAt'),
+      userId: reader.readString('userId'),
+      sleepStart: reader.requireDate('sleepStart'),
+      sleepEnd: reader.requireDate('sleepEnd'),
+      nightWakeCount: reader.readInt('nightWakeCount'),
+      feelingBeforeSleep: reader.optionalInt('feelingBeforeSleep'),
+      feelingBeforeSleepNote: reader.optionalString('feelingBeforeSleepNote'),
+      feelingOnWakeup: reader.optionalInt('feelingOnWakeup'),
+      feelingOnWakeupNote: reader.optionalString('feelingOnWakeupNote'),
+      feelingDuringDay: reader.optionalInt('feelingDuringDay'),
+      feelingDuringDayNote: reader.optionalString('feelingDuringDayNote'),
+      lastCaffeineTime: reader.optionalDate('lastCaffeineTime'),
+      notes: reader.optionalString('notes'),
+    );
+  }
 
   @override
   Map<String, dynamic> toJson() => <String, dynamic>{

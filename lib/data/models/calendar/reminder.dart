@@ -1,3 +1,4 @@
+import '../../../core/json/json_reader.dart';
 import '../base_model.dart';
 
 enum ReminderType { notification, email }
@@ -24,21 +25,19 @@ class Reminder extends BaseModel {
   });
 
   factory Reminder.fromJson(Map<String, dynamic> json) {
+    final reader = JsonReader(json, source: 'Reminder');
+    final createdAt = reader.requireDate('createdAt');
     return Reminder(
-      id: json['id'] as String,
-      createdAt: DateTime.parse(json['createdAt'] as String),
-      updatedAt: DateTime.parse(json['updatedAt'] as String),
-      deletedAt: json['deletedAt'] == null
-          ? null
-          : DateTime.parse(json['deletedAt'] as String),
-      userId: json['userId'] as String,
-      eventId: json['eventId'] as String,
-      reminderTime: DateTime.parse(json['reminderTime'] as String),
-      type: ReminderType.values.byName(json['type'] as String),
-      sent: json['sent'] as bool? ?? false,
-      snoozedUntil: json['snoozedUntil'] == null
-          ? null
-          : DateTime.parse(json['snoozedUntil'] as String),
+      id: reader.requireString('id'),
+      createdAt: createdAt,
+      updatedAt: reader.readDate('updatedAt', fallback: createdAt),
+      deletedAt: reader.optionalDate('deletedAt'),
+      userId: reader.readString('userId'),
+      eventId: reader.requireString('eventId'),
+      reminderTime: reader.requireDate('reminderTime'),
+      type: reader.readEnum('type', ReminderType.values, fallback: ReminderType.notification),
+      sent: reader.readBool('sent'),
+      snoozedUntil: reader.optionalDate('snoozedUntil'),
     );
   }
 

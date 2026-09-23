@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/json/json_reader.dart';
 import '../base_model.dart';
 import 'financial_icon_palette.dart';
 
@@ -50,27 +51,27 @@ class AccountModel extends BaseModel {
       };
 
   factory AccountModel.fromJson(Map<String, dynamic> json) {
+    final reader = JsonReader(json, source: 'AccountModel');
+    final createdAt = reader.requireDate('createdAt');
     return AccountModel(
-      id: json['id'] as String,
-      userId: json['userId'] as String,
-      name: json['name'] as String,
-      type: AccountType.values.byName(json['type'] as String),
-      currency: json['currency'] as String,
-      initialBalance: (json['initialBalance'] as num).toDouble(),
-      iconKey: json['iconKey'] as String? ??
+      id: reader.requireString('id'),
+      userId: reader.readString('userId'),
+      name: reader.readString('name'),
+      type: reader.readEnum('type', AccountType.values, fallback: AccountType.cash),
+      currency: reader.requireString('currency'),
+      initialBalance: reader.requireDouble('initialBalance'),
+      iconKey: reader.optionalString('iconKey') ??
           financialIconKeyFor(
             financialIconForLegacyCodePoint(
-              json['iconCodePoint'] as int?,
-              json['iconFontFamily'] as String?,
+              reader.optionalInt('iconCodePoint'),
+              reader.optionalString('iconFontFamily'),
             ),
           ),
-      colorValue: json['colorValue'] as int,
-      isActive: json['isActive'] as bool? ?? true,
-      createdAt: DateTime.parse(json['createdAt'] as String),
-      updatedAt: DateTime.parse(json['updatedAt'] as String),
-      deletedAt: json['deletedAt'] != null
-          ? DateTime.parse(json['deletedAt'] as String)
-          : null,
+      colorValue: reader.readInt('colorValue', fallback: financialDefaultColorValue),
+      isActive: reader.readBool('isActive', fallback: true),
+      createdAt: createdAt,
+      updatedAt: reader.readDate('updatedAt', fallback: createdAt),
+      deletedAt: reader.optionalDate('deletedAt'),
     );
   }
 

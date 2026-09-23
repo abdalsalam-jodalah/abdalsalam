@@ -1,8 +1,10 @@
+import '../../../core/errors/app_error.dart';
 import '../../../core/result/result.dart';
-import '../../../core/errors/financial_errors.dart';
 import '../../../shared/infrastructure/logger_service.dart';
 import '../../../shared/infrastructure/storage_gateway.dart';
 import '../../models/financial/transaction_model.dart';
+import '../record_parser.dart';
+import '../repository_operation_guard.dart';
 import 'transaction_repository.dart';
 
 class TransactionRepositoryImpl implements TransactionRepository {
@@ -12,11 +14,19 @@ class TransactionRepositoryImpl implements TransactionRepository {
 
   TransactionRepositoryImpl(this._storage, this._logger);
 
+  RepositoryOperationGuard get _guard => RepositoryOperationGuard(table: _tableName, logger: _logger);
+
+  RecordParser<TransactionModel> get _parser => RecordParser<TransactionModel>(
+        table: _tableName,
+        fromJson: TransactionModel.fromJson,
+        integrityReporter: _storage.integrityReporter,
+      );
+
   @override
-  Future<Result<TransactionModel, Error>> create(
+  Future<Result<TransactionModel, AppError>> create(
     TransactionModel transaction,
-  ) async {
-    try {
+  ) {
+    return _guard.run('create', () async {
       await _storage.upsertRecord(
         table: _tableName,
         id: transaction.id,
@@ -24,156 +34,79 @@ class TransactionRepositoryImpl implements TransactionRepository {
         userId: transaction.userId,
       );
       _logger.info('Transaction created: ${transaction.id}');
-      return Success(transaction);
-    } catch (e, st) {
-      _logger.error('Failed to create transaction', error: e, stackTrace: st);
-      return Failure(DatabaseError(e.toString()));
-    }
+      return transaction;
+    });
   }
 
   @override
-  Future<Result<TransactionModel?, Error>> getById(String id) async {
-    try {
+  Future<Result<TransactionModel?, AppError>> getById(String id) {
+    return _guard.run('getById', () async {
       final record = await _storage.getRecord(table: _tableName, id: id);
       if (record == null) {
-        return const Success(null);
+        return null;
       }
-      return Success(TransactionModel.fromJson(record));
-    } catch (e, st) {
-      _logger.error('Failed to get transaction', error: e, stackTrace: st);
-      return Failure(DatabaseError(e.toString()));
-    }
+      return _parser.parseOne(record);
+    });
   }
 
   @override
-  Future<Result<List<TransactionModel>, Error>> getAll() async {
-    try {
-      final records = await _storage.getAllRecords(table: _tableName);
-      final transactions = records
-          .map((r) => TransactionModel.fromJson(r))
-          .where((t) => t.deletedAt == null)
-          .toList();
-      return Success(transactions);
-    } catch (e, st) {
-      _logger.error('Failed to get all transactions', error: e, stackTrace: st);
-      return Failure(DatabaseError(e.toString()));
-    }
+  Future<Result<List<TransactionModel>, AppError>> getAll() {
+    return _guard.run('getAll', _readAll);
   }
 
   @override
-  Future<Result<List<TransactionModel>, Error>> getByDateRange(
+  Future<Result<List<TransactionModel>, AppError>> getByDateRange(
     DateTime start,
     DateTime end,
-  ) async {
-    try {
-      final allResult = await getAll();
-      if (allResult.isFailure) {
-        return Failure(allResult.error!);
-      }
-
-      final filtered = allResult.data!
-          .where((t) =>
-              t.date.isAfter(start.subtract(const Duration(seconds: 1))) &&
-              t.date.isBefore(end.add(const Duration(seconds: 1))))
-          .toList();
-
-      return Success(filtered);
-    } catch (e, st) {
-      _logger.error('Failed to get transactions by date range', error: e, stackTrace: st);
-      return Failure(DatabaseError(e.toString()));
-    }
+  ) {
+    return _guard.run('getByDateRange', () => _readInDateRange(start, end));
   }
 
   @override
-  Future<Result<List<TransactionModel>, Error>> getByCategory(
+  Future<Result<List<TransactionModel>, AppError>> getByCategory(
     String categoryId,
-  ) async {
-    try {
-      final allResult = await getAll();
-      if (allResult.isFailure) {
-        return Failure(allResult.error!);
-      }
-
-      final filtered = allResult.data!
-          .where((t) => t.categoryId == categoryId)
-          .toList();
-
-      return Success(filtered);
-    } catch (e, st) {
-      _logger.error('Failed to get transactions by category', error: e, stackTrace: st);
-      return Failure(DatabaseError(e.toString()));
-    }
+  ) {
+    return _guard.run('getByCategory', () async {
+      final transactions = await _readAll();
+      return transactions.where((t) => t.categoryId == categoryId).toList();
+    });
   }
 
   @override
-  Future<Result<List<TransactionModel>, Error>> getByCategoryAndDateRange(
+  Future<Result<List<TransactionModel>, AppError>> getByCategoryAndDateRange(
     String categoryId,
     DateTime start,
     DateTime end,
-  ) async {
-    try {
-      final dateRangeResult = await getByDateRange(start, end);
-      if (dateRangeResult.isFailure) {
-        return Failure(dateRangeResult.error!);
-      }
-
-      final filtered = dateRangeResult.data!
-          .where((t) => t.categoryId == categoryId)
-          .toList();
-
-      return Success(filtered);
-    } catch (e, st) {
-      _logger.error(
-        'Failed to get transactions by category and date range',
-        error: e,
-        stackTrace: st,
-      );
-      return Failure(DatabaseError(e.toString()));
-    }
+  ) {
+    return _guard.run('getByCategoryAndDateRange', () async {
+      final transactions = await _readInDateRange(start, end);
+      return transactions.where((t) => t.categoryId == categoryId).toList();
+    });
   }
 
   @override
-  Future<Result<List<TransactionModel>, Error>> getByAccount(
+  Future<Result<List<TransactionModel>, AppError>> getByAccount(
     String accountId,
-  ) async {
-    try {
-      final allResult = await getAll();
-      if (allResult.isFailure) {
-        return Failure(allResult.error!);
-      }
-
-      final filtered =
-          allResult.data!.where((t) => t.accountId == accountId).toList();
-
-      return Success(filtered);
-    } catch (e, st) {
-      _logger.error('Failed to get transactions by account', error: e, stackTrace: st);
-      return Failure(DatabaseError(e.toString()));
-    }
+  ) {
+    return _guard.run('getByAccount', () async {
+      final transactions = await _readAll();
+      return transactions.where((t) => t.accountId == accountId).toList();
+    });
   }
 
   @override
-  Future<Result<List<TransactionModel>, Error>> getByType(
+  Future<Result<List<TransactionModel>, AppError>> getByType(
     TransactionType type,
-  ) async {
-    try {
-      final allResult = await getAll();
-      if (allResult.isFailure) {
-        return Failure(allResult.error!);
-      }
-
-      final filtered = allResult.data!.where((t) => t.type == type).toList();
-
-      return Success(filtered);
-    } catch (e, st) {
-      _logger.error('Failed to get transactions by type', error: e, stackTrace: st);
-      return Failure(DatabaseError(e.toString()));
-    }
+  ) {
+    return _guard.run('getByType', () async {
+      final transactions = await _readAll();
+      return transactions.where((t) => t.type == type).toList();
+    });
   }
 
   @override
-  Future<Result<void, Error>> update(TransactionModel transaction) async {
-    try {
+  Future<Result<void, AppError>> update(TransactionModel transaction) {
+    return _guard.run('update', () async {
       final updated = transaction.copyWith(updatedAt: DateTime.now());
       await _storage.upsertRecord(
         table: _tableName,
@@ -182,89 +115,67 @@ class TransactionRepositoryImpl implements TransactionRepository {
         userId: updated.userId,
       );
       _logger.info('Transaction updated: ${transaction.id}');
-      return const Success(null);
-    } catch (e, st) {
-      _logger.error('Failed to update transaction', error: e, stackTrace: st);
-      return Failure(DatabaseError(e.toString()));
-    }
+    });
   }
 
   @override
-  Future<Result<void, Error>> delete(String id) async {
-    try {
+  Future<Result<void, AppError>> delete(String id) {
+    return _guard.run('delete', () async {
       await _storage.deleteRecord(table: _tableName, id: id);
       _logger.info('Transaction deleted: $id');
-      return const Success(null);
-    } catch (e, st) {
-      _logger.error('Failed to delete transaction', error: e, stackTrace: st);
-      return Failure(DatabaseError(e.toString()));
-    }
+    });
   }
 
   @override
-  Future<Result<double, Error>> getTotalByType(
+  Future<Result<double, AppError>> getTotalByType(
     TransactionType type,
     DateTime start,
     DateTime end,
-  ) async {
-    try {
-      final transactionsResult = await getByDateRange(start, end);
-      if (transactionsResult.isFailure) {
-        return Failure(transactionsResult.error!);
-      }
-
-      final total = transactionsResult.data!
+  ) {
+    return _guard.run('getTotalByType', () async {
+      final transactions = await _readInDateRange(start, end);
+      return transactions
           .where((t) => t.type == type)
           .fold<double>(0, (sum, t) => sum + t.amount);
-
-      return Success(total);
-    } catch (e, st) {
-      _logger.error('Failed to get total by type', error: e, stackTrace: st);
-      return Failure(DatabaseError(e.toString()));
-    }
+    });
   }
 
   @override
-  Future<Result<Map<String, double>, Error>> getTotalByCategory(
+  Future<Result<Map<String, double>, AppError>> getTotalByCategory(
     DateTime start,
     DateTime end,
-  ) async {
-    try {
-      final transactionsResult = await getByDateRange(start, end);
-      if (transactionsResult.isFailure) {
-        return Failure(transactionsResult.error!);
-      }
-
+  ) {
+    return _guard.run('getTotalByCategory', () async {
       final totals = <String, double>{};
-      for (final transaction in transactionsResult.data!) {
+      for (final transaction in await _readInDateRange(start, end)) {
         totals[transaction.categoryId] =
             (totals[transaction.categoryId] ?? 0) + transaction.amount;
       }
-
-      return Success(totals);
-    } catch (e, st) {
-      _logger.error('Failed to get total by category', error: e, stackTrace: st);
-      return Failure(DatabaseError(e.toString()));
-    }
+      return totals;
+    });
   }
 
   @override
-  Future<Result<List<TransactionModel>, Error>> getRecent(
+  Future<Result<List<TransactionModel>, AppError>> getRecent(
     int limit,
-  ) async {
-    try {
-      final allResult = await getAll();
-      if (allResult.isFailure) {
-        return Failure(allResult.error!);
-      }
+  ) {
+    return _guard.run('getRecent', () async {
+      final sorted = (await _readAll())..sort((a, b) => b.date.compareTo(a.date));
+      return sorted.take(limit).toList();
+    });
+  }
 
-      final sorted = allResult.data!..sort((a, b) => b.date.compareTo(a.date));
-      final recent = sorted.take(limit).toList();
+  Future<List<TransactionModel>> _readAll() async {
+    final records = await _storage.getAllRecords(table: _tableName);
+    return _parser.parseAll(records).where((t) => t.deletedAt == null).toList();
+  }
 
-      return Success(recent);
-    } catch (e, st) {
-      _logger.error('Failed to get recent transactions', error: e, stackTrace: st);
-      return Failure(DatabaseError(e.toString()));
-    }
+  Future<List<TransactionModel>> _readInDateRange(DateTime start, DateTime end) async {
+    final transactions = await _readAll();
+    return transactions
+        .where((t) =>
+            t.date.isAfter(start.subtract(const Duration(seconds: 1))) &&
+            t.date.isBefore(end.add(const Duration(seconds: 1))))
+        .toList();
   }
 }

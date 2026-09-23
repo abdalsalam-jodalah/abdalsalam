@@ -1,3 +1,4 @@
+import '../../../core/json/json_reader.dart';
 import '../base_model.dart';
 
 class Credential extends BaseModel {
@@ -34,27 +35,26 @@ class Credential extends BaseModel {
   });
 
   factory Credential.fromJson(Map<String, dynamic> json) {
+    final reader = JsonReader(json, source: 'Credential');
+    final createdAt = reader.requireDate('createdAt');
+    final updatedAt = reader.readDate('updatedAt', fallback: createdAt);
     return Credential(
-      id: json['id'] as String,
-      createdAt: DateTime.parse(json['createdAt'] as String),
-      updatedAt: DateTime.parse(json['updatedAt'] as String),
-      deletedAt: json['deletedAt'] == null
-          ? null
-          : DateTime.parse(json['deletedAt'] as String),
-      userId: json['userId'] as String,
-      title: json['title'] as String,
-      username: json['username'] as String,
-      encryptedPassword: json['encryptedPassword'] as String,
-      website: json['website'] as String?,
-      notes: json['notes'] as String?,
-      categoryId: json['categoryId'] as String?,
-      tags: (json['tags'] as List<dynamic>? ?? const <dynamic>[]).cast<String>(),
-      favorite: json['favorite'] as bool? ?? false,
-      lastModified: DateTime.parse(json['lastModified'] as String),
-      strength: (json['strength'] as num?)?.toInt() ?? 0,
-      expiryDate: json['expiryDate'] == null
-          ? null
-          : DateTime.parse(json['expiryDate'] as String),
+      id: reader.requireString('id'),
+      createdAt: createdAt,
+      updatedAt: updatedAt,
+      deletedAt: reader.optionalDate('deletedAt'),
+      userId: reader.readString('userId'),
+      title: reader.readString('title'),
+      username: reader.readString('username'),
+      encryptedPassword: reader.requireString('encryptedPassword'),
+      website: reader.optionalString('website'),
+      notes: reader.optionalString('notes'),
+      categoryId: reader.optionalString('categoryId'),
+      tags: reader.readStringList('tags'),
+      favorite: reader.readBool('favorite'),
+      lastModified: reader.readDate('lastModified', fallback: updatedAt),
+      strength: reader.readInt('strength'),
+      expiryDate: reader.optionalDate('expiryDate'),
     );
   }
 

@@ -1,3 +1,4 @@
+import '../../../core/json/json_reader.dart';
 import '../base_model.dart';
 
 class BodyMeasurement extends BaseModel {
@@ -34,23 +35,25 @@ class BodyMeasurement extends BaseModel {
   });
 
   factory BodyMeasurement.fromJson(Map<String, dynamic> json) {
+    final reader = JsonReader(json, source: 'BodyMeasurement');
+    final createdAt = reader.requireDate('createdAt');
     return BodyMeasurement(
-      id: json['id'] as String,
-      createdAt: DateTime.parse(json['createdAt'] as String),
-      updatedAt: DateTime.parse(json['updatedAt'] as String),
-      deletedAt: json['deletedAt'] == null ? null : DateTime.parse(json['deletedAt'] as String),
-      userId: json['userId'] as String,
-      date: DateTime.parse(json['date'] as String),
-      weightKg: (json['weightKg'] as num).toDouble(),
-      heightCm: (json['heightCm'] as num?)?.toDouble(),
-      bodyFatPercent: (json['bodyFatPercent'] as num?)?.toDouble(),
-      chestCm: (json['chestCm'] as num?)?.toDouble(),
-      waistCm: (json['waistCm'] as num?)?.toDouble(),
-      abdominalCm: (json['abdominalCm'] as num?)?.toDouble(),
-      hipsCm: (json['hipsCm'] as num?)?.toDouble(),
-      thighCm: (json['thighCm'] as num?)?.toDouble(),
-      armCm: (json['armCm'] as num?)?.toDouble(),
-      notes: json['notes'] as String?,
+      id: reader.requireString('id'),
+      createdAt: createdAt,
+      updatedAt: reader.readDate('updatedAt', fallback: createdAt),
+      deletedAt: reader.optionalDate('deletedAt'),
+      userId: reader.readString('userId'),
+      date: reader.requireDate('date'),
+      weightKg: reader.requireDouble('weightKg'),
+      heightCm: reader.optionalDouble('heightCm'),
+      bodyFatPercent: reader.optionalDouble('bodyFatPercent'),
+      chestCm: reader.optionalDouble('chestCm'),
+      waistCm: reader.optionalDouble('waistCm'),
+      abdominalCm: reader.optionalDouble('abdominalCm'),
+      hipsCm: reader.optionalDouble('hipsCm'),
+      thighCm: reader.optionalDouble('thighCm'),
+      armCm: reader.optionalDouble('armCm'),
+      notes: reader.optionalString('notes'),
     );
   }
 

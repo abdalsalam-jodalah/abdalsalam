@@ -1,3 +1,4 @@
+import '../../../core/json/json_reader.dart';
 import '../../models/base_model.dart';
 
 class LifePlan extends BaseModel {
@@ -20,16 +21,18 @@ class LifePlan extends BaseModel {
   });
 
   factory LifePlan.fromJson(Map<String, dynamic> json) {
+    final reader = JsonReader(json, source: 'LifePlan');
+    final createdAt = reader.requireDate('createdAt');
     return LifePlan(
-      id: json['id'] as String,
-      createdAt: DateTime.parse(json['createdAt'] as String),
-      updatedAt: DateTime.parse(json['updatedAt'] as String),
-      deletedAt: json['deletedAt'] == null ? null : DateTime.parse(json['deletedAt'] as String),
-      userId: json['userId'] as String,
-      visionStatement: json['visionStatement'] as String,
-      missionStatement: json['missionStatement'] as String,
-      values: (json['values'] as List<dynamic>? ?? const <dynamic>[]).cast<String>(),
-      principles: (json['principles'] as List<dynamic>? ?? const <dynamic>[]).cast<String>(),
+      id: reader.requireString('id'),
+      createdAt: createdAt,
+      updatedAt: reader.readDate('updatedAt', fallback: createdAt),
+      deletedAt: reader.optionalDate('deletedAt'),
+      userId: reader.readString('userId'),
+      visionStatement: reader.readString('visionStatement'),
+      missionStatement: reader.readString('missionStatement'),
+      values: reader.readStringList('values'),
+      principles: reader.readStringList('principles'),
     );
   }
 

@@ -125,6 +125,16 @@ Totals: errStr 70 · unlogged catch 10 · provider masking 63 · ignored writes 
 - Fix `weather_model.dart` `toJson`/`fromJson` symmetry (+ `hourlyForecast`).
 - Financial error unification: `FinancialError extends AppError`; the clashing classes become `FinancialDatabaseError`, `FinancialNotFoundError`, `FinancialValidationError`; `enhanced_currency_service.dart:71` `StateError` → `FinancialError`; all 6 financial repositories and financial services/providers move from `Result<T, Error>` to `Result<T, AppError>`; same row-tolerant parsing as `BaseRepositoryImpl`. Update `test/financial/fakes.dart` + financial tests.
 - Once financial is unified, tighten `Result<T, E extends Error>` → `E extends AppError`.
+- **What was done.** Every model reads its JSON through `JsonReader`.
+  - Required fields: `id`, `createdAt`, and fields where a default would silently corrupt meaning (money amounts and direction, foreign keys, dose and prayer times, measured values).
+  - `userId` is always lenient (`''`) because this is a single-user app.
+  - `updatedAt` falls back to `createdAt`.
+  - The duplicate financial `DatabaseError`, `NotFoundError` and `ValidationError` classes were deleted rather than renamed; financial code now uses the shared ones. Financial repositories share `RepositoryOperationGuard` with `BaseRepositoryImpl`.
+  - The weather cache round trip is fixed, and the hourly forecast is now cached too.
+  - A medication with an unknown weekday is now reported as corrupt instead of being scheduled on Monday.
+- **Follow-ups found in Phase 4.**
+  - Phase 5: `financial_service.dart` and `recurring_transaction_generator.dart` still build `FinancialError(e.toString())`; `weather_service.dart` still uses `DateTime.parse` and hard casts on API data.
+  - Phase 7: `habitColorFromHex` (`habit_style_picker.dart`) uses `int.parse` on stored colour strings.
 
 ### Phase 5 — Services (every `lib/features/*/services/`)
 - Every ignored `Result` handled; every catch logs; no `e.toString()` as message — use `ErrorHandler`.

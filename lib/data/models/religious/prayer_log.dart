@@ -1,8 +1,11 @@
+import '../../../core/json/json_reader.dart';
 import '../../../data/models/base_model.dart';
 
 enum PrayerName { fajr, dhuhr, asr, maghrib, isha }
 
 class PrayerLog extends BaseModel {
+  static const String _jsonSource = 'PrayerLog';
+
   final String userId;
   final PrayerName prayerName;
   final DateTime prayedAt;
@@ -24,21 +27,19 @@ class PrayerLog extends BaseModel {
   });
 
   factory PrayerLog.fromJson(Map<String, dynamic> json) {
+    final reader = JsonReader(json, source: _jsonSource);
+    final createdAt = reader.requireDate('createdAt');
     return PrayerLog(
-      id: json['id'] as String,
-      createdAt: DateTime.parse(json['createdAt'] as String),
-      updatedAt: DateTime.parse(json['updatedAt'] as String),
-      deletedAt: json['deletedAt'] == null
-          ? null
-          : DateTime.parse(json['deletedAt'] as String),
-      userId: json['userId'] as String,
-      prayerName: PrayerName.values.byName(json['prayerName'] as String),
-      prayedAt: DateTime.parse(json['prayedAt'] as String),
-      onTime: json['onTime'] as bool,
-      notes: json['notes'] as String?,
-      scheduledAt: json['scheduledAt'] == null
-          ? null
-          : DateTime.parse(json['scheduledAt'] as String),
+      id: reader.requireString('id'),
+      createdAt: createdAt,
+      updatedAt: reader.readDate('updatedAt', fallback: createdAt),
+      deletedAt: reader.optionalDate('deletedAt'),
+      userId: reader.readString('userId'),
+      prayerName: reader.requireEnum('prayerName', PrayerName.values),
+      prayedAt: reader.readDate('prayedAt', fallback: createdAt),
+      onTime: reader.readBool('onTime'),
+      notes: reader.optionalString('notes'),
+      scheduledAt: reader.optionalDate('scheduledAt'),
     );
   }
 

@@ -1,3 +1,4 @@
+import '../../../core/json/json_reader.dart';
 import '../../models/base_model.dart';
 
 /// Deprecated: superseded by [QuranReading] (surah/ayah range, pagesRead, place).
@@ -5,6 +6,8 @@ import '../../models/base_model.dart';
 /// "Import legacy Quran progress" action on QuranReadingScreen to migrate.
 @Deprecated('Use QuranReading instead')
 class QuranProgress extends BaseModel {
+  static const String _jsonSource = 'QuranProgress';
+
   final String userId;
   final int pagesRead;
   final int minutesSpent;
@@ -22,17 +25,17 @@ class QuranProgress extends BaseModel {
   });
 
   factory QuranProgress.fromJson(Map<String, dynamic> json) {
+    final reader = JsonReader(json, source: _jsonSource);
+    final createdAt = reader.requireDate('createdAt');
     return QuranProgress(
-      id: json['id'] as String,
-      createdAt: DateTime.parse(json['createdAt'] as String),
-      updatedAt: DateTime.parse(json['updatedAt'] as String),
-      deletedAt: json['deletedAt'] == null
-          ? null
-          : DateTime.parse(json['deletedAt'] as String),
-      userId: json['userId'] as String,
-      pagesRead: json['pagesRead'] as int,
-      minutesSpent: json['minutesSpent'] as int,
-      loggedAt: DateTime.parse(json['loggedAt'] as String),
+      id: reader.requireString('id'),
+      createdAt: createdAt,
+      updatedAt: reader.readDate('updatedAt', fallback: createdAt),
+      deletedAt: reader.optionalDate('deletedAt'),
+      userId: reader.readString('userId'),
+      pagesRead: reader.readInt('pagesRead'),
+      minutesSpent: reader.readInt('minutesSpent'),
+      loggedAt: reader.readDate('loggedAt', fallback: createdAt),
     );
   }
 

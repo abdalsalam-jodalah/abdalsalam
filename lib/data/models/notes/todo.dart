@@ -1,3 +1,4 @@
+import '../../../core/json/json_reader.dart';
 import '../../models/base_model.dart';
 
 enum TodoPriority { low, medium, high }
@@ -36,24 +37,28 @@ class Todo extends BaseModel {
     this.habitId,
   });
 
-  factory Todo.fromJson(Map<String, dynamic> json) => Todo(
-        id: json['id'] as String,
-        createdAt: DateTime.parse(json['createdAt'] as String),
-        updatedAt: DateTime.parse(json['updatedAt'] as String),
-        deletedAt: json['deletedAt'] == null ? null : DateTime.parse(json['deletedAt'] as String),
-        userId: json['userId'] as String,
-        title: json['title'] as String,
-        description: json['description'] as String?,
-        dueDate: json['dueDate'] == null ? null : DateTime.parse(json['dueDate'] as String),
-        priority: TodoPriority.values.byName(json['priority'] as String),
-        status: TodoStatus.values.byName(json['status'] as String),
-        categoryId: json['categoryId'] as String?,
-        tags: (json['tags'] as List<dynamic>? ?? const <dynamic>[]).cast<String>(),
-        reminderAt: json['reminderAt'] == null ? null : DateTime.parse(json['reminderAt'] as String),
-        parentTodoId: json['parentTodoId'] as String?,
-        order: json['order'] as int? ?? 0,
-        habitId: json['habitId'] as String?,
-      );
+  factory Todo.fromJson(Map<String, dynamic> json) {
+    final reader = JsonReader(json, source: 'Todo');
+    final createdAt = reader.requireDate('createdAt');
+    return Todo(
+      id: reader.requireString('id'),
+      createdAt: createdAt,
+      updatedAt: reader.readDate('updatedAt', fallback: createdAt),
+      deletedAt: reader.optionalDate('deletedAt'),
+      userId: reader.readString('userId'),
+      title: reader.readString('title'),
+      description: reader.optionalString('description'),
+      dueDate: reader.optionalDate('dueDate'),
+      priority: reader.readEnum('priority', TodoPriority.values, fallback: TodoPriority.medium),
+      status: reader.readEnum('status', TodoStatus.values, fallback: TodoStatus.pending),
+      categoryId: reader.optionalString('categoryId'),
+      tags: reader.readStringList('tags'),
+      reminderAt: reader.optionalDate('reminderAt'),
+      parentTodoId: reader.optionalString('parentTodoId'),
+      order: reader.readInt('order'),
+      habitId: reader.optionalString('habitId'),
+    );
+  }
 
   Todo copyWith({
     DateTime? updatedAt,

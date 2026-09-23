@@ -1,3 +1,4 @@
+import '../../../core/json/json_reader.dart';
 import '../base_model.dart';
 import 'recurrence_pattern.dart';
 
@@ -65,28 +66,26 @@ class TransactionModel extends BaseModel {
       };
 
   factory TransactionModel.fromJson(Map<String, dynamic> json) {
+    final reader = JsonReader(json, source: 'TransactionModel');
+    final createdAt = reader.requireDate('createdAt');
     return TransactionModel(
-      id: json['id'] as String,
-      userId: json['userId'] as String,
-      type: TransactionType.values.byName(json['type'] as String),
-      amount: (json['amount'] as num).toDouble(),
-      currency: json['currency'] as String,
-      categoryId: json['categoryId'] as String,
-      accountId: json['accountId'] as String?,
-      date: DateTime.parse(json['date'] as String),
-      description: json['description'] as String,
-      tags: (json['tags'] as List<dynamic>?)?.cast<String>() ?? [],
-      paymentMethod: json['paymentMethod'] as String?,
-      isRecurring: json['isRecurring'] as bool? ?? false,
-      recurringPattern: json['recurringPattern'] as String?,
-      recurrenceNextDueDate: json['recurrenceNextDueDate'] != null
-          ? DateTime.parse(json['recurrenceNextDueDate'] as String)
-          : null,
-      createdAt: DateTime.parse(json['createdAt'] as String),
-      updatedAt: DateTime.parse(json['updatedAt'] as String),
-      deletedAt: json['deletedAt'] != null
-          ? DateTime.parse(json['deletedAt'] as String)
-          : null,
+      id: reader.requireString('id'),
+      userId: reader.readString('userId'),
+      type: reader.requireEnum('type', TransactionType.values),
+      amount: reader.requireDouble('amount'),
+      currency: reader.requireString('currency'),
+      categoryId: reader.requireString('categoryId'),
+      accountId: reader.optionalString('accountId'),
+      date: reader.requireDate('date'),
+      description: reader.readString('description'),
+      tags: reader.readStringList('tags'),
+      paymentMethod: reader.optionalString('paymentMethod'),
+      isRecurring: reader.readBool('isRecurring'),
+      recurringPattern: reader.optionalString('recurringPattern'),
+      recurrenceNextDueDate: reader.optionalDate('recurrenceNextDueDate'),
+      createdAt: createdAt,
+      updatedAt: reader.readDate('updatedAt', fallback: createdAt),
+      deletedAt: reader.optionalDate('deletedAt'),
     );
   }
 

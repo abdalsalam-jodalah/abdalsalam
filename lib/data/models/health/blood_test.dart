@@ -1,3 +1,4 @@
+import '../../../core/json/json_reader.dart';
 import '../../models/base_model.dart';
 
 class BloodTest extends BaseModel {
@@ -51,20 +52,24 @@ class BloodTest extends BaseModel {
         facility: facility ?? this.facility,
       );
 
-  factory BloodTest.fromJson(Map<String, dynamic> json) => BloodTest(
-        id: json['id'] as String,
-        createdAt: DateTime.parse(json['createdAt'] as String),
-        updatedAt: DateTime.parse(json['updatedAt'] as String),
-        deletedAt: json['deletedAt'] == null ? null : DateTime.parse(json['deletedAt'] as String),
-        userId: json['userId'] as String,
-        testType: json['testType'] as String,
-        scheduledDate: DateTime.parse(json['scheduledDate'] as String),
-        completedDate: json['completedDate'] == null ? null : DateTime.parse(json['completedDate'] as String),
-        results: (json['results'] as Map<String, dynamic>? ?? const <String, dynamic>{}),
-        notes: json['notes'] as String?,
-        nextTestDate: json['nextTestDate'] == null ? null : DateTime.parse(json['nextTestDate'] as String),
-        facility: json['facility'] as String?,
-      );
+  factory BloodTest.fromJson(Map<String, dynamic> json) {
+    final reader = JsonReader(json, source: 'BloodTest');
+    final createdAt = reader.requireDate('createdAt');
+    return BloodTest(
+      id: reader.requireString('id'),
+      createdAt: createdAt,
+      updatedAt: reader.readDate('updatedAt', fallback: createdAt),
+      deletedAt: reader.optionalDate('deletedAt'),
+      userId: reader.readString('userId'),
+      testType: reader.readString('testType'),
+      scheduledDate: reader.readDate('scheduledDate', fallback: createdAt),
+      completedDate: reader.optionalDate('completedDate'),
+      results: reader.readMap('results'),
+      notes: reader.optionalString('notes'),
+      nextTestDate: reader.optionalDate('nextTestDate'),
+      facility: reader.optionalString('facility'),
+    );
+  }
 
   @override
   Map<String, dynamic> toJson() => <String, dynamic>{

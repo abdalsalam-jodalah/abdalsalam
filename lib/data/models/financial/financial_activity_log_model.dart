@@ -1,3 +1,4 @@
+import '../../../core/json/json_reader.dart';
 import '../base_model.dart';
 
 enum FinancialEntityType { transaction, budget, category, account }
@@ -63,28 +64,26 @@ class FinancialActivityLogModel extends BaseModel {
       };
 
   factory FinancialActivityLogModel.fromJson(Map<String, dynamic> json) {
+    final reader = JsonReader(json, source: 'FinancialActivityLogModel');
+    final createdAt = reader.requireDate('createdAt');
     return FinancialActivityLogModel(
-      id: json['id'] as String,
-      userId: json['userId'] as String,
-      entityType: FinancialEntityType.values.byName(json['entityType'] as String),
-      action: FinancialActionType.values.byName(json['action'] as String),
-      entityId: json['entityId'] as String,
-      summary: json['summary'] as String,
-      amount: (json['amount'] as num?)?.toDouble(),
-      currency: json['currency'] as String?,
-      categoryId: json['categoryId'] as String?,
-      accountId: json['accountId'] as String?,
-      conversionRateUsed: (json['conversionRateUsed'] as num?)?.toDouble(),
-      conversionRateFromTo: json['conversionRateFromTo'] as String?,
-      conversionRateDate: json['conversionRateDate'] != null
-          ? DateTime.parse(json['conversionRateDate'] as String)
-          : null,
-      metadata: (json['metadata'] as Map<String, dynamic>?),
-      createdAt: DateTime.parse(json['createdAt'] as String),
-      updatedAt: DateTime.parse(json['updatedAt'] as String),
-      deletedAt: json['deletedAt'] != null
-          ? DateTime.parse(json['deletedAt'] as String)
-          : null,
+      id: reader.requireString('id'),
+      userId: reader.readString('userId'),
+      entityType: reader.requireEnum('entityType', FinancialEntityType.values),
+      action: reader.requireEnum('action', FinancialActionType.values),
+      entityId: reader.requireString('entityId'),
+      summary: reader.readString('summary'),
+      amount: reader.optionalDouble('amount'),
+      currency: reader.optionalString('currency'),
+      categoryId: reader.optionalString('categoryId'),
+      accountId: reader.optionalString('accountId'),
+      conversionRateUsed: reader.optionalDouble('conversionRateUsed'),
+      conversionRateFromTo: reader.optionalString('conversionRateFromTo'),
+      conversionRateDate: reader.optionalDate('conversionRateDate'),
+      metadata: reader.optionalMap('metadata'),
+      createdAt: createdAt,
+      updatedAt: reader.readDate('updatedAt', fallback: createdAt),
+      deletedAt: reader.optionalDate('deletedAt'),
     );
   }
 

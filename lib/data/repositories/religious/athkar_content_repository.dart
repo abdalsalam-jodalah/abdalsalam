@@ -29,19 +29,24 @@ class AthkarContentRepository extends BaseRepositoryImpl<AthkarContent> {
   /// Idempotently inserts bundled entries that don't already exist.
   /// Bundled entries must carry deterministic ids (e.g. `builtin-<category>-<index>`)
   /// so re-seeding on app upgrade never duplicates rows.
-  Future<Result<void, AppError>> seedFromAsset(List<AthkarContent> bundled) async {
-    for (final entry in bundled) {
-      final existing = await getById(entry.id);
-      if (existing.isFailure) {
-        return Failure(existing.error!);
-      }
-      if (existing.data == null) {
-        final created = await create(entry);
-        if (created.isFailure) {
-          return Failure(created.error!);
+  Future<Result<void, AppError>> seedFromAsset(List<AthkarContent> bundled) {
+    return guardStorage('seedFromAsset', () {
+      return storage.runInTransaction(() async {
+        final missing = <AthkarContent>[];
+        for (final entry in bundled) {
+          final existing = await storage.getRecord(table: tableName, id: entry.id);
+          if (existing == null) {
+            missing.add(entry);
+          }
         }
-      }
-    }
-    return const Success(null);
+        if (missing.isEmpty) {
+          return;
+        }
+        final created = await createBulk(missing);
+        if (created.isFailure) {
+          throw created.error!;
+        }
+      });
+    });
   }
 }

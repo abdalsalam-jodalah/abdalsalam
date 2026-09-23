@@ -1,3 +1,4 @@
+import '../../../core/json/json_reader.dart';
 import '../base_model.dart';
 
 class ExerciseLog extends BaseModel {
@@ -28,20 +29,22 @@ class ExerciseLog extends BaseModel {
   });
 
   factory ExerciseLog.fromJson(Map<String, dynamic> json) {
+    final reader = JsonReader(json, source: 'ExerciseLog');
+    final createdAt = reader.requireDate('createdAt');
     return ExerciseLog(
-      id: json['id'] as String,
-      createdAt: DateTime.parse(json['createdAt'] as String),
-      updatedAt: DateTime.parse(json['updatedAt'] as String),
-      deletedAt: json['deletedAt'] == null ? null : DateTime.parse(json['deletedAt'] as String),
-      userId: json['userId'] as String,
-      date: DateTime.parse(json['date'] as String),
-      exerciseId: json['exerciseId'] as String,
-      order: (json['order'] as num?)?.toInt() ?? 0,
-      scheduleEntryId: json['scheduleEntryId'] as String?,
-      notes: json['notes'] as String?,
-      steps: (json['steps'] as num?)?.toInt(),
-      durationSeconds: (json['durationSeconds'] as num?)?.toInt(),
-      distanceKm: (json['distanceKm'] as num?)?.toDouble(),
+      id: reader.requireString('id'),
+      createdAt: createdAt,
+      updatedAt: reader.readDate('updatedAt', fallback: createdAt),
+      deletedAt: reader.optionalDate('deletedAt'),
+      userId: reader.readString('userId'),
+      date: reader.requireDate('date'),
+      exerciseId: reader.requireString('exerciseId'),
+      order: reader.readInt('order'),
+      scheduleEntryId: reader.optionalString('scheduleEntryId'),
+      notes: reader.optionalString('notes'),
+      steps: reader.optionalInt('steps'),
+      durationSeconds: reader.optionalInt('durationSeconds'),
+      distanceKm: reader.optionalDouble('distanceKm'),
     );
   }
 

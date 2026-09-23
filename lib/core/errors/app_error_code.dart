@@ -13,4 +13,5 @@ class AppErrorCode {
   static const String importExport = 'IMPORT_EXPORT_ERROR';
   static const String network = 'NETWORK_ERROR';
   static const String auth = 'AUTH_ERROR';
+  static const String financial = 'FINANCIAL_ERROR';
 }
