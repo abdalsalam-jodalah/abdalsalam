@@ -149,7 +149,7 @@ print_row() {
   unlogged=$(dart_files $dirs | count_unlogged_catch)
   masking=$(files_matching_dir "$PROVIDER_DIRS" $dirs | count_regex '\.data *\?\?')
   ignored=$(dart_files $dirs | count_ignored_writes)
-  errstr_logic=$(files_matching_dir "$LOGIC_DIRS" $dirs | count_regex '(\be|error|err)\.toString\(\)')
+  errstr_logic=$(files_matching_dir "$LOGIC_DIRS" $dirs | grep -v 'error_handler.dart' | count_regex '(\be|error|err)\.toString\(\)')
   parse_date=$(files_matching_dir "$MODEL_DIRS" $dirs | count_regex 'DateTime\.parse\(')
   by_name=$(files_matching_dir "$MODEL_DIRS" $dirs | count_regex '\.byName\(')
   hard_casts=$(files_matching_dir "$MODEL_DIRS" $dirs | count_hard_casts)

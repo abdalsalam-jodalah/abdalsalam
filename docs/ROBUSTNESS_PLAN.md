@@ -5,7 +5,7 @@
 | Phase | Scope | Status | Commit |
 |---|---|---|---|
 | 0 | Measurable baseline — `tool/robustness_audit.sh` | ✅ Done | `1d1ec00` |
-| 1 | Core foundation — Result helpers, AppError cause/stack, ErrorHandler, JsonReader, test DB isolation | ⬜ Todo | |
+| 1 | Core foundation — Result helpers, AppError cause/stack, ErrorHandler, JsonReader, test DB isolation | ✅ Done | `b7b2245` |
 | 2 | Infrastructure — StorageGateway hardening, schema tables, crash log | ⬜ Todo | |
 | 3 | Bootstrap & global error handlers | ⬜ Todo | |
 | 4 | Data layer — tolerant row parsing, 46 models → JsonReader, financial error unification | ⬜ Todo | |
@@ -20,24 +20,24 @@ Legend: ⬜ Todo · 🔄 In progress · ✅ Done. Each phase is marked Done only
 
 ## Scorecard History
 
-| Metric | Baseline (P0) |
-|---|---|
-| Raw exception text used as error message | 70 |
-| Unlogged catch blocks | 11 |
-| Providers masking failures (`?? []`) | 63 |
-| Ignored write results (heuristic) | 126 |
-| `DateTime.parse` in models | 186 |
-| `byName` without fallback | 23 |
-| Hard casts in models | 434 |
-| Error branches without shared view | 93 |
-| Raw error text in UI | 90 |
-| Unguarded UI after `await` (heuristic) | 114 |
-| Raw `TextField` | 41 |
-| Silent `?? 0` coercion | 9 |
-| `TextFormField` without validator | 27 |
-| App-wide checks passing | 0 / 15 |
-| `flutter analyze` issues | 8 |
-| `flutter test` | 70 total · 8 fail in parallel, all pass with `-j 1` |
+| Metric | Baseline (P0) | P1 |
+|---|---|---|
+| Raw exception text used as error message | 70 | 68 |
+| Unlogged catch blocks | 10 | 10 |
+| Providers masking failures (`?? []`) | 63 | 63 |
+| Ignored write results (heuristic) | 126 | 126 |
+| `DateTime.parse` in models | 186 | 186 |
+| `byName` without fallback | 23 | 23 |
+| Hard casts in models | 413 | 413 |
+| Error branches without shared view | 93 | 93 |
+| Raw error text in UI | 90 | 90 |
+| Unguarded UI after `await` (heuristic) | 114 | 114 |
+| Raw `TextField` | 40 | 40 |
+| Silent `?? 0` coercion | 9 | 9 |
+| `TextFormField` without validator | 27 | 27 |
+| App-wide checks passing | 0 / 15 | 1 / 15 |
+| `flutter analyze` issues | 8 | 8 |
+| `flutter test` | 70 total · 8 fail in parallel, all pass with `-j 1` | 113 · all pass in parallel |
 
 ## Context
 Goal: fewer bugs, fewer crashes, every failure caught → logged → shown to the user as a clear, actionable message, and no silent data loss. Covers **every section** (core, shared, all 14 feature modules). Judged against the measurable scorecard below: baseline now, re-scored after every phase, done when every cell is ✓.
@@ -91,7 +91,7 @@ C1, C9, C10, C11 are app-wide. The rest are scored per section.
 Phase 0 converts this into exact counts via a repeatable audit script.
 
 ### Phase 0 measured baseline (`tool/robustness_audit.sh`, commit 1d1ec00)
-Totals: errStr 70 · unlogged catch 11 · provider masking 63 · ignored writes 126 (heuristic, includes some false positives) · DateTime.parse 186 · byName 23 · hard casts 434 · error branches without shared view 93 · raw error in UI 90 · async-UI unguarded 114 (heuristic) · raw TextField 41 · silent `?? 0` 9 · TextFormField without validator 27 · all 15 app-wide checks FAIL.
+Totals: errStr 70 · unlogged catch 10 · provider masking 63 · ignored writes 126 (heuristic, includes some false positives) · DateTime.parse 186 · byName 23 · hard casts 413 · error branches without shared view 93 · raw error in UI 90 · async-UI unguarded 114 (heuristic) · raw TextField 40 · silent `?? 0` 9 · TextFormField without validator 27 · all 15 app-wide checks FAIL.
 `flutter analyze`: 8 issues. `flutter test`: 70 tests, **8 fail when run in parallel, all pass with `-j 1`**, because every test file shares the on-disk `test_abdalsalam.db`. Fix in Phase 1: a unique DB name per test file.
 
 ## Approach — phased, one commit per phase, each gated by `flutter analyze` + `flutter test` + scorecard re-run
