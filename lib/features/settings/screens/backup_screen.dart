@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../providers/app_providers.dart';
+import '../../../shared/services/backup_service.dart';
 import '../../../shared/widgets/app_feedback.dart';
 
 class BackupScreen extends ConsumerStatefulWidget {
@@ -63,7 +64,7 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
 
     final save = await ref.read(backupServiceProvider).saveBackupToDevice(
           content: backup.data!,
-          fileName: 'abdalsalam-backup-${DateTime.now().millisecondsSinceEpoch}.b64',
+          fileName: BackupService.backupFileName(DateTime.now()),
         );
     if (!mounted) return;
     if (save.isFailure) {

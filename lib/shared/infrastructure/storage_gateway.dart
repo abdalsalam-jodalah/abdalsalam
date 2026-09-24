@@ -106,6 +106,7 @@ class StorageGateway {
     required String id,
     required Map<String, dynamic> record,
     String? userId,
+    bool isPreservingUpdatedAt = false,
   }) async {
     final executor = await _executorFor(table);
     final now = DateTime.now().toIso8601String();
@@ -115,7 +116,7 @@ class StorageGateway {
       'id': id,
       'userId': userId ?? record['userId'],
       'createdAt': createdAt,
-      'updatedAt': now,
+      'updatedAt': isPreservingUpdatedAt ? (record['updatedAt'] ?? now) : now,
       'deletedAt': record['deletedAt'],
     };
     await executor.insert(table, _codec.encode(row), conflictAlgorithm: ConflictAlgorithm.replace);

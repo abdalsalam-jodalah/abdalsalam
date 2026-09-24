@@ -6,7 +6,7 @@ import 'package:flutter/foundation.dart';
 class CrashLogRecorder {
   static final CrashLogRecorder instance = CrashLogRecorder._();
 
-  static const String _storageKey = 'crash_log_entries';
+  static const String storageKey = 'crash_log_entries';
   static const int maxEntries = 200;
 
   final SharedPreferencesStorage _preferencesStorage = SharedPreferencesStorage();
@@ -39,19 +39,19 @@ class CrashLogRecorder {
   Future<void> clearEntries() async {
     await _pendingWrite;
     await _ensureInitialized();
-    await _preferencesStorage.delete(_storageKey);
+    await _preferencesStorage.delete(storageKey);
   }
 
   Future<void> _append(String entry) async {
     final entries = await _readStoredEntries();
     entries.add(entry);
     final trimmed = entries.length > maxEntries ? entries.sublist(entries.length - maxEntries) : entries;
-    await _preferencesStorage.set(_storageKey, jsonEncode(trimmed));
+    await _preferencesStorage.set(storageKey, jsonEncode(trimmed));
   }
 
   Future<List<String>> _readStoredEntries() async {
     await _ensureInitialized();
-    final raw = await _preferencesStorage.get(_storageKey);
+    final raw = await _preferencesStorage.get(storageKey);
     if (raw is! String) {
       return <String>[];
     }

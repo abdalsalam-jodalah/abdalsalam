@@ -6,13 +6,24 @@ import 'package:abdalsalam/providers/app_providers.dart';
 import 'package:abdalsalam/shared/infrastructure/logger_service.dart';
 import 'package:abdalsalam/shared/infrastructure/storage_gateway.dart';
 import 'package:abdalsalam/shared/services/backup_service.dart';
+import 'package:abdalsalam/shared/services/restore_report.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+const _sampleReport = RestoreReport(
+  restoredTableCount: 2,
+  restoredRowCount: 5,
+  skippedRowCount: 1,
+  restoredPreferenceCount: 3,
+  skippedUnknownTables: <String>[],
+  safetyBackupPath: '/backups/safety.b64',
+);
+
 class _FakeBackupService extends BackupService {
-  final Result<void, AppError> restoreResult;
+  final Result<RestoreReport, AppError> restoreResult;
   final Duration restoreDelay;
+  String? lastRestoredContent;
 
   _FakeBackupService({
     required this.restoreResult,
@@ -20,10 +31,8 @@ class _FakeBackupService extends BackupService {
   }) : super(StorageGateway.instance, LoggerService.forModule('FakeBackupService'));
 
   @override
-  Future<Result<void, AppError>> restore({
-    required Map<String, dynamic> backup,
-    bool replace = false,
-  }) async {
+  Future<Result<RestoreReport, AppError>> restoreFromText(String content, {bool replace = false}) async {
+    lastRestoredContent = content;
     if (restoreDelay > Duration.zero) {
       await Future<void>.delayed(restoreDelay);
     }
@@ -37,16 +46,18 @@ void main() {
         child: const MaterialApp(home: RestoreScreen()),
       );
 
-  testWidgets('should show a friendly message, not the raw parse error, for invalid JSON', (tester) async {
-    await tester.pumpWidget(host(_FakeBackupService(restoreResult: const Success(null))));
+  testWidgets('should pass the pasted contents to the service and summarise the restore', (tester) async {
+    final service = _FakeBackupService(restoreResult: const Success(_sampleReport));
+    await tester.pumpWidget(host(service));
 
-    await tester.enterText(find.byType(TextField), 'not valid json {{{');
-    await tester.tap(find.text('Restore Backup'));
+    await tester.enterText(find.byType(TextField), 'ZXlKaGJHY2lPaUpJVXpJMU5pSjk=');
+    await tester.tap(find.text('Restore Pasted Backup'));
     await tester.pump();
     await tester.pump();
 
-    expect(find.textContaining('FormatException'), findsNothing);
-    expect(find.text('Restore completed'), findsNothing);
+    expect(service.lastRestoredContent, 'ZXlKaGJHY2lPaUpJVXpJMU5pSjk=');
+    expect(find.textContaining('Restored 5 records from 2 tables'), findsOneWidget);
+    expect(find.textContaining('Skipped 1 invalid records'), findsOneWidget);
   });
 
   testWidgets('should show the friendly message, not the raw error, when restore fails', (tester) async {
@@ -55,7 +66,7 @@ void main() {
     )));
 
     await tester.enterText(find.byType(TextField), '{"metadata": {}, "data": {}}');
-    await tester.tap(find.text('Restore Backup'));
+    await tester.tap(find.text('Restore Pasted Backup'));
     await tester.pump();
     await tester.pump();
 
@@ -69,7 +80,7 @@ void main() {
     await tester.pumpWidget(ProviderScope(
       overrides: [
         backupServiceProvider.overrideWithValue(_FakeBackupService(
-          restoreResult: const Success(null),
+          restoreResult: const Success(_sampleReport),
           restoreDelay: const Duration(milliseconds: 200),
         )),
       ],
@@ -83,7 +94,7 @@ void main() {
     await tester.pumpAndSettle();
 
     await tester.enterText(find.byType(TextField), '{"metadata": {}, "data": {}}');
-    await tester.tap(find.text('Restore Backup'));
+    await tester.tap(find.text('Restore Pasted Backup'));
     await tester.pump();
 
     navigatorKey.currentState!.pop();

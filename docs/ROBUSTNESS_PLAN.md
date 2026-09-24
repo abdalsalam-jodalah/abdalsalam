@@ -196,6 +196,15 @@ Totals: errStr 70 · unlogged catch 10 · provider masking 63 · ignored writes 
 - Validate (structure, version, checksum) **before** anything; pre-restore backup mandatory (abort if it fails); restore inside `runInTransaction`; preserve timestamps; report skipped rows.
 - `backupTablesProvider` derived from `DatabaseSchemaInitializer.tables` (single source); include SharedPreferences settings.
 - `SyncQueueService`: serialize read-modify-write with an async lock; tolerant per-entry parsing; catch processor errors.
+- **Done.**
+  - `BackupCodec` accepts both raw JSON and base64. The restore screen can pick a backup file or take pasted content, and shows a report of what was restored.
+  - `BackupValidator` checks the backup version (1.0.0 or 1.1.0), both checksums, the table list and each row before anything is changed.
+  - A safety backup of every known table is mandatory; if it can't be saved, the restore is cancelled.
+  - Table writes run in a single `runInTransaction` and roll back if anything fails. Timestamps are preserved via `isPreservingUpdatedAt`.
+  - Settings (SharedPreferences) are now backed up and restored. They are written after the table commit, and each one is isolated so one failure doesn't stop the rest.
+  - `backupTablesProvider` comes from `DatabaseSchemaInitializer.tables`. The automatic-backup timer's `onRun` is now guarded.
+  - `SyncQueueService` runs every operation through a `SerialTaskQueue`. It skips and reports corrupt entries, and keeps an item queued when its processor fails or throws.
+  - The connectivity processor no longer drains the queue while there is no backend.
 
 ### Phase 9 — Strict analysis
 - Enable C9 language modes + lint rules in `analysis_options.yaml`; fix all findings (subagents per module); `flutter analyze` = 0.

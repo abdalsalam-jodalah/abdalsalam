@@ -7,11 +7,13 @@ import 'package:local_auth/local_auth.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../app/bootstrap/startup_report.dart';
+import '../core/errors/app_error.dart';
 import '../core/result/result.dart';
 import '../data/repositories/calendar/calendar_repository.dart';
 import '../data/repositories/security/security_repository.dart';
 import '../features/calendar/services/calendar_service.dart';
 import '../features/security/services/security_service.dart';
+import '../shared/infrastructure/database_schema_initializer.dart';
 import '../shared/infrastructure/logger_service.dart';
 import '../shared/infrastructure/storage_gateway.dart';
 import '../shared/services/notification_service.dart';
@@ -185,47 +187,7 @@ final initialSidebarOrderProvider = Provider<List<String>?>((ref) => null);
 final startupReportProvider = Provider<StartupReport>((ref) => const StartupReport());
 
 final backupTablesProvider = Provider<List<String>>((ref) {
-  return const <String>[
-    'prayer_logs',
-    'religious_entries',
-    'prayer_times_snapshots',
-    'quran_progress',
-    'quran_readings',
-    'spiritual_progress',
-    'transactions',
-    'financial_categories',
-    'categories',
-    'budgets',
-    'habits',
-    'habit_logs',
-    'daily_events',
-    'sport_exercise_categories',
-    'sport_exercises',
-    'sport_weekly_schedule',
-    'sport_exercise_logs',
-    'sport_exercise_set_logs',
-    'sport_body_measurements',
-    'medications',
-    'medication_logs',
-    'blood_tests',
-    'health_metrics',
-    'doctor_visits',
-    'sleep_logs',
-    'food_logs',
-    'notes',
-    'todos',
-    'note_categories',
-    'events',
-    'reminders',
-    'credentials',
-    'credential_categories',
-    'life_plans',
-    'life_goals',
-    'life_achievements',
-    'life_reviews',
-    'life_plan_topics',
-    'life_planning_tasks',
-  ];
+  return DatabaseSchemaInitializer.tables;
 });
 
 final backupServiceProvider = Provider<BackupService>((ref) {
@@ -247,10 +209,11 @@ class SyncQueueConnectivityProcessor {
     _subscription = _appStateManager.stateStream.listen((state) {
       if (state.isOnline) {
         _logger.info('[SyncQueue] connectivity restored; queued operations can sync now');
-        _syncQueueService.processQueue((item) async {
-          _logger.debug('[SyncQueue] auto-processed item=${item.id} operation=${item.operation}');
-          return const Success(null);
-        });
+        unawaited(_syncQueueService.processQueue(_keepQueuedUntilBackendExists).then((result) {
+          if (result.isFailure) {
+            _logger.warning('[SyncQueue] processing failed: ${result.error!.message}');
+          }
+        }));
       }
     });
 
@@ -261,6 +224,10 @@ class SyncQueueConnectivityProcessor {
         _logger.debug('[Storage] usage=${info.usagePercentage.toStringAsFixed(1)}%');
       }
     });
+  }
+
+  Future<Result<void, AppError>> _keepQueuedUntilBackendExists(SyncQueueItem item) async {
+    return Failure(ServiceError('No sync backend configured; ${item.operation} ${item.id} stays queued'));
   }
 
   Future<void> dispose() async {
