@@ -43,7 +43,7 @@ class ExportService {
       return Success(payload);
     } catch (e, st) {
       logger.error('[ExportService] exportWithMetadata failed', error: e, stackTrace: st);
-      return Failure(ExportError(e.toString()));
+      return Failure(ExportError('Export failed', cause: e, causeStackTrace: st));
     }
   }
 
@@ -100,7 +100,7 @@ class ExportService {
       return Success(payload);
     } catch (e, st) {
       logger.error('[ExportService] exportUnified failed', error: e, stackTrace: st);
-      return Failure(ExportError(e.toString()));
+      return Failure(ExportError('Export failed', cause: e, causeStackTrace: st));
     }
   }
 
@@ -116,7 +116,7 @@ class ExportService {
       return Success(file.path);
     } catch (e, st) {
       logger.error('[ExportService] saveExportToFile failed', error: e, stackTrace: st);
-      return Failure(ExportError(e.toString()));
+      return Failure(ExportError('Export failed', cause: e, causeStackTrace: st));
     }
   }
 
@@ -127,7 +127,7 @@ class ExportService {
       return const Success(null);
     } catch (e, st) {
       logger.error('[ExportService] shareExport failed', error: e, stackTrace: st);
-      return Failure(ExportError(e.toString()));
+      return Failure(ExportError('Export failed', cause: e, causeStackTrace: st));
     }
   }
 

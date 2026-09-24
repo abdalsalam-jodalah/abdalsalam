@@ -24,7 +24,7 @@ class ImportService {
       return Success(decoded);
     } catch (e, st) {
       logger.error('[ImportService] loadImportFromFile failed', error: e, stackTrace: st);
-      return Failure(ImportError(e.toString()));
+      return Failure(ImportError('Import failed', cause: e, causeStackTrace: st));
     }
   }
 

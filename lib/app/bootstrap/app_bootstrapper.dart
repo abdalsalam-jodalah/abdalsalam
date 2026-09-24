@@ -38,12 +38,12 @@ class AppBootstrapper {
 
   Future<AppBootstrapResult> bootstrap() async {
     await _runner.runAll(<BootstrapStep>[
+      BootstrapStep.critical('Logging', LoggerService.initialize),
       BootstrapStep.critical('Database engine', () async {
         if (kIsWeb) {
           databaseFactory = databaseFactoryFfiWeb;
         }
       }),
-      BootstrapStep.critical('Logging', LoggerService.initialize),
       BootstrapStep.critical('Storage', _storage.initialize),
       BootstrapStep.critical('Database schema', () => DatabaseSchemaInitializer.initialize(_storage)),
     ]);

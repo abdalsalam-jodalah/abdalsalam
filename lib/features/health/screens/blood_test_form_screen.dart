@@ -18,6 +18,8 @@ class BloodTestFormScreen extends ConsumerStatefulWidget {
 }
 
 class _BloodTestFormScreenState extends ConsumerState<BloodTestFormScreen> {
+  static const String _resultValueRequiredMessage = 'Value is required';
+
   final _formKey = GlobalKey<FormState>();
   final _testTypeController = TextEditingController();
   final _notesController = TextEditingController();
@@ -169,6 +171,10 @@ class _BloodTestFormScreenState extends ConsumerState<BloodTestFormScreen> {
                         child: TextFormField(
                           controller: result.valueController,
                           decoration: const InputDecoration(labelText: 'Value', border: OutlineInputBorder()),
+                          validator: (value) =>
+                              result.keyController.text.trim().isNotEmpty && (value == null || value.trim().isEmpty)
+                                  ? _resultValueRequiredMessage
+                                  : null,
                         ),
                       ),
                       IconButton(

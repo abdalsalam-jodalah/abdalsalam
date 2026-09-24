@@ -81,14 +81,10 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
 
     // Parse currency from transaction
     if (widget.transaction != null) {
-      try {
-        _selectedCurrency = Currency.values.firstWhere(
-          (c) => c.code == widget.transaction!.currency,
-          orElse: () => Currency.ils,
-        );
-      } catch (e) {
-        _selectedCurrency = Currency.ils;
-      }
+      _selectedCurrency = Currency.values.firstWhere(
+        (c) => c.code == widget.transaction!.currency,
+        orElse: () => Currency.ils,
+      );
     } else {
       unawaited(_loadDefaultCurrency());
     }
@@ -96,7 +92,8 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
 
   Future<void> _loadDefaultCurrency() async {
     final settings = await ref.read(settingsServiceProvider).getSettings();
-    final defaultCode = settings['currency'] as String?;
+    final storedCode = settings['currency'];
+    final defaultCode = storedCode is String ? storedCode : null;
     final match = Currency.values.where((c) => c.code == defaultCode);
     if (match.isNotEmpty && mounted) {
       setState(() => _selectedCurrency = match.first);
@@ -196,8 +193,10 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
     );
   }
 
+  static const double _emptyPreviewAmount = 0;
+
   Widget _buildAmountPreview() {
-    final amount = double.tryParse(_amountController.text) ?? 0;
+    final amount = double.tryParse(_amountController.text) ?? _emptyPreviewAmount;
     final isIncome = _type == TransactionType.income;
 
     return Container(

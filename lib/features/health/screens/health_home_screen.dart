@@ -102,7 +102,8 @@ class HealthHomeScreen extends ConsumerWidget {
                 onRetry: () => ref.invalidate(medicationStatisticsProvider),
               ),
               data: (stats) {
-                final adherence = double.tryParse('${stats['adherenceRate'] ?? 0}') ?? 0;
+                final adherenceRate = stats['adherenceRate'];
+                final adherence = adherenceRate is num ? adherenceRate.toDouble() : 0.0;
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [

@@ -55,6 +55,7 @@ void main() {
   ReligiousTrackerService buildService({
     http.Client? httpClient,
     PrayerTimesSnapshotRepository? timesRepository,
+    DateTime Function()? clock,
   }) {
     return ReligiousTrackerService(
       ReligiousEntryRepository(storage, logger),
@@ -67,6 +68,7 @@ void main() {
         cache: PrayerTimesCacheService(storage: storage, logger: logger),
       ),
       httpClient: httpClient ?? MockClient((request) async => htmlResponse(scrapedHtml)),
+      clock: clock,
     );
   }
 
@@ -158,10 +160,11 @@ void main() {
 
     test('should keep the synced snapshot when reminder scheduling fails', () async {
       reminders.shouldFail = true;
-      final service = buildService();
+      final service = buildService(clock: () => DateTime(2026, 9, 23, 3));
 
       final result = await service.syncPrayerTimesForToday(force: true);
 
+      expect(reminders.attemptedScheduleCount, greaterThan(0));
       expect(result.isSuccess, isTrue);
       expect((await snapshotRepository.getAll()).data, hasLength(1));
     });

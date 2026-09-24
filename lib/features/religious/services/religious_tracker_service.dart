@@ -54,6 +54,7 @@ class ReligiousTrackerService extends BaseServiceImpl<ReligiousEntry> {
   final SettingsService _settings;
   final PrayerTimeService _prayerTimeService;
   final http.Client _httpClient;
+  final DateTime Function() _clock;
   final LoggerService _serviceLogger;
 
   ReligiousTrackerService(
@@ -64,7 +65,9 @@ class ReligiousTrackerService extends BaseServiceImpl<ReligiousEntry> {
     required SettingsService settings,
     required PrayerTimeService prayerTimeService,
     http.Client? httpClient,
+    DateTime Function()? clock,
   })  : _reminders = reminders,
+        _clock = clock ?? DateTime.now,
         _settings = settings,
         _prayerTimeService = prayerTimeService,
         _httpClient = httpClient ?? http.Client(),
@@ -93,7 +96,7 @@ class ReligiousTrackerService extends BaseServiceImpl<ReligiousEntry> {
     String? prayerName,
     DateTime? reminderAt,
   }) async {
-    final now = DateTime.now();
+    final now = _clock();
     final entry = ReligiousEntry(
       id: _uuid.v4(),
       createdAt: now,
@@ -123,7 +126,7 @@ class ReligiousTrackerService extends BaseServiceImpl<ReligiousEntry> {
       return Failure(all.error!);
     }
 
-    final now = DateTime.now();
+    final now = _clock();
     final today = all.data!
         .where(
           (entry) =>
@@ -142,7 +145,7 @@ class ReligiousTrackerService extends BaseServiceImpl<ReligiousEntry> {
   Future<Result<PrayerTimesSnapshot, AppError>> syncPrayerTimesForToday({
     bool force = false,
   }) async {
-    final now = DateTime.now();
+    final now = _clock();
     final dateKey = _dateKey(now);
 
     final existing = await _timesRepo.getByDateKey(dateKey);
@@ -202,7 +205,7 @@ class ReligiousTrackerService extends BaseServiceImpl<ReligiousEntry> {
   }
 
   Future<Result<PrayerTimesSnapshot, AppError>> getTodayPrayerTimes() async {
-    final now = DateTime.now();
+    final now = _clock();
     final dateKey = _dateKey(now);
     final existing = await _timesRepo.getByDateKey(dateKey);
     if (existing.isFailure) {
@@ -221,7 +224,7 @@ class ReligiousTrackerService extends BaseServiceImpl<ReligiousEntry> {
     double? longitude,
     DateTime? date,
   }) async {
-    final targetDate = date ?? DateTime.now();
+    final targetDate = date ?? _clock();
     if (source != _adhanSource) {
       return _scrapeTimes(targetDate);
     }
@@ -239,7 +242,7 @@ class ReligiousTrackerService extends BaseServiceImpl<ReligiousEntry> {
   }
 
   Future<Result<void, AppError>> ensurePrayerTimesFresh() async {
-    if (DateTime.now().hour < dailySyncHour) {
+    if (_clock().hour < dailySyncHour) {
       return const Success(null);
     }
     final synced = await syncPrayerTimesForToday();
@@ -407,7 +410,7 @@ class ReligiousTrackerService extends BaseServiceImpl<ReligiousEntry> {
 
     for (final entry in prayers.entries) {
       final reminderAt = entry.value.subtract(Duration(minutes: minutes));
-      if (reminderAt.isBefore(DateTime.now())) {
+      if (reminderAt.isBefore(_clock())) {
         continue;
       }
       final scheduled = await _scheduleReminder(
@@ -427,7 +430,7 @@ class ReligiousTrackerService extends BaseServiceImpl<ReligiousEntry> {
 
   Future<void> _scheduleReminderIfEnabled(ReligiousEntry entry) async {
     final reminderAt = entry.reminderAt;
-    if (reminderAt == null || reminderAt.isBefore(DateTime.now())) {
+    if (reminderAt == null || reminderAt.isBefore(_clock())) {
       return;
     }
 
@@ -530,7 +533,7 @@ class ReligiousTrackerService extends BaseServiceImpl<ReligiousEntry> {
       return;
     }
 
-    final cutoff = DateTime.now().subtract(Duration(days: retentionDays));
+    final cutoff = _clock().subtract(Duration(days: retentionDays));
     for (final snapshot in all.data!) {
       if (!snapshot.forDate.isBefore(cutoff)) {
         continue;

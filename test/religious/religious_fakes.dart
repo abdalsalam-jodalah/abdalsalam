@@ -30,12 +30,14 @@ import 'package:flutter_test/flutter_test.dart';
 
 class FakeReminderService extends Fake implements ReminderService {
   final List<ReminderPayload> scheduled = [];
+  int attemptedScheduleCount = 0;
   bool shouldFail;
 
   FakeReminderService({this.shouldFail = false});
 
   @override
   Future<void> schedule(ReminderPayload payload) async {
+    attemptedScheduleCount++;
     if (shouldFail) {
       throw StateError('notifications unavailable');
     }

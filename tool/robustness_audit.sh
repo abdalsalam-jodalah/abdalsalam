@@ -45,6 +45,15 @@ count_regex() {
   echo "$files" | xargs grep -hE "$regex" 2>/dev/null | wc -l | tr -d ' '
 }
 
+count_regex_excluding() {
+  local excluded="$1"
+  local regex="$2"
+  local files
+  files=$(cat)
+  [ -z "$files" ] && { echo 0; return; }
+  echo "$files" | xargs grep -hE "$regex" 2>/dev/null | grep -vE "$excluded" | wc -l | tr -d ' '
+}
+
 count_unlogged_catch() {
   local files
   files=$(cat)
@@ -52,7 +61,7 @@ count_unlogged_catch() {
   echo "$files" | xargs awk '
     FNR == 1 { pending = 0 }
     pending > 0 {
-      if ($0 ~ /log|rethrow|throw |Failure\(|[Ee]rrorHandler|mapException|mapCaught|report[A-Z]|onError/) { pending = 0 }
+      if ($0 ~ /[Ll]og|rethrow|throw |Failure\(|[Ee]rrorHandler|mapException|mapCaught|report[A-Z]|onError|completeError/) { pending = 0 }
       else if (--pending == 0) { total++ }
     }
     /catch *\(/ { pending = 4 }
@@ -75,8 +84,18 @@ count_ignored_writes() {
   local files
   files=$(cat)
   [ -z "$files" ] && { echo 0; return; }
-  echo "$files" | xargs grep -hE '^\s*(await\s+)?[A-Za-z_][^=;]*\.(create|update|delete|softDelete|restore|upsert|save)[A-Za-z]*\(' 2>/dev/null \
-    | grep -vE '^\s*(return|if|final|var|const|\/\/)' | wc -l | tr -d ' '
+  echo "$files" | xargs awk '
+    {
+      isWriteCall = ($0 ~ /^[[:space:]]*(await[[:space:]]+)?[A-Za-z_][^=;]*\.(create|update|delete|softDelete|restore|upsert|save)(Bulk|Record|All|Budget|Transaction|Category|Account|Setting)?\(/)
+      isExcluded = ($0 ~ /^[[:space:]]*(return|if|final|var|const|\/\/)/) || (previous ~ /=[[:space:]]*$/) || ($0 ~ /unawaited\(/) \
+        || ($0 ~ /(storage|_storage|executor|_preferencesStorage|store|file|attachmentsDir|androidPlugin)\.(create|update|delete|save|upsert)/) \
+        || ($0 ~ /\.updateSetting\(/)
+      if (isWriteCall && !isExcluded) { total++ }
+      previous = $0
+    }
+    FNR == 1 { previous = "" }
+    END { print total + 0 }
+  ' 2>/dev/null
 }
 
 count_unguarded_async_ui() {
@@ -87,6 +106,7 @@ count_unguarded_async_ui() {
     FNR == 1 { afterAwait = 0 }
     /^  [A-Za-z_<>?, ]+ [A-Za-z_]+\(.*\).*(async )?\{ *$/ { afterAwait = 0 }
     /mounted/ { afterAwait = 0 }
+    /(=>|\(\) *(async *)?\{)/ { afterAwait = 0 }
     /(setState\(|Navigator\.of\(context\)|Navigator\.pop\(context|ScaffoldMessenger\.of\(context\)|ref\.invalidate\()/ {
       if (afterAwait) { total++ }
     }
@@ -117,11 +137,11 @@ count_error_branches_without_view() {
   echo "$files" | xargs awk '
     FNR == 1 { lookahead = 0 }
     lookahead > 0 {
-      if ($0 ~ /AsyncErrorView/) { lookahead = 0 }
+      if ($0 ~ /AsyncErrorView|toUserMessage|_build[A-Za-z]*Error\(/) { lookahead = 0 }
       else if (--lookahead == 0) { total++ }
     }
     /error: *\(?[A-Za-z_]+, *[A-Za-z_]+\)? *(=>|\{)/ {
-      if ($0 ~ /AsyncErrorView/) { lookahead = 0 } else { lookahead = 3 }
+      if ($0 ~ /AsyncErrorView|toUserMessage|_build[A-Za-z]*Error\(|error: *\(_, *_\)/) { lookahead = 0 } else { lookahead = 7 }
     }
     END { print total + 0 }
   ' 2>/dev/null
@@ -154,7 +174,7 @@ print_row() {
   by_name=$(files_matching_dir "$MODEL_DIRS" $dirs | count_regex '\.byName\(')
   hard_casts=$(files_matching_dir "$MODEL_DIRS" $dirs | count_hard_casts)
   error_branches=$(files_matching_dir "$UI_DIRS" $dirs | count_error_branches_without_view)
-  raw_error_ui=$(files_matching_dir "$UI_DIRS|$PROVIDER_DIRS" $dirs | count_regex '\$\{[A-Za-z_.!?]*\b(error|err|e)\b|\$(error|err|e)\b|(\be|error|err)\.toString\(\)|error[!?]?\.message')
+  raw_error_ui=$(files_matching_dir "$UI_DIRS|$PROVIDER_DIRS" $dirs | count_regex_excluding '[Ll]ogger|LoggerService|\.(debug|info|warning)\('  '\$\{[A-Za-z_.!?]*\b(error|err|e)\b|\$(error|err|e)\b|(\be|error|err)\.toString\(\)|error[!?]?\.message')
   async_ui=$(files_matching_dir "$UI_DIRS" $dirs | count_unguarded_async_ui)
   raw_textfield=$(files_matching_dir "$UI_DIRS" $dirs | count_regex '[^A-Za-z]TextField\(')
   coercion=$(files_matching_dir "$UI_DIRS" $dirs | count_regex 'tryParse\([^;]*\) *\?\? *0')
