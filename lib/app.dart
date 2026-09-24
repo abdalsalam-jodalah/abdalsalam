@@ -7,23 +7,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'app/bootstrap/startup_status_banner.dart';
 import 'core/router/app_router.dart';
 import 'features/religious/providers/religious_tracking_providers.dart';
-import 'core/theme/app_theme.dart';
+import 'core/theme/app_theme_builder.dart';
+import 'core/theme/appearance.dart';
 import 'features/dashboard/screens/app_shell_screen.dart';
 import 'providers/app_providers.dart';
 import 'shared/services/reminder_service.dart';
 import 'shared/widgets/data_integrity_banner.dart';
 import 'shared/widgets/dev_tools_overlay.dart';
-
-ThemeMode _themeModeFromSetting(String? value) {
-  switch (value) {
-    case 'light':
-      return ThemeMode.light;
-    case 'dark':
-      return ThemeMode.dark;
-    default:
-      return ThemeMode.system;
-  }
-}
 
 class AbdalsalamApp extends ConsumerStatefulWidget {
   const AbdalsalamApp({super.key});
@@ -60,19 +50,18 @@ class _AbdalsalamAppState extends ConsumerState<AbdalsalamApp> {
 
   @override
   Widget build(BuildContext context) {
-    final appSettings = ref.watch(appSettingsProvider);
-    final themeMode = appSettings.maybeWhen(
-      data: (settings) => _themeModeFromSetting(settings['themeMode'] as String?),
-      orElse: () => ThemeMode.system,
-    );
+    final appearance = ref.watch(appSettingsProvider).maybeWhen(
+          data: Appearance.fromSettings,
+          orElse: () => Appearance.defaults,
+        );
 
     return MaterialApp(
       title: 'Abdalsalam',
       debugShowCheckedModeBanner: false,
       navigatorKey: _navigatorKey,
-      theme: AppTheme.lightTheme,
-      darkTheme: AppTheme.darkTheme,
-      themeMode: themeMode,
+      theme: buildAppTheme(appearance, Brightness.light),
+      darkTheme: buildAppTheme(appearance, Brightness.dark),
+      themeMode: appearance.themeMode,
       onGenerateRoute: AppRouter.onGenerateRoute,
       builder: (context, child) => Column(
         children: [
