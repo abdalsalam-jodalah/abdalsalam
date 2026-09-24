@@ -125,64 +125,66 @@ final bodyMeasurementServiceProvider = Provider<BodyMeasurementService>((ref) {
 
 // Catalog Providers
 final exerciseCategoriesProvider = FutureProvider<List<ExerciseCategory>>((ref) async {
-  final repo = ref.watch(exerciseCategoryRepositoryProvider);
-  final result = await repo.getAllOrdered();
-  return result.data ?? [];
+  final service = ref.watch(exerciseCategoryServiceProvider);
+  final result = await service.getAllOrdered();
+  return result.getOrThrow();
 });
 
 final exercisesByCategoryProvider =
-    FutureProvider.family<List<Exercise>, String>((ref, categoryId) async {
-  final repo = ref.watch(exerciseRepositoryProvider);
-  final result = await repo.getByCategory(categoryId);
-  return result.data ?? [];
+    FutureProvider.autoDispose.family<List<Exercise>, String>((ref, categoryId) async {
+  final service = ref.watch(exerciseServiceProvider);
+  final result = await service.getByCategory(categoryId);
+  return result.getOrThrow();
 });
 
 final allActiveExercisesProvider = FutureProvider<List<Exercise>>((ref) async {
-  final repo = ref.watch(exerciseRepositoryProvider);
-  final result = await repo.getActive();
-  return result.data ?? [];
+  final service = ref.watch(exerciseServiceProvider);
+  final result = await service.getActive();
+  return result.getOrThrow();
 });
 
 // Weekly Schedule Providers
 final scheduleForDayProvider =
-    FutureProvider.family<List<WeeklyScheduleEntry>, int>((ref, dayOfWeek) async {
-  final repo = ref.watch(weeklyScheduleRepositoryProvider);
-  final result = await repo.getByDayOfWeek(dayOfWeek);
-  return result.data ?? [];
+    FutureProvider.autoDispose.family<List<WeeklyScheduleEntry>, int>((ref, dayOfWeek) async {
+  final service = ref.watch(weeklyScheduleServiceProvider);
+  final result = await service.getByDayOfWeek(dayOfWeek);
+  return result.getOrThrow();
 });
 
 final fullWeekScheduleProvider = FutureProvider<List<WeeklyScheduleEntry>>((ref) async {
-  final repo = ref.watch(weeklyScheduleRepositoryProvider);
-  final result = await repo.getFullWeek();
-  return result.data ?? [];
+  final service = ref.watch(weeklyScheduleServiceProvider);
+  final result = await service.getFullWeek();
+  return result.getOrThrow();
 });
 
 // Daily Log Providers
-final logsForDateProvider = FutureProvider.family<List<ExerciseLog>, DateTime>((ref, date) async {
-  final repo = ref.watch(exerciseLogRepositoryProvider);
-  final result = await repo.getByDate(dateOnly(date));
-  return result.data ?? [];
+final logsForDateProvider =
+    FutureProvider.autoDispose.family<List<ExerciseLog>, DateTime>((ref, date) async {
+  final service = ref.watch(exerciseLogServiceProvider);
+  final result = await service.getByDate(dateOnly(date));
+  return result.getOrThrow();
 });
 
-final setsForLogProvider = FutureProvider.family<List<ExerciseSetLog>, String>((ref, logId) async {
-  final repo = ref.watch(exerciseSetLogRepositoryProvider);
-  final result = await repo.getByExerciseLog(logId);
-  return result.data ?? [];
+final setsForLogProvider =
+    FutureProvider.autoDispose.family<List<ExerciseSetLog>, String>((ref, logId) async {
+  final service = ref.watch(exerciseSetLogServiceProvider);
+  final result = await service.getByExerciseLog(logId);
+  return result.getOrThrow();
 });
 
 typedef DateRangeQuery = ({DateTime start, DateTime end});
 
 final logsInRangeProvider =
-    FutureProvider.family<List<ExerciseLog>, DateRangeQuery>((ref, range) async {
-  final repo = ref.watch(exerciseLogRepositoryProvider);
-  final result = await repo.getByDateRange(range.start, range.end);
-  return result.data ?? [];
+    FutureProvider.autoDispose.family<List<ExerciseLog>, DateRangeQuery>((ref, range) async {
+  final service = ref.watch(exerciseLogServiceProvider);
+  final result = await service.getByDateRange(range.start, range.end);
+  return result.getOrThrow();
 });
 
 typedef ExerciseRangeQuery = ({String exerciseId, DateTime start, DateTime end});
 
 final logsForExerciseInRangeProvider =
-    FutureProvider.family<List<ExerciseLog>, ExerciseRangeQuery>((ref, query) async {
+    FutureProvider.autoDispose.family<List<ExerciseLog>, ExerciseRangeQuery>((ref, query) async {
   final logs = await ref.watch(
     logsInRangeProvider((start: query.start, end: query.end)).future,
   );
@@ -190,31 +192,33 @@ final logsForExerciseInRangeProvider =
 });
 
 final setsForExerciseInRangeProvider =
-    FutureProvider.family<List<ExerciseSetLog>, ExerciseRangeQuery>((ref, query) async {
+    FutureProvider.autoDispose.family<List<ExerciseSetLog>, ExerciseRangeQuery>((ref, query) async {
   final logs = await ref.watch(logsForExerciseInRangeProvider(query).future);
   if (logs.isEmpty) {
     return const [];
   }
-  final repo = ref.watch(exerciseSetLogRepositoryProvider);
-  final result = await repo.getByExerciseLogs(logs.map((log) => log.id).toList());
-  return result.data ?? [];
+  final service = ref.watch(exerciseSetLogServiceProvider);
+  final result = await service.getByExerciseLogs(logs.map((log) => log.id).toList());
+  return result.getOrThrow();
 });
 
 /// Best all-time [ExerciseSetLog.weightKg] for a strength exercise, used to
 /// flag personal records while logging.
-final personalRecordProvider = FutureProvider.family<double?, String>((ref, exerciseId) async {
-  final logRepo = ref.watch(exerciseLogRepositoryProvider);
-  final allLogs = await logRepo.getActive();
-  final exerciseLogIds = (allLogs.data ?? [])
+final personalRecordProvider =
+    FutureProvider.autoDispose.family<double?, String>((ref, exerciseId) async {
+  final logService = ref.watch(exerciseLogServiceProvider);
+  final allLogs = await logService.getActive();
+  final exerciseLogIds = allLogs
+      .getOrThrow()
       .where((log) => log.exerciseId == exerciseId)
       .map((log) => log.id)
       .toList();
   if (exerciseLogIds.isEmpty) {
     return null;
   }
-  final setRepo = ref.watch(exerciseSetLogRepositoryProvider);
-  final result = await setRepo.getByExerciseLogs(exerciseLogIds);
-  final weights = (result.data ?? []).map((set) => set.weightKg).whereType<double>();
+  final setService = ref.watch(exerciseSetLogServiceProvider);
+  final result = await setService.getByExerciseLogs(exerciseLogIds);
+  final weights = result.getOrThrow().map((set) => set.weightKg).whereType<double>();
   if (weights.isEmpty) {
     return null;
   }
@@ -223,8 +227,8 @@ final personalRecordProvider = FutureProvider.family<double?, String>((ref, exer
 
 // Body Measurement Providers
 final bodyMeasurementsInRangeProvider =
-    FutureProvider.family<List<BodyMeasurement>, DateRangeQuery>((ref, range) async {
-  final repo = ref.watch(bodyMeasurementRepositoryProvider);
-  final result = await repo.getByDateRange(range.start, range.end);
-  return result.data ?? [];
+    FutureProvider.autoDispose.family<List<BodyMeasurement>, DateRangeQuery>((ref, range) async {
+  final service = ref.watch(bodyMeasurementServiceProvider);
+  final result = await service.getByDateRange(range.start, range.end);
+  return result.getOrThrow();
 });

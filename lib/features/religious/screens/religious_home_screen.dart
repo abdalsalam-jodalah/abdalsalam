@@ -4,6 +4,7 @@ import 'package:intl/intl.dart' hide TextDirection;
 
 import '../../../data/models/religious/prayer_times_snapshot.dart';
 import '../../../data/models/religious/religious_entry.dart';
+import '../../../providers/app_providers.dart';
 import '../../../shared/widgets/empty_state.dart';
 import '../../../shared/widgets/section_header.dart';
 import '../providers/athkar_providers.dart';
@@ -16,6 +17,9 @@ import 'bad_practice_screen.dart';
 import 'prayer_logs_screen.dart';
 import 'quran_reading_screen.dart';
 import 'religious_history_screen.dart';
+
+const String _prayerTimesSyncedMessage = 'Prayer times synced successfully';
+const String _religiousLogSavedMessage = 'Log saved successfully';
 
 const List<({String arabic, String translation})> _dailyReminders = [
   (arabic: 'سُبْحَانَ اللَّهِ وَبِحَمْدِهِ', translation: 'Glory be to Allah and praise Him'),
@@ -35,13 +39,14 @@ class ReligiousHomeScreen extends ConsumerWidget {
   const ReligiousHomeScreen({super.key, this.embedded = false});
 
   Future<void> _syncPrayerTimes(BuildContext context, WidgetRef ref) async {
-    final message = await ref.read(religiousLogsControllerProvider.notifier).syncPrayerTimes();
+    final error = await ref.read(religiousLogsControllerProvider.notifier).syncPrayerTimes();
     if (!context.mounted) {
       return;
     }
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message ?? 'Prayer times synced successfully')),
-    );
+    final message = error == null
+        ? _prayerTimesSyncedMessage
+        : ref.read(userErrorMessageMapperProvider).toUserMessage(error);
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
   }
 
   @override
@@ -190,9 +195,10 @@ class ReligiousHomeScreen extends ConsumerWidget {
       return;
     }
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(error ?? 'Log saved successfully')),
-    );
+    final message = error == null
+        ? _religiousLogSavedMessage
+        : ref.read(userErrorMessageMapperProvider).toUserMessage(error);
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
   }
 
   static IconData _iconForType(ReligiousEntryType type) {

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../../../data/models/religious/prayer_log.dart';
+import '../../../providers/app_providers.dart';
 import '../../../shared/widgets/empty_state.dart';
 import '../../../shared/widgets/section_header.dart';
 import '../providers/prayer_providers.dart';
@@ -194,16 +195,16 @@ class PrayerLogsScreen extends ConsumerWidget {
 
     if (result == null) return;
 
-    final message = await ref.read(prayerLogsControllerProvider.notifier).addPrayer(
+    final error = await ref.read(prayerLogsControllerProvider.notifier).addPrayer(
           prayer: result.prayer,
           onTimeOverride: result.overrideOnTime ? result.manualOnTime : null,
           prayedAt: result.prayedAt,
           notes: result.notes,
         );
 
-    if (message != null && context.mounted) {
+    if (error != null && context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(message)),
+        SnackBar(content: Text(ref.read(userErrorMessageMapperProvider).toUserMessage(error))),
       );
     }
   }

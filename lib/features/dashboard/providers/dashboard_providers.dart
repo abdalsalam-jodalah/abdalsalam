@@ -30,17 +30,17 @@ final weatherProvider = FutureProvider<WeatherModel?>((ref) async {
 // Currency Rates Provider
 final currencyRatesProvider = FutureProvider<Map<String, double>>((ref) async {
   final service = ref.watch(enhancedCurrencyServiceProvider);
-  return await service.getLatestRates();
+  return (await service.getLatestRates()).getOrThrow();
 });
 
 // USD History Provider (last 30 days)
 final usdHistoryProvider = FutureProvider<List<ExchangeRateModel>>((ref) async {
   final service = ref.watch(enhancedCurrencyServiceProvider);
-  return await service.getRatesHistory('ILS', 'USD', days: 30);
+  return (await service.getRatesHistory('ILS', 'USD', days: 30)).getOrThrow();
 });
 
 // JOD History Provider (last 30 days)
 final jodHistoryProvider = FutureProvider<List<ExchangeRateModel>>((ref) async {
   final service = ref.watch(enhancedCurrencyServiceProvider);
-  return await service.getRatesHistory('ILS', 'JOD', days: 30);
+  return (await service.getRatesHistory('ILS', 'JOD', days: 30)).getOrThrow();
 });

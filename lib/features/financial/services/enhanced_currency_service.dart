@@ -188,7 +188,7 @@ class EnhancedCurrencyService {
   }
 
   /// Get all rates for a currency pair
-  Future<List<ExchangeRateModel>> getRatesHistory(
+  Future<Result<List<ExchangeRateModel>, AppError>> getRatesHistory(
     String fromCurrency,
     String toCurrency, {
     int days = 30,
@@ -196,35 +196,29 @@ class EnhancedCurrencyService {
     final end = DateTime.now();
     final start = end.subtract(Duration(days: days));
 
-    final result = await _repository.getRatesForDateRange(
+    return _repository.getRatesForDateRange(
       fromCurrency,
       toCurrency,
       start,
       end,
     );
-
-    if (result.isSuccess) {
-      return result.data!;
-    }
-
-    _logger.warning('Failed to load $fromCurrency -> $toCurrency rate history: ${result.error}');
-    return [];
   }
 
   /// Get latest rates for all currencies
-  Future<Map<String, double>> getLatestRates() async {
+  Future<Result<Map<String, double>, AppError>> getLatestRates() async {
     final rates = <String, double>{};
 
     for (final currency in _targetCurrencies) {
       final result = await _repository.getLatestRate(_baseCurrency, currency);
       if (result.isFailure) {
-        _logger.warning('Failed to load latest $_baseCurrency -> $currency rate: ${result.error}');
-      } else if (result.data != null) {
+        return Failure(result.error!);
+      }
+      if (result.data != null) {
         rates[currency] = result.data!.rate;
       }
     }
 
-    return rates;
+    return Success(rates);
   }
 
   /// Convert amount using historical rate

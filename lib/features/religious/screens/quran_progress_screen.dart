@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
+import '../../../providers/app_providers.dart';
 import '../../../shared/widgets/empty_state.dart';
 import '../providers/quran_providers.dart';
 
@@ -97,14 +98,14 @@ class QuranProgressScreen extends ConsumerWidget {
 
     if (result == null) return;
 
-    final message = await ref.read(quranProgressControllerProvider.notifier).addProgress(
+    final error = await ref.read(quranProgressControllerProvider.notifier).addProgress(
           pagesRead: result.pages,
           minutesSpent: result.minutes,
         );
 
-    if (message != null && context.mounted) {
+    if (error != null && context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(message)),
+        SnackBar(content: Text(ref.read(userErrorMessageMapperProvider).toUserMessage(error))),
       );
     }
   }

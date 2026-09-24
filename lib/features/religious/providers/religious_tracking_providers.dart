@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/errors/app_error.dart';
 import '../../../data/models/religious/prayer_times_snapshot.dart';
 import '../../../data/models/religious/religious_entry.dart';
 import '../../../data/repositories/religious/prayer_times_snapshot_repository.dart';
@@ -66,19 +67,13 @@ final prayerTimeSourcePreviewProvider =
     FutureProvider.family<Map<String, DateTime>, String>((ref, source) async {
   final service = ref.watch(religiousTrackerServiceProvider);
   final result = await service.previewSource(source: source);
-  if (result.isFailure) {
-    throw result.error!;
-  }
-  return result.data!;
+  return result.getOrThrow();
 });
 
 final todayPrayerTimesProvider = FutureProvider<PrayerTimesSnapshot>((ref) async {
   final service = ref.watch(religiousTrackerServiceProvider);
   final result = await service.getTodayPrayerTimes();
-  if (result.isFailure) {
-    throw result.error!;
-  }
-  return result.data!;
+  return result.getOrThrow();
 });
 
 final religiousLogsControllerProvider =
@@ -116,10 +111,10 @@ class ReligiousLogsController extends AsyncNotifier<List<ReligiousEntry>> {
   Future<List<ReligiousEntry>> build() async {
     final service = ref.read(religiousTrackerServiceProvider);
     final result = await service.getHistory(religiousDemoUserId);
-    return result.data ?? <ReligiousEntry>[];
+    return result.getOrThrow();
   }
 
-  Future<String?> addEntry({
+  Future<AppError?> addEntry({
     required ReligiousEntryType type,
     required String title,
     required int count,
@@ -139,19 +134,18 @@ class ReligiousLogsController extends AsyncNotifier<List<ReligiousEntry>> {
     );
 
     if (result.isFailure) {
-      return result.error!.toString();
+      return result.error;
     }
 
-    state = const AsyncLoading();
-    state = AsyncData(await build());
+    state = await AsyncValue.guard(() => build());
     return null;
   }
 
-  Future<String?> syncPrayerTimes() async {
+  Future<AppError?> syncPrayerTimes() async {
     final service = ref.read(religiousTrackerServiceProvider);
     final result = await service.syncPrayerTimesForToday(force: true);
     if (result.isFailure) {
-      return result.error!.toString();
+      return result.error;
     }
     ref.invalidate(todayPrayerTimesProvider);
     return null;

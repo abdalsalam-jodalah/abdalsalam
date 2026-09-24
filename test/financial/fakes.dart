@@ -366,6 +366,9 @@ class FailingTransactionRepository extends FakeTransactionRepository {
   final bool isUpdateFailing;
   final bool isCategoryDateLookupFailing;
   final bool isDateRangeLookupFailing;
+  final bool isGetAllFailing;
+  final bool isGetRecentFailing;
+  final bool isGetByAccountFailing;
 
   FailingTransactionRepository(
     super.seed, {
@@ -373,6 +376,9 @@ class FailingTransactionRepository extends FakeTransactionRepository {
     this.isUpdateFailing = false,
     this.isCategoryDateLookupFailing = false,
     this.isDateRangeLookupFailing = false,
+    this.isGetAllFailing = false,
+    this.isGetRecentFailing = false,
+    this.isGetByAccountFailing = false,
   });
 
   @override
@@ -404,6 +410,24 @@ class FailingTransactionRepository extends FakeTransactionRepository {
   ) async {
     if (isDateRangeLookupFailing) return Failure(DatabaseError('range lookup failed'));
     return super.getByDateRange(start, end);
+  }
+
+  @override
+  Future<Result<List<TransactionModel>, AppError>> getAll() async {
+    if (isGetAllFailing) return Failure(DatabaseError('getAll failed'));
+    return super.getAll();
+  }
+
+  @override
+  Future<Result<List<TransactionModel>, AppError>> getRecent(int limit) async {
+    if (isGetRecentFailing) return Failure(DatabaseError('getRecent failed'));
+    return super.getRecent(limit);
+  }
+
+  @override
+  Future<Result<List<TransactionModel>, AppError>> getByAccount(String accountId) async {
+    if (isGetByAccountFailing) return Failure(DatabaseError('getByAccount failed'));
+    return super.getByAccount(accountId);
   }
 }
 
@@ -459,13 +483,85 @@ class FailingExchangeRateRepository extends FakeExchangeRateRepository {
     if (isCleanupFailing) return Failure(DatabaseError('cleanup failed'));
     return super.deleteOldRates(before);
   }
+
+  @override
+  Future<Result<List<ExchangeRateModel>, AppError>> getRatesForDateRange(
+    String fromCurrency,
+    String toCurrency,
+    DateTime start,
+    DateTime end,
+  ) async {
+    if (isLookupFailing) return Failure(DatabaseError('lookup failed'));
+    return super.getRatesForDateRange(fromCurrency, toCurrency, start, end);
+  }
 }
 
 class FailingFinancialActivityLogRepository extends FakeFinancialActivityLogRepository {
+  final bool isCreateFailing;
+  final bool isGetRecentFailing;
+
+  FailingFinancialActivityLogRepository({
+    this.isCreateFailing = true,
+    this.isGetRecentFailing = false,
+  });
+
   @override
   Future<Result<FinancialActivityLogModel, AppError>> create(
     FinancialActivityLogModel entry,
   ) async {
-    return Failure(DatabaseError('activity log write failed'));
+    if (isCreateFailing) return Failure(DatabaseError('activity log write failed'));
+    return super.create(entry);
+  }
+
+  @override
+  Future<Result<List<FinancialActivityLogModel>, AppError>> getRecent(int limit) async {
+    if (isGetRecentFailing) return Failure(DatabaseError('activity log lookup failed'));
+    return super.getRecent(limit);
+  }
+}
+
+class FailingCategoryRepository extends FakeCategoryRepository {
+  final bool isGetAllFailing;
+
+  FailingCategoryRepository({this.isGetAllFailing = false});
+
+  @override
+  Future<Result<List<CategoryModel>, AppError>> getAll() async {
+    if (isGetAllFailing) return Failure(DatabaseError('getAll failed'));
+    return super.getAll();
+  }
+}
+
+class FailingBudgetRepository extends FakeBudgetRepository {
+  final bool isGetActiveFailing;
+
+  FailingBudgetRepository({this.isGetActiveFailing = false});
+
+  @override
+  Future<Result<List<BudgetModel>, AppError>> getActive() async {
+    if (isGetActiveFailing) return Failure(DatabaseError('getActive failed'));
+    return super.getActive();
+  }
+}
+
+class FailingAccountRepository extends FakeAccountRepository {
+  final bool isGetAllFailing;
+  final bool isGetActiveFailing;
+
+  FailingAccountRepository({
+    this.isGetAllFailing = false,
+    this.isGetActiveFailing = false,
+  });
+
+  @override
+  Future<Result<List<AccountModel>, AppError>> getAll() async {
+    if (isGetAllFailing) return Failure(DatabaseError('getAll failed'));
+    return super.getAll();
+  }
+
+  @override
+  Future<Result<List<AccountModel>, AppError>> getActive() async {
+    if (isGetActiveFailing) return Failure(DatabaseError('getActive failed'));
+    return super.getActive();
   }
 }

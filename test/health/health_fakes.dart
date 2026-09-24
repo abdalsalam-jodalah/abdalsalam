@@ -146,7 +146,26 @@ class FakeHealthMetricRepository extends FakeCrudRepository<HealthMetric> implem
 }
 
 class FakeBloodTestRepository extends FakeCrudRepository<BloodTest> implements BloodTestRepository {
+  bool shouldFailUpcoming = false;
+  bool shouldFailCompleted = false;
+
   FakeBloodTestRepository([super.seed]);
+
+  @override
+  Future<Result<List<BloodTest>, AppError>> getUpcoming() async {
+    if (shouldFailUpcoming) {
+      return Failure(fakeStorageFailure());
+    }
+    return Success(items.where((test) => test.completedDate == null).toList());
+  }
+
+  @override
+  Future<Result<List<BloodTest>, AppError>> getCompleted() async {
+    if (shouldFailCompleted) {
+      return Failure(fakeStorageFailure());
+    }
+    return Success(items.where((test) => test.completedDate != null).toList());
+  }
 }
 
 class FakeDoctorVisitRepository extends FakeCrudRepository<DoctorVisit> implements DoctorVisitRepository {

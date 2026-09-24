@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../data/models/religious/athkar_content.dart';
+import '../../../providers/app_providers.dart';
 import '../../../shared/widgets/empty_state.dart';
 import '../providers/athkar_providers.dart';
 import '../providers/prayer_providers.dart';
@@ -110,7 +111,7 @@ class _AthkarScreenState extends ConsumerState<AthkarScreen>
 
     if (result == null) return;
 
-    final message = await ref.read(athkarLogsControllerProvider.notifier).addCustomAthkar(
+    final error = await ref.read(athkarLogsControllerProvider.notifier).addCustomAthkar(
           arabicText: result.arabicText,
           transliteration: result.transliteration,
           translation: result.translation,
@@ -118,8 +119,10 @@ class _AthkarScreenState extends ConsumerState<AthkarScreen>
           targetCount: result.targetCount,
         );
 
-    if (message != null && context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    if (error != null && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(ref.read(userErrorMessageMapperProvider).toUserMessage(error))),
+      );
     }
   }
 }
@@ -351,12 +354,17 @@ class _AthkarCardState extends ConsumerState<_AthkarCard> {
                   onPressed: !completed
                       ? null
                       : () async {
-                          final message = await ref
+                          final error = await ref
                               .read(athkarLogsControllerProvider.notifier)
                               .logCompletion(content: content, countDone: _done);
-                          if (message != null && context.mounted) {
-                            ScaffoldMessenger.of(context)
-                                .showSnackBar(SnackBar(content: Text(message)));
+                          if (error != null && context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  ref.read(userErrorMessageMapperProvider).toUserMessage(error),
+                                ),
+                              ),
+                            );
                           } else if (context.mounted) {
                             ScaffoldMessenger.of(context).showSnackBar(
                               const SnackBar(content: Text('Athkar logged')),
@@ -377,12 +385,17 @@ class _AthkarCardState extends ConsumerState<_AthkarCard> {
                   const SizedBox(width: 6),
                   IconButton(
                     onPressed: () async {
-                      final message = await ref
+                      final error = await ref
                           .read(athkarLogsControllerProvider.notifier)
                           .deleteCustomAthkar(content.id);
-                      if (message != null && context.mounted) {
-                        ScaffoldMessenger.of(context)
-                            .showSnackBar(SnackBar(content: Text(message)));
+                      if (error != null && context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(
+                              ref.read(userErrorMessageMapperProvider).toUserMessage(error),
+                            ),
+                          ),
+                        );
                       }
                     },
                     icon: Icon(Icons.delete_outline, color: scheme.error),

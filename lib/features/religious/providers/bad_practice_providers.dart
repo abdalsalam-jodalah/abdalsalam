@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/errors/app_error.dart';
 import '../../../data/models/religious/bad_practice_log.dart';
 import '../../../data/repositories/religious/bad_practice_log_repository.dart';
 import '../../../providers/app_providers.dart';
@@ -47,10 +48,10 @@ class BadPracticeLogController extends AsyncNotifier<List<BadPracticeLog>> {
   Future<List<BadPracticeLog>> build() async {
     final service = ref.read(badPracticeServiceProvider);
     final result = await service.getHistory(demoUserId);
-    return result.data ?? <BadPracticeLog>[];
+    return result.getOrThrow();
   }
 
-  Future<String?> logEvent({
+  Future<AppError?> logEvent({
     required String title,
     required DateTime occurredAt,
     String? feelingBefore,
@@ -70,11 +71,10 @@ class BadPracticeLogController extends AsyncNotifier<List<BadPracticeLog>> {
     );
 
     if (result.isFailure) {
-      return result.error!.toString();
+      return result.error;
     }
 
-    state = const AsyncLoading();
-    state = AsyncData(await build());
+    state = await AsyncValue.guard(() => build());
     return null;
   }
 }

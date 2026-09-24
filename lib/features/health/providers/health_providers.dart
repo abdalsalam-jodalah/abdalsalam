@@ -65,13 +65,13 @@ final healthServiceProvider = Provider<HealthService>((ref) {
 final sortedMedicationsProvider = FutureProvider<List<Medication>>((ref) async {
   final service = ref.watch(medicationServiceProvider);
   final result = await service.getMedicationsSorted();
-  return result.data ?? [];
+  return result.getOrThrow();
 });
 
 final medicationStatisticsProvider = FutureProvider<Map<String, dynamic>>((ref) async {
   final service = ref.watch(medicationServiceProvider);
   final result = await service.getStatistics();
-  return result.data ?? {};
+  return result.getOrThrow();
 });
 
 final healthMetricRepositoryProvider = Provider<HealthMetricRepository>((ref) {
@@ -96,7 +96,7 @@ final healthMetricServiceProvider = Provider<HealthMetricService>((ref) {
 final healthMetricsProvider = FutureProvider<List<HealthMetric>>((ref) async {
   final service = ref.watch(healthMetricServiceProvider);
   final result = await service.getActive();
-  final metrics = result.data ?? [];
+  final metrics = result.getOrThrow();
   metrics.sort((a, b) => b.measuredAt.compareTo(a.measuredAt));
   return metrics;
 });
@@ -104,7 +104,7 @@ final healthMetricsProvider = FutureProvider<List<HealthMetric>>((ref) async {
 final healthMetricStatisticsProvider = FutureProvider<Map<String, dynamic>>((ref) async {
   final service = ref.watch(healthMetricServiceProvider);
   final result = await service.getStatistics();
-  return result.data ?? {};
+  return result.getOrThrow();
 });
 
 final bloodTestRepositoryProvider = Provider<BloodTestRepository>((ref) {
@@ -129,7 +129,7 @@ final bloodTestServiceProvider = Provider<BloodTestService>((ref) {
 final bloodTestsProvider = FutureProvider<List<BloodTest>>((ref) async {
   final service = ref.watch(bloodTestServiceProvider);
   final result = await service.getActive();
-  final tests = result.data ?? [];
+  final tests = result.getOrThrow();
   tests.sort((a, b) => b.scheduledDate.compareTo(a.scheduledDate));
   return tests;
 });
@@ -137,7 +137,7 @@ final bloodTestsProvider = FutureProvider<List<BloodTest>>((ref) async {
 final bloodTestStatisticsProvider = FutureProvider<Map<String, dynamic>>((ref) async {
   final service = ref.watch(bloodTestServiceProvider);
   final result = await service.getStatistics();
-  return result.data ?? {};
+  return result.getOrThrow();
 });
 
 final doctorVisitRepositoryProvider = Provider<DoctorVisitRepository>((ref) {
@@ -163,7 +163,7 @@ final doctorVisitServiceProvider = Provider<DoctorVisitService>((ref) {
 final doctorVisitsProvider = FutureProvider<List<DoctorVisit>>((ref) async {
   final service = ref.watch(doctorVisitServiceProvider);
   final result = await service.getActive();
-  final visits = result.data ?? [];
+  final visits = result.getOrThrow();
   visits.sort((a, b) => b.visitDate.compareTo(a.visitDate));
   return visits;
 });
@@ -171,7 +171,7 @@ final doctorVisitsProvider = FutureProvider<List<DoctorVisit>>((ref) async {
 final doctorVisitStatisticsProvider = FutureProvider<Map<String, dynamic>>((ref) async {
   final service = ref.watch(doctorVisitServiceProvider);
   final result = await service.getStatistics();
-  return result.data ?? {};
+  return result.getOrThrow();
 });
 
 final healthReportServiceProvider = Provider<HealthReportService>((ref) {
@@ -190,7 +190,7 @@ final healthReportServiceProvider = Provider<HealthReportService>((ref) {
 final todayMedicationChecklistProvider = FutureProvider<List<DailyMedicationCheck>>((ref) async {
   final service = ref.watch(medicationServiceProvider);
   final result = await service.getDailyChecklist(DateTime.now());
-  return result.data ?? [];
+  return result.getOrThrow();
 });
 
 class HealthActivityItem {

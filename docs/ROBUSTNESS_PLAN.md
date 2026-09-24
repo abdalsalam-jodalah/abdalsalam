@@ -160,6 +160,13 @@ Totals: errStr 70 · unlogged catch 10 · provider masking 63 · ignored writes 
 - Replace every `result.data ?? []` with `result.getOrThrow()` so failures become `AsyncError`.
 - AsyncNotifiers: mutations use `AsyncValue.guard`, keep previous data on refresh (`copyWithPrevious`), return `AppError` (not string) so `fieldErrors` reach forms.
 - `.autoDispose` on the 18 family providers; await `dashboard` init; `StreamProvider`s handle errors.
+- **Done.**
+  - All 63 masking sites now call `getOrThrow()`, so a failure shows up as `AsyncError`. Money figures no longer fall back to 0 or `initialBalance`. `lifePlanProvider` no longer confuses "no plan" with a storage failure.
+  - 6 AsyncNotifiers (10 mutations) return a typed `AppError?` and refresh with `AsyncValue.guard`. Their call sites show the mapped message.
+  - The Quran legacy import shows how many rows were imported and skipped.
+  - 24 unbounded families are now `autoDispose`. The two enum-keyed religious families were left as they are.
+  - Kept on purpose: `financialStartupTasksProvider` logs and continues, because it's background maintenance.
+- **Follow-up (Phase 7):** show an "estimated rate" indicator where totals rely on fallback exchange rates.
 
 ### Phase 7 — UI (every screen)
 - New shared widgets in `lib/shared/widgets/`: `AsyncErrorView` (mapped message + Retry → `ref.invalidate`), use existing `LoadingSkeleton` + `EmptyState`; `AppFeedback.showError/showSuccess` (single SnackBar style, correct colors).

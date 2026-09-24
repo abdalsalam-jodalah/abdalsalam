@@ -3,10 +3,20 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../../../data/models/religious/quran_reading.dart';
+import '../../../providers/app_providers.dart';
 import '../../../shared/widgets/chart_widgets.dart';
 import '../../../shared/widgets/empty_state.dart';
 import '../../../shared/widgets/section_header.dart';
 import '../providers/quran_reading_providers.dart';
+import '../services/quran_legacy_import_report.dart';
+
+const String _legacyImportedCountLabel = 'Imported';
+const String _legacyImportSkippedCountLabel = 'skipped';
+
+String _legacyImportSummaryMessage(QuranLegacyImportReport report) {
+  return '$_legacyImportedCountLabel ${report.importedCount}, '
+      '$_legacyImportSkippedCountLabel ${report.skippedLegacyIds.length}';
+}
 
 class QuranReadingScreen extends ConsumerWidget {
   /// When true, renders without its own [Scaffold]/[AppBar]/FAB for
@@ -53,14 +63,20 @@ class QuranReadingScreen extends ConsumerWidget {
           PopupMenuButton<String>(
             onSelected: (value) async {
               if (value == 'import') {
-                final message = await ref
+                final result = await ref
                     .read(quranReadingControllerProvider.notifier)
                     .importLegacyProgress();
-                if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text(message ?? 'Legacy Quran progress imported')),
-                  );
+                if (!context.mounted) {
+                  return;
                 }
+                final message = result.when(
+                  success: _legacyImportSummaryMessage,
+                  failure: (error) =>
+                      ref.read(userErrorMessageMapperProvider).toUserMessage(error),
+                );
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text(message)),
+                );
               }
             },
             itemBuilder: (context) => const [
@@ -206,7 +222,7 @@ class QuranReadingScreen extends ConsumerWidget {
 
     if (result == null) return;
 
-    final message = await ref.read(quranReadingControllerProvider.notifier).addReading(
+    final error = await ref.read(quranReadingControllerProvider.notifier).addReading(
           surahNumber: result.surah,
           ayahFrom: result.ayahFrom,
           ayahTo: result.ayahTo,
@@ -216,8 +232,10 @@ class QuranReadingScreen extends ConsumerWidget {
           place: result.place,
         );
 
-    if (message != null && context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    if (error != null && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(ref.read(userErrorMessageMapperProvider).toUserMessage(error))),
+      );
     }
   }
 }

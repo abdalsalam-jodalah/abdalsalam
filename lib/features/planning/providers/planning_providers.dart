@@ -123,26 +123,28 @@ final planTopicServiceProvider = Provider<PlanTopicService>((ref) {
 
 // Data Providers
 final lifePlanProvider = FutureProvider<LifePlan?>((ref) async {
-  final repo = ref.watch(lifePlanRepositoryProvider);
-  final result = await repo.getForUser(planningUserId);
-  return result.data;
+  final service = ref.watch(lifePlanServiceProvider);
+  final result = await service.getForUser(planningUserId);
+  return result.getOrThrow();
 });
 
 final activeGoalsProvider = FutureProvider<List<Goal>>((ref) async {
-  final repo = ref.watch(goalRepositoryProvider);
-  final result = await repo.getActive();
-  return result.data ?? [];
+  final service = ref.watch(goalServiceProvider);
+  final result = await service.getActive();
+  return result.getOrThrow();
 });
 
-final goalsByScopeProvider = FutureProvider.family<List<Goal>, GoalScope>((ref, scope) async {
+final goalsByScopeProvider =
+    FutureProvider.autoDispose.family<List<Goal>, GoalScope>((ref, scope) async {
   final goals = await ref.watch(activeGoalsProvider.future);
   return goals.where((goal) => goal.scope == scope).toList(growable: false);
 });
 
-final goalsForDateProvider = FutureProvider.family<List<Goal>, DateTime>((ref, date) async {
-  final repo = ref.watch(goalRepositoryProvider);
-  final result = await repo.getDueOn(date);
-  final goals = result.data ?? [];
+final goalsForDateProvider =
+    FutureProvider.autoDispose.family<List<Goal>, DateTime>((ref, date) async {
+  final service = ref.watch(goalServiceProvider);
+  final result = await service.getDueOn(date);
+  final goals = result.getOrThrow();
   return goals.where((goal) => goal.scope == GoalScope.daily).toList(growable: false);
 });
 
@@ -151,42 +153,47 @@ final todaysGoalsProvider = FutureProvider<List<Goal>>((ref) {
 });
 
 final achievementsProvider = FutureProvider<List<Achievement>>((ref) async {
-  final repo = ref.watch(achievementRepositoryProvider);
-  final result = await repo.getActive();
-  return result.data ?? [];
+  final service = ref.watch(achievementServiceProvider);
+  final result = await service.getActive();
+  return result.getOrThrow();
 });
 
-final reviewsByPeriodProvider = FutureProvider.family<List<Review>, ReviewPeriod>((ref, period) async {
-  final repo = ref.watch(reviewRepositoryProvider);
-  final result = await repo.getByPeriod(period);
-  return result.data ?? [];
+final reviewsByPeriodProvider =
+    FutureProvider.autoDispose.family<List<Review>, ReviewPeriod>((ref, period) async {
+  final service = ref.watch(reviewServiceProvider);
+  final result = await service.getByPeriod(period);
+  return result.getOrThrow();
 });
 
-final tasksForDateProvider = FutureProvider.family<List<PlanningTask>, DateTime>((ref, date) async {
-  final repo = ref.watch(planningTaskRepositoryProvider);
-  final result = await repo.getByDate(date);
-  return result.data ?? [];
+final tasksForDateProvider =
+    FutureProvider.autoDispose.family<List<PlanningTask>, DateTime>((ref, date) async {
+  final service = ref.watch(planningTaskServiceProvider);
+  final result = await service.getByDate(date);
+  return result.getOrThrow();
 });
 
-final tasksForGoalProvider = FutureProvider.family<List<PlanningTask>, String>((ref, goalId) async {
-  final repo = ref.watch(planningTaskRepositoryProvider);
-  final result = await repo.getByGoal(goalId);
-  return result.data ?? [];
+final tasksForGoalProvider =
+    FutureProvider.autoDispose.family<List<PlanningTask>, String>((ref, goalId) async {
+  final service = ref.watch(planningTaskServiceProvider);
+  final result = await service.getByGoal(goalId);
+  return result.getOrThrow();
 });
 
 final rootTopicsProvider = FutureProvider<List<PlanTopic>>((ref) async {
-  final repo = ref.watch(planTopicRepositoryProvider);
-  final result = await repo.getRootTopics();
-  return result.data ?? [];
+  final service = ref.watch(planTopicServiceProvider);
+  final result = await service.getRootTopics();
+  return result.getOrThrow();
 });
 
-final subTopicsProvider = FutureProvider.family<List<PlanTopic>, String>((ref, parentTopicId) async {
-  final repo = ref.watch(planTopicRepositoryProvider);
-  final result = await repo.getChildren(parentTopicId);
-  return result.data ?? [];
+final subTopicsProvider =
+    FutureProvider.autoDispose.family<List<PlanTopic>, String>((ref, parentTopicId) async {
+  final service = ref.watch(planTopicServiceProvider);
+  final result = await service.getChildren(parentTopicId);
+  return result.getOrThrow();
 });
 
-final goalsForTopicProvider = FutureProvider.family<List<Goal>, String>((ref, topicId) async {
+final goalsForTopicProvider =
+    FutureProvider.autoDispose.family<List<Goal>, String>((ref, topicId) async {
   final goals = await ref.watch(activeGoalsProvider.future);
   return goals.where((goal) => goal.topicId == topicId).toList(growable: false);
 });

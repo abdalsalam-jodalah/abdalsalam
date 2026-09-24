@@ -29,7 +29,7 @@ final sleepLogServiceProvider = Provider<SleepLogService>((ref) {
 final sleepLogsProvider = FutureProvider<List<SleepLog>>((ref) async {
   final service = ref.watch(sleepLogServiceProvider);
   final result = await service.getActive();
-  final logs = result.data ?? [];
+  final logs = result.getOrThrow();
   logs.sort((a, b) => b.sleepStart.compareTo(a.sleepStart));
   return logs;
 });
@@ -37,13 +37,13 @@ final sleepLogsProvider = FutureProvider<List<SleepLog>>((ref) async {
 final sleepLogStatisticsProvider = FutureProvider<Map<String, dynamic>>((ref) async {
   final service = ref.watch(sleepLogServiceProvider);
   final result = await service.getStatistics();
-  return result.data ?? {};
+  return result.getOrThrow();
 });
 
 final sleepInsightsProvider = FutureProvider<Map<String, dynamic>>((ref) async {
   final service = ref.watch(sleepLogServiceProvider);
   final result = await service.getInsights();
-  return result.data ?? {};
+  return result.getOrThrow();
 });
 
 final sleepGoalHoursProvider = FutureProvider<double>((ref) async {

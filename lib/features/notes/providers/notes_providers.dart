@@ -46,21 +46,22 @@ final todoServiceProvider = Provider<TodoService>((ref) {
 });
 
 final activeNotesProvider = FutureProvider<List<Note>>((ref) async {
-  final repo = ref.watch(notesRepositoryProvider);
-  final result = await repo.getActive();
-  final notes = [...(result.data ?? <Note>[])]..sort((a, b) => a.order.compareTo(b.order));
+  final service = ref.watch(notesServiceProvider);
+  final result = await service.getActive();
+  final notes = [...result.getOrThrow()]..sort((a, b) => a.order.compareTo(b.order));
   return notes;
 });
 
 final activeTodosProvider = FutureProvider<List<Todo>>((ref) async {
-  final repo = ref.watch(todoRepositoryProvider);
-  final result = await repo.getActive();
-  final todos = [...(result.data ?? <Todo>[])]..sort((a, b) => a.order.compareTo(b.order));
+  final service = ref.watch(todoServiceProvider);
+  final result = await service.getActive();
+  final todos = [...result.getOrThrow()]..sort((a, b) => a.order.compareTo(b.order));
   return todos;
 });
 
-final todosForHabitProvider = FutureProvider.family<List<Todo>, String>((ref, habitId) async {
-  final repo = ref.watch(todoRepositoryProvider);
-  final result = await repo.query(<String, dynamic>{'habitId': habitId});
-  return result.data ?? [];
+final todosForHabitProvider =
+    FutureProvider.autoDispose.family<List<Todo>, String>((ref, habitId) async {
+  final service = ref.watch(todoServiceProvider);
+  final result = await service.filter(<String, dynamic>{'habitId': habitId});
+  return result.getOrThrow();
 });

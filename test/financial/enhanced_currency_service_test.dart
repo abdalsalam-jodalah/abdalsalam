@@ -200,4 +200,68 @@ void main() {
       expect(result.error, isA<FinancialError>());
     });
   });
+
+  group('EnhancedCurrencyService.getLatestRates', () {
+    test('should return the latest rate per target currency on success', () async {
+      final date = DateTime(2026, 6, 1);
+      final service = _createService(
+        FakeExchangeRateRepository([
+          _storedUsdRate(date),
+          ExchangeRateModel(
+            id: 'jod-${date.toIso8601String()}',
+            fromCurrency: 'ILS',
+            toCurrency: 'JOD',
+            rate: 0.2,
+            date: date,
+            createdAt: date,
+            updatedAt: date,
+          ),
+        ]),
+        _ratesApi(),
+      );
+
+      final result = await service.getLatestRates();
+
+      expect(result.isSuccess, isTrue);
+      expect(result.data, {'USD': 0.3, 'JOD': 0.2});
+    });
+
+    test('should return a typed failure instead of a partial map when a lookup fails', () async {
+      final service = _createService(
+        FailingExchangeRateRepository(isLookupFailing: true),
+        _ratesApi(),
+      );
+
+      final result = await service.getLatestRates();
+
+      expect(result.isFailure, isTrue);
+      expect(result.error, isA<DatabaseError>());
+    });
+  });
+
+  group('EnhancedCurrencyService.getRatesHistory', () {
+    test('should return stored rates for the currency pair on success', () async {
+      final service = _createService(
+        FakeExchangeRateRepository([_storedUsdRate(DateTime.now())]),
+        _ratesApi(),
+      );
+
+      final result = await service.getRatesHistory('ILS', 'USD', days: 30);
+
+      expect(result.isSuccess, isTrue);
+      expect(result.data, hasLength(1));
+    });
+
+    test('should return a typed failure instead of an empty list when the lookup fails', () async {
+      final service = _createService(
+        FailingExchangeRateRepository(isLookupFailing: true),
+        _ratesApi(),
+      );
+
+      final result = await service.getRatesHistory('ILS', 'USD', days: 30);
+
+      expect(result.isFailure, isTrue);
+      expect(result.error, isA<DatabaseError>());
+    });
+  });
 }

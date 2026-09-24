@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
+import '../../../providers/app_providers.dart';
 import '../../../shared/widgets/chart_widgets.dart';
 import '../../../shared/widgets/empty_state.dart';
 import '../../../shared/widgets/section_header.dart';
@@ -165,7 +166,7 @@ class BadPracticeScreen extends ConsumerWidget {
 
     if (result == null) return;
 
-    final message = await ref.read(badPracticeLogControllerProvider.notifier).logEvent(
+    final error = await ref.read(badPracticeLogControllerProvider.notifier).logEvent(
           title: result.title,
           occurredAt: result.occurredAt,
           feelingBefore: result.feelingBefore,
@@ -174,8 +175,10 @@ class BadPracticeScreen extends ConsumerWidget {
           notes: result.notes,
         );
 
-    if (message != null && context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    if (error != null && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(ref.read(userErrorMessageMapperProvider).toUserMessage(error))),
+      );
     }
   }
 }

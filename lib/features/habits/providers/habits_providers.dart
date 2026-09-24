@@ -44,10 +44,10 @@ final habitLogServiceProvider = Provider<HabitLogService>((ref) {
 final activeHabitsProvider = FutureProvider<List<Habit>>((ref) async {
   final repo = ref.watch(habitsRepositoryProvider);
   final result = await repo.getActive();
-  return result.data ?? [];
+  return result.getOrThrow();
 });
 
-final habitByIdProvider = FutureProvider.family<Habit?, String>((ref, habitId) async {
+final habitByIdProvider = FutureProvider.autoDispose.family<Habit?, String>((ref, habitId) async {
   final habits = await ref.watch(activeHabitsProvider.future);
   for (final habit in habits) {
     if (habit.id == habitId) {
@@ -57,13 +57,13 @@ final habitByIdProvider = FutureProvider.family<Habit?, String>((ref, habitId) a
   return null;
 });
 
-final logsForHabitProvider = FutureProvider.family<List<HabitLog>, String>((ref, habitId) async {
+final logsForHabitProvider = FutureProvider.autoDispose.family<List<HabitLog>, String>((ref, habitId) async {
   final repo = ref.watch(habitLogRepositoryProvider);
   final result = await repo.getByHabit(habitId);
-  return result.data ?? [];
+  return result.getOrThrow();
 });
 
-final habitStatisticsProvider = FutureProvider.family<Map<String, dynamic>, String>((ref, habitId) async {
+final habitStatisticsProvider = FutureProvider.autoDispose.family<Map<String, dynamic>, String>((ref, habitId) async {
   final habit = await ref.watch(habitByIdProvider(habitId).future);
   if (habit == null) {
     return <String, dynamic>{};

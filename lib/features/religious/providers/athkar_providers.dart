@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/errors/app_error.dart';
 import '../../../data/models/religious/athkar_content.dart';
 import '../../../data/models/religious/athkar_log.dart';
 import '../../../data/repositories/religious/athkar_content_repository.dart';
@@ -39,7 +40,7 @@ final athkarCategoryProvider =
     FutureProvider.family<List<AthkarContent>, AthkarCategory?>((ref, category) async {
   final service = ref.watch(athkarServiceProvider);
   final result = await service.getMerged(category: category);
-  return result.data ?? <AthkarContent>[];
+  return result.getOrThrow();
 });
 
 final athkarSuggestionsProvider = FutureProvider<List<AthkarCategory>>((ref) async {
@@ -92,10 +93,10 @@ class AthkarLogsController extends AsyncNotifier<List<AthkarLog>> {
   Future<List<AthkarLog>> build() async {
     final repo = ref.read(athkarLogRepositoryProvider);
     final result = await repo.getByUserId(demoUserId);
-    return result.data ?? <AthkarLog>[];
+    return result.getOrThrow();
   }
 
-  Future<String?> logCompletion({
+  Future<AppError?> logCompletion({
     required AthkarContent content,
     required int countDone,
     String? notes,
@@ -109,15 +110,14 @@ class AthkarLogsController extends AsyncNotifier<List<AthkarLog>> {
     );
 
     if (result.isFailure) {
-      return result.error!.toString();
+      return result.error;
     }
 
-    state = const AsyncLoading();
-    state = AsyncData(await build());
+    state = await AsyncValue.guard(() => build());
     return null;
   }
 
-  Future<String?> addCustomAthkar({
+  Future<AppError?> addCustomAthkar({
     required String arabicText,
     String? transliteration,
     String? translation,
@@ -136,19 +136,19 @@ class AthkarLogsController extends AsyncNotifier<List<AthkarLog>> {
     );
 
     if (result.isFailure) {
-      return result.error!.toString();
+      return result.error;
     }
 
     ref.invalidate(athkarCategoryProvider);
     return null;
   }
 
-  Future<String?> deleteCustomAthkar(String id) async {
+  Future<AppError?> deleteCustomAthkar(String id) async {
     final service = ref.read(athkarServiceProvider);
     final result = await service.deleteCustomAthkar(id);
 
     if (result.isFailure) {
-      return result.error!.toString();
+      return result.error;
     }
 
     ref.invalidate(athkarCategoryProvider);

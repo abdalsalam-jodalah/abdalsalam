@@ -29,7 +29,7 @@ final foodLogServiceProvider = Provider<FoodLogService>((ref) {
 final foodLogsProvider = FutureProvider<List<FoodLog>>((ref) async {
   final service = ref.watch(foodLogServiceProvider);
   final result = await service.getActive();
-  final logs = result.data ?? [];
+  final logs = result.getOrThrow();
   logs.sort((a, b) => b.loggedAt.compareTo(a.loggedAt));
   return logs;
 });
@@ -37,5 +37,5 @@ final foodLogsProvider = FutureProvider<List<FoodLog>>((ref) async {
 final foodLogStatisticsProvider = FutureProvider<Map<String, dynamic>>((ref) async {
   final service = ref.watch(foodLogServiceProvider);
   final result = await service.getStatistics();
-  return result.data ?? {};
+  return result.getOrThrow();
 });

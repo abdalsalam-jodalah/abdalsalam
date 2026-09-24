@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/errors/app_error.dart';
 import '../../../data/models/religious/quran_progress.dart';
 import '../../../data/repositories/religious/quran_repository.dart';
 import '../../../providers/app_providers.dart';
@@ -36,10 +37,10 @@ class QuranProgressController extends AsyncNotifier<List<QuranProgress>> {
   Future<List<QuranProgress>> build() async {
     final service = ref.read(quranServiceProvider);
     final result = await service.getTodayProgress(demoUserId);
-    return result.data ?? <QuranProgress>[];
+    return result.getOrThrow();
   }
 
-  Future<String?> addProgress({
+  Future<AppError?> addProgress({
     required int pagesRead,
     required int minutesSpent,
   }) async {
@@ -51,11 +52,10 @@ class QuranProgressController extends AsyncNotifier<List<QuranProgress>> {
     );
 
     if (result.isFailure) {
-      return result.error!.toString();
+      return result.error;
     }
 
-    state = const AsyncLoading();
-    state = AsyncData(await build());
+    state = await AsyncValue.guard(() => build());
     return null;
   }
 }

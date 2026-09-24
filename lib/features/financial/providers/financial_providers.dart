@@ -188,78 +188,81 @@ final financialStartupTasksProvider = FutureProvider<void>((ref) async {
 final allTransactionsProvider = FutureProvider<List<TransactionModel>>((ref) async {
   final repo = ref.watch(transactionRepositoryProvider);
   final result = await repo.getAll();
-  return result.data ?? [];
+  return result.getOrThrow();
 });
 
 final recentTransactionsProvider = FutureProvider<List<TransactionModel>>((ref) async {
   final repo = ref.watch(transactionRepositoryProvider);
   final result = await repo.getRecent(10);
-  return result.data ?? [];
+  return result.getOrThrow();
 });
 
 final allCategoriesProvider = FutureProvider<List<CategoryModel>>((ref) async {
   final repo = ref.watch(categoryRepositoryProvider);
   final result = await repo.getAll();
-  return result.data ?? [];
+  return result.getOrThrow();
 });
 
 final activeBudgetsProvider = FutureProvider<List<BudgetModel>>((ref) async {
   final repo = ref.watch(budgetRepositoryProvider);
   final result = await repo.getActive();
-  return result.data ?? [];
+  return result.getOrThrow();
 });
 
 final allAccountsProvider = FutureProvider<List<AccountModel>>((ref) async {
   final repo = ref.watch(accountRepositoryProvider);
   final result = await repo.getAll();
-  return result.data ?? [];
+  return result.getOrThrow();
 });
 
 final activeAccountsProvider = FutureProvider<List<AccountModel>>((ref) async {
   final repo = ref.watch(accountRepositoryProvider);
   final result = await repo.getActive();
-  return result.data ?? [];
+  return result.getOrThrow();
 });
 
 // Financial Summary Provider
-final financialSummaryProvider = FutureProvider.family<Map<String, double>, DateRange>(
+final financialSummaryProvider =
+    FutureProvider.autoDispose.family<Map<String, double>, DateRange>(
   (ref, dateRange) async {
     final service = ref.watch(financialServiceProvider);
     final result = await service.getFinancialSummary(
       dateRange.start,
       dateRange.end,
     );
-    return result.data ?? {'income': 0, 'expense': 0, 'balance': 0};
+    return result.getOrThrow();
   },
 );
 
 // Category Totals Provider
-final categoryTotalsProvider = FutureProvider.family<Map<String, double>, DateRange>(
+final categoryTotalsProvider =
+    FutureProvider.autoDispose.family<Map<String, double>, DateRange>(
   (ref, dateRange) async {
     final service = ref.watch(financialServiceProvider);
     final result = await service.getCategoryTotals(
       dateRange.start,
       dateRange.end,
     );
-    return result.data ?? {};
+    return result.getOrThrow();
   },
 );
 
 // Budget Progress Provider
-final budgetProgressProvider = FutureProvider.family<Map<String, dynamic>, BudgetModel>(
+final budgetProgressProvider =
+    FutureProvider.autoDispose.family<Map<String, dynamic>, BudgetModel>(
   (ref, budget) async {
     final service = ref.watch(financialServiceProvider);
     final result = await service.getBudgetProgress(budget);
-    return result.data ?? {};
+    return result.getOrThrow();
   },
 );
 
 // Account Balance Provider (derived: initial balance + that account's transactions)
-final accountBalanceProvider = FutureProvider.family<double, AccountModel>(
+final accountBalanceProvider = FutureProvider.autoDispose.family<double, AccountModel>(
   (ref, account) async {
     final service = ref.watch(financialServiceProvider);
     final result = await service.getAccountBalance(account);
-    return result.data ?? account.initialBalance;
+    return result.getOrThrow();
   },
 );
 
@@ -267,7 +270,7 @@ final accountBalanceProvider = FutureProvider.family<double, AccountModel>(
 final netWorthProvider = FutureProvider<Map<String, dynamic>>((ref) async {
   final service = ref.watch(financialServiceProvider);
   final result = await service.getNetWorthSummary();
-  return result.data ?? {};
+  return result.getOrThrow();
 });
 
 // Recent Financial Activity Log Provider
@@ -275,7 +278,7 @@ final recentActivityLogProvider =
     FutureProvider<List<FinancialActivityLogModel>>((ref) async {
   final repo = ref.watch(financialActivityLogRepositoryProvider);
   final result = await repo.getRecent(50);
-  return result.data ?? [];
+  return result.getOrThrow();
 });
 
 // Helper class for date ranges

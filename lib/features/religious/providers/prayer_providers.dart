@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/errors/app_error.dart';
 import '../../../data/models/religious/prayer_log.dart';
 import '../../../data/models/religious/prayer_times_snapshot.dart';
 import '../../../data/repositories/religious/prayer_repository.dart';
@@ -42,14 +43,14 @@ final prayerCountProvider = Provider<int>((ref) {
 final religiousStreakProvider = FutureProvider<int>((ref) async {
   final service = ref.watch(religiousServiceProvider);
   final result = await service.getStatistics();
-  final stats = result.data ?? const <String, dynamic>{};
+  final stats = result.getOrThrow();
   return (stats['currentStreak'] as int?) ?? 0;
 });
 
 final prayerAllLogsProvider = FutureProvider<List<PrayerLog>>((ref) async {
   final repo = ref.watch(prayerRepositoryProvider);
   final result = await repo.getByUserId(demoUserId);
-  return result.data ?? <PrayerLog>[];
+  return result.getOrThrow();
 });
 
 class PrayerLogsController extends AsyncNotifier<List<PrayerLog>> {
@@ -57,10 +58,10 @@ class PrayerLogsController extends AsyncNotifier<List<PrayerLog>> {
   Future<List<PrayerLog>> build() async {
     final service = ref.read(prayerServiceProvider);
     final result = await service.getTodayLogs(demoUserId);
-    return result.data ?? <PrayerLog>[];
+    return result.getOrThrow();
   }
 
-  Future<String?> addPrayer({
+  Future<AppError?> addPrayer({
     required PrayerName prayer,
     bool? onTimeOverride,
     String? notes,
@@ -73,7 +74,13 @@ class PrayerLogsController extends AsyncNotifier<List<PrayerLog>> {
     try {
       final snapshot = await ref.read(todayPrayerTimesProvider.future);
       scheduledAt = scheduledTimeForPrayer(prayer, snapshot);
-    } catch (_) {
+    } catch (error, stackTrace) {
+      ref.read(loggerProvider).error(
+            'Could not resolve today\'s scheduled prayer time for $prayer; '
+            'defaulting the on-time check to true.',
+            error: error,
+            stackTrace: stackTrace,
+          );
       scheduledAt = null;
     }
 
@@ -93,11 +100,10 @@ class PrayerLogsController extends AsyncNotifier<List<PrayerLog>> {
     );
 
     if (result.isFailure) {
-      return result.error!.toString();
+      return result.error;
     }
 
-    state = const AsyncLoading();
-    state = AsyncData(await build());
+    state = await AsyncValue.guard(() => build());
     ref.invalidate(prayerAllLogsProvider);
     return null;
   }
