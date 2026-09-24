@@ -189,16 +189,16 @@ class _DevToolsOverlayState extends ConsumerState<DevToolsOverlay> {
         _buildActionButton(
           'View Logs',
           Icons.article_outlined,
-          () {
-            Navigator.of(context).pushNamed('/dev/logs');
+          () async {
+            await Navigator.of(context).pushNamed('/dev/logs');
           },
         ),
         const SizedBox(height: 4),
         _buildActionButton(
           'View Database',
           Icons.storage_outlined,
-          () {
-            Navigator.of(context).pushNamed('/dev/database');
+          () async {
+            await Navigator.of(context).pushNamed('/dev/database');
           },
         ),
         const SizedBox(height: 4),

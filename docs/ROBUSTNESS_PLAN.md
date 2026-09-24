@@ -208,6 +208,14 @@ Totals: errStr 70 · unlogged catch 10 · provider masking 63 · ignored writes 
 
 ### Phase 9 — Strict analysis
 - Enable C9 language modes + lint rules in `analysis_options.yaml`; fix all findings (subagents per module); `flutter analyze` = 0.
+- **Done.**
+  - Enabling strict analysis turned up 89 findings, and all of them are fixed.
+  - No rules were disabled and no ignore comments were added.
+  - Async calls whose result was dropped are now awaited, passed as tear-offs, or wrapped in `unawaited`, where the error is already handled.
+  - Dialogs and routes have explicit type arguments.
+  - `only_throw_errors` is fixed with `Error.throwWithStackTrace`.
+  - The dynamic call in `SecurityService` now uses a typed map.
+  - `religious_settings_screen._load` and `LogViewerScreen._loadPersistedErrors` now handle their own errors.
 
 ### Phase 10 — Tests & final scorecard
 - Fill remaining C12 gaps: `StorageGateway` + `BaseRepositoryImpl` corrupt-data tests, backup/restore atomicity, sync queue concurrency, bootstrap step failure, provider → `AsyncError`, `AsyncErrorView` widget test. Hand-written fakes following `test/financial/fakes.dart` (no new mocking dependency).

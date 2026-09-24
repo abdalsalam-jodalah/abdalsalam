@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/gestures.dart';
@@ -113,7 +114,7 @@ class _AppShellScreenState extends ConsumerState<AppShellScreen> {
     });
 
     final newOrder = _destinations.map((d) => d.key).toList();
-    ref.read(settingsServiceProvider).updateSetting('sidebarOrder', newOrder).then(
+    unawaited(ref.read(settingsServiceProvider).updateSetting('sidebarOrder', newOrder).then(
       (_) {
         ref.read(loggerProvider).info('Sidebar order saved: $newOrder');
       },
@@ -124,7 +125,7 @@ class _AppShellScreenState extends ConsumerState<AppShellScreen> {
               stackTrace: stackTrace,
             );
       },
-    );
+    ));
   }
 
   double get _sidebarWidth {

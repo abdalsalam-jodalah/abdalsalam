@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../infrastructure/crash_log_recorder.dart';
@@ -22,15 +24,19 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
   @override
   void initState() {
     super.initState();
-    _loadPersistedErrors();
+    unawaited(_loadPersistedErrors());
   }
 
   Future<void> _loadPersistedErrors() async {
-    final entries = await CrashLogRecorder.instance.readEntries();
-    if (!mounted) {
-      return;
+    try {
+      final entries = await CrashLogRecorder.instance.readEntries();
+      if (!mounted) {
+        return;
+      }
+      setState(() => _persistedErrors = entries);
+    } catch (error, stackTrace) {
+      LoggerService.forModule('LogViewer').warning('Saved errors could not be loaded: $error\n$stackTrace');
     }
-    setState(() => _persistedErrors = entries);
   }
 
   List<String> get _visibleLogs {
@@ -255,7 +261,7 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
   }
 
   void _showLogDetails(String log) {
-    showDialog(
+    unawaited(showDialog<void>(
       context: context,
       builder: (context) => AlertDialog(
         title: Row(
@@ -304,18 +310,18 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
           ),
         ],
       ),
-    );
+    ));
   }
 
   void _copyLogToClipboard(String log) {
-    Clipboard.setData(ClipboardData(text: log));
+    unawaited(Clipboard.setData(ClipboardData(text: log)));
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Log copied to clipboard')),
     );
   }
 
   void _confirmClearLogs() {
-    showDialog(
+    unawaited(showDialog<void>(
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: const Text('Clear Logs'),
@@ -346,14 +352,14 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
           ),
         ],
       ),
-    );
+    ));
   }
 
   void _exportLogs() {
     final logs = _visibleLogs;
     final text = logs.join('\n');
 
-    Clipboard.setData(ClipboardData(text: text));
+    unawaited(Clipboard.setData(ClipboardData(text: text)));
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text('${logs.length} logs copied to clipboard')),
     );

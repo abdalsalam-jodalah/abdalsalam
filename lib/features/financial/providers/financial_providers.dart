@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:abdalsalam_logic_flutter/abdalsalam_logic_flutter.dart' as logic;
 
@@ -36,11 +38,11 @@ final currencyServiceProvider = Provider<CurrencyService>((ref) {
   );
   final storage = ref.watch(storageGatewayProvider);
   final service = CurrencyService(logger, storage);
-  service.initialize().then((result) {
+  unawaited(service.initialize().then((result) {
     if (result.isFailure) {
       logger.warning('Currency service initialization failed: ${result.error}');
     }
-  });
+  }));
   return service;
 });
 

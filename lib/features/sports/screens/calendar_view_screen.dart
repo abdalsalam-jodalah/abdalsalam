@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -81,7 +83,7 @@ class _CalendarViewScreenState extends ConsumerState<CalendarViewScreen> {
   }
 
   void _showDayDetail(BuildContext context, DateTime day) {
-    showModalBottomSheet(
+    unawaited(showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       builder: (sheetContext) => DraggableScrollableSheet(
@@ -91,7 +93,7 @@ class _CalendarViewScreenState extends ConsumerState<CalendarViewScreen> {
         expand: false,
         builder: (sheetContext, scrollController) => _DayDetailSheet(day: day, scrollController: scrollController),
       ),
-    );
+    ));
   }
 }
 

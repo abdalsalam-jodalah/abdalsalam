@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -41,7 +43,7 @@ class _MedicationListScreenState extends ConsumerState<MedicationListScreen> wit
     _tabController = TabController(length: 2, vsync: this);
     _service = ref.read(medicationServiceProvider);
     _healthService = ref.read(healthServiceProvider);
-    _loadData();
+    unawaited(_loadData());
   }
 
   @override
@@ -49,7 +51,7 @@ class _MedicationListScreenState extends ConsumerState<MedicationListScreen> wit
     super.didChangeDependencies();
     // Reload data when returning to this screen (but not on first build)
     if (_hasLoadedOnce && mounted) {
-      _loadData();
+      unawaited(_loadData());
     }
   }
 
@@ -320,11 +322,11 @@ class _MedicationListScreenState extends ConsumerState<MedicationListScreen> wit
                   children: [
                     IconButton(
                       icon: const Icon(Icons.chevron_left),
-                      onPressed: () {
+                      onPressed: () async {
                         setState(() {
                           _selectedDate = _selectedDate.subtract(const Duration(days: 1));
                         });
-                        _loadData();
+                        await _loadData();
                       },
                     ),
                     Expanded(
@@ -336,20 +338,20 @@ class _MedicationListScreenState extends ConsumerState<MedicationListScreen> wit
                     ),
                     IconButton(
                       icon: const Icon(Icons.chevron_right),
-                      onPressed: () {
+                      onPressed: () async {
                         setState(() {
                           _selectedDate = _selectedDate.add(const Duration(days: 1));
                         });
-                        _loadData();
+                        await _loadData();
                       },
                     ),
                     IconButton(
                       icon: const Icon(Icons.today),
-                      onPressed: () {
+                      onPressed: () async {
                         setState(() {
                           _selectedDate = DateTime.now();
                         });
-                        _loadData();
+                        await _loadData();
                       },
                     ),
                   ],
@@ -513,7 +515,7 @@ class _MedicationListScreenState extends ConsumerState<MedicationListScreen> wit
                       onEdit: () async {
                         await Navigator.push(
                           context,
-                          MaterialPageRoute(
+                          MaterialPageRoute<void>(
                             builder: (context) => MedicationFormScreen(medication: med),
                           ),
                         );
@@ -668,7 +670,7 @@ class _MedicationCard extends StatelessWidget {
         ),
         trailing: PopupMenuButton(
           itemBuilder: (context) => [
-            PopupMenuItem(
+            PopupMenuItem<void>(
               child: Row(
                 children: [
                   Icon(medication.isActive ? Icons.pause : Icons.play_arrow),
@@ -680,7 +682,7 @@ class _MedicationCard extends StatelessWidget {
                 Future.delayed(Duration.zero, onToggleActive);
               },
             ),
-            PopupMenuItem(
+            PopupMenuItem<void>(
               child: const Row(
                 children: [
                   Icon(Icons.edit),
@@ -692,7 +694,7 @@ class _MedicationCard extends StatelessWidget {
                 Future.delayed(Duration.zero, onEdit);
               },
             ),
-            PopupMenuItem(
+            PopupMenuItem<void>(
               child: const Row(
                 children: [
                   Icon(Icons.delete, color: Colors.red),

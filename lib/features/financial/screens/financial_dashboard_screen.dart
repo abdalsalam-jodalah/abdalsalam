@@ -97,8 +97,8 @@ class _FinancialDashboardScreenState extends ConsumerState<FinancialDashboardScr
     }
   }
 
-  void _openActivityLog() {
-    Navigator.pushNamed(context, FinancialActivityLogScreen.routeName);
+  Future<void> _openActivityLog() async {
+    await Navigator.pushNamed(context, FinancialActivityLogScreen.routeName);
   }
 
   Widget _buildBody() {

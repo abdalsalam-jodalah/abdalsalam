@@ -63,9 +63,7 @@ class PrayerLogsScreen extends ConsumerWidget {
         title: const Text('Prayer Logs'),
         actions: [
           TextButton.icon(
-            onPressed: () {
-              Navigator.of(context).pushNamed(QuranProgressScreen.routeName);
-            },
+            onPressed: () => Navigator.of(context).pushNamed(QuranProgressScreen.routeName),
             icon: const Icon(Icons.menu_book_outlined),
             label: const Text('Quran'),
           ),
@@ -314,10 +312,10 @@ class _PrayerLogDialogContentState extends State<_PrayerLogDialogContent> {
                     ),
                   )
                   .toList(growable: false),
-              onChanged: (value) {
+              onChanged: (value) async {
                 if (value != null) {
                   setState(() => selectedPrayer = value);
-                  _refreshScheduled(value);
+                  await _refreshScheduled(value);
                 }
               },
               decoration: const InputDecoration(labelText: 'Prayer'),

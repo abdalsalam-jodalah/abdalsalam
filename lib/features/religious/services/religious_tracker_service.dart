@@ -552,12 +552,12 @@ class ReligiousPrayerSyncScheduler {
 
   void start() {
     _scheduleNext();
-    Future<void>(() async {
+    unawaited(Future<void>(() async {
       final result = await service.ensurePrayerTimesFresh();
       if (result.isFailure) {
         logger.warning('[ReligiousSync] startup sync failed: ${result.error}');
       }
-    });
+    }));
   }
 
   void dispose() {

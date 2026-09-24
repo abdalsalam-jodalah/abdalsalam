@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -35,9 +37,9 @@ class _AthkarScreenState extends ConsumerState<AthkarScreen>
     super.initState();
     // +1 tab for the History view, appended after the category tabs.
     _tabController = TabController(length: _categories.length + 1, vsync: this);
-    Future.microtask(
+    unawaited(Future.microtask(
       () => ref.read(athkarServiceProvider).scheduleSuggestionReminders(userId: demoUserId),
-    );
+    ));
   }
 
   @override

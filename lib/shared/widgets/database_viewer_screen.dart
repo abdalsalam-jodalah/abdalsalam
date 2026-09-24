@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import '../infrastructure/logger_service.dart';
 import '../infrastructure/storage_gateway.dart';
@@ -53,7 +55,7 @@ class _DatabaseViewerScreenState extends State<DatabaseViewerScreen> {
   @override
   void initState() {
     super.initState();
-    _loadTables();
+    unawaited(_loadTables());
   }
 
   Future<void> _loadTables() async {

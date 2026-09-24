@@ -213,14 +213,14 @@ class _TopicTile extends ConsumerWidget {
             : null,
         trailing: PopupMenuButton<_TopicMenuAction>(
           icon: const Icon(Icons.more_vert),
-          onSelected: (action) {
+          onSelected: (action) async {
             switch (action) {
               case _TopicMenuAction.addChild:
-                _showTopicDialog(context, ref, parentTopicId: topic.id);
+                await _showTopicDialog(context, ref, parentTopicId: topic.id);
               case _TopicMenuAction.edit:
-                _showTopicDialog(context, ref, parentTopicId: topic.parentTopicId, existing: topic);
+                await _showTopicDialog(context, ref, parentTopicId: topic.parentTopicId, existing: topic);
               case _TopicMenuAction.delete:
-                _deleteTopic(context, ref, topic);
+                await _deleteTopic(context, ref, topic);
             }
           },
           itemBuilder: (context) => const [
@@ -266,14 +266,14 @@ class _SubTopicTile extends ConsumerWidget {
             : null,
         trailing: PopupMenuButton<_TopicMenuAction>(
           icon: const Icon(Icons.more_vert),
-          onSelected: (action) {
+          onSelected: (action) async {
             switch (action) {
               case _TopicMenuAction.addChild:
-                showGoalEditorDialog(context, ref, topicId: subTopic.id);
+                await showGoalEditorDialog(context, ref, topicId: subTopic.id);
               case _TopicMenuAction.edit:
-                _showTopicDialog(context, ref, parentTopicId: subTopic.parentTopicId, existing: subTopic);
+                await _showTopicDialog(context, ref, parentTopicId: subTopic.parentTopicId, existing: subTopic);
               case _TopicMenuAction.delete:
-                _deleteTopic(context, ref, subTopic);
+                await _deleteTopic(context, ref, subTopic);
             }
           },
           itemBuilder: (context) => const [
@@ -318,12 +318,12 @@ class _GoalTile extends ConsumerWidget {
         subtitle: Text(goalStatusLabel(goal.status)),
         trailing: PopupMenuButton<_TopicMenuAction>(
           icon: const Icon(Icons.more_vert),
-          onSelected: (action) {
+          onSelected: (action) async {
             switch (action) {
               case _TopicMenuAction.addChild:
-                _addTask(context, ref);
+                await _addTask(context, ref);
               case _TopicMenuAction.edit:
-                showGoalEditorDialog(context, ref, existing: goal, topicId: goal.topicId);
+                await showGoalEditorDialog(context, ref, existing: goal, topicId: goal.topicId);
               case _TopicMenuAction.delete:
                 break;
             }

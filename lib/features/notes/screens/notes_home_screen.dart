@@ -61,12 +61,12 @@ class NotesHomeScreen extends ConsumerWidget {
                   onTap: () => _editNote(context, ref, note),
                   trailing: PopupMenuButton<_NoteMenuAction>(
                     icon: const Icon(Icons.more_vert),
-                    onSelected: (action) {
+                    onSelected: (action) async {
                       switch (action) {
                         case _NoteMenuAction.edit:
-                          _editNote(context, ref, note);
+                          await _editNote(context, ref, note);
                         case _NoteMenuAction.delete:
-                          _deleteNote(context, ref, note);
+                          await _deleteNote(context, ref, note);
                       }
                     },
                     itemBuilder: (context) => const [

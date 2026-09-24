@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -502,7 +504,7 @@ class _BudgetsPageState extends ConsumerState<BudgetsPage> {
   }
 
   void _deleteBudget(BudgetModel budget) {
-    showDialog(
+    unawaited(showDialog<void>(
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: const Text(_deleteBudgetTitle),
@@ -535,7 +537,7 @@ class _BudgetsPageState extends ConsumerState<BudgetsPage> {
           ),
         ],
       ),
-    );
+    ));
   }
 }
 

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -32,7 +34,7 @@ class _DashboardSettingsScreenState extends ConsumerState<DashboardSettingsScree
   @override
   void initState() {
     super.initState();
-    _load();
+    unawaited(_load());
   }
 
   Future<void> _load() async {
@@ -90,14 +92,14 @@ class _DashboardSettingsScreenState extends ConsumerState<DashboardSettingsScree
             CheckboxListTile(
               title: Text('Show $moduleId card'),
               value: !dashboardHidden.contains(moduleId),
-              onChanged: (value) {
+              onChanged: (value) async {
                 final next = {...dashboardHidden};
                 if (value == true) {
                   next.remove(moduleId);
                 } else {
                   next.add(moduleId);
                 }
-                _update('dashboardHiddenCards', next.toList(growable: false));
+                await _update('dashboardHiddenCards', next.toList(growable: false));
               },
             ),
           const SettingsSectionHeader('Card order'),
@@ -114,11 +116,11 @@ class _DashboardSettingsScreenState extends ConsumerState<DashboardSettingsScree
               title: Text(cardOrder[index]),
               trailing: const Icon(Icons.drag_handle),
             ),
-            onReorderItem: (oldIndex, newIndex) {
+            onReorderItem: (oldIndex, newIndex) async {
               final reordered = [...cardOrder];
               final moved = reordered.removeAt(oldIndex);
               reordered.insert(newIndex, moved);
-              _update('dashboardCardOrder', reordered);
+              await _update('dashboardCardOrder', reordered);
             },
           ),
           const SettingsSectionHeader('Sidebar order'),
@@ -135,11 +137,11 @@ class _DashboardSettingsScreenState extends ConsumerState<DashboardSettingsScree
               title: Text(sidebarOrder[index]),
               trailing: const Icon(Icons.drag_handle),
             ),
-            onReorderItem: (oldIndex, newIndex) {
+            onReorderItem: (oldIndex, newIndex) async {
               final reordered = [...sidebarOrder];
               final moved = reordered.removeAt(oldIndex);
               reordered.insert(newIndex, moved);
-              _update('sidebarOrder', reordered);
+              await _update('sidebarOrder', reordered);
             },
           ),
         ],

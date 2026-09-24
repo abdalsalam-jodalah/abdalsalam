@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -270,7 +272,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
   void _showFilterDialog() {
     final categoriesAsync = ref.read(allCategoriesProvider);
 
-    showDialog(
+    unawaited(showDialog<void>(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Filter Transactions'),
@@ -346,11 +348,11 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
           ),
         ],
       ),
-    );
+    ));
   }
 
   void _showTransactionDetails(TransactionModel transaction) {
-    showModalBottomSheet(
+    unawaited(showModalBottomSheet<void>(
       context: context,
       builder: (sheetContext) => Container(
         padding: const EdgeInsets.all(24),
@@ -423,7 +425,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
           ],
         ),
       ),
-    );
+    ));
   }
 
   Widget _buildDetailRow(String label, String value) {
@@ -456,7 +458,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
   }
 
   void _deleteTransaction(TransactionModel transaction) {
-    showDialog(
+    unawaited(showDialog<void>(
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: const Text(_deleteDialogTitle),
@@ -492,6 +494,6 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
           ),
         ],
       ),
-    );
+    ));
   }
 }

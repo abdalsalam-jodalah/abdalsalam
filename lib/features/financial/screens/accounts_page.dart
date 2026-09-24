@@ -179,11 +179,11 @@ class _AccountsPageState extends ConsumerState<AccountsPage> {
                 const PopupMenuItem(value: 'edit', child: Text('Edit')),
                 const PopupMenuItem(value: 'delete', child: Text('Delete')),
               ],
-              onSelected: (value) {
+              onSelected: (value) async {
                 if (value == 'edit') {
-                  _showAccountDialog(account: account);
+                  await _showAccountDialog(account: account);
                 } else if (value == 'delete') {
-                  _deleteAccount(account);
+                  await _deleteAccount(account);
                 }
               },
             ),
@@ -256,8 +256,8 @@ class _AccountsPageState extends ConsumerState<AccountsPage> {
     ref.invalidate(activeAccountsProvider);
   }
 
-  void _deleteAccount(AccountModel account) {
-    showDialog(
+  Future<void> _deleteAccount(AccountModel account) async {
+    await showDialog<void>(
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: const Text(_deleteAccountTitle),

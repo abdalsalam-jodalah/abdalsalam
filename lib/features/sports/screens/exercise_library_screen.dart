@@ -258,11 +258,11 @@ class _CategorySectionState extends ConsumerState<_CategorySection> {
                         title: Text(exercise.name),
                         subtitle: Text(_subtitleFor(exercise), maxLines: 2, overflow: TextOverflow.ellipsis),
                         trailing: PopupMenuButton<String>(
-                          onSelected: (value) {
+                          onSelected: (value) async {
                             if (value == 'edit') {
-                              _showExerciseDialog(exercise: exercise);
+                              await _showExerciseDialog(exercise: exercise);
                             } else if (value == 'delete') {
-                              _deleteExercise(exercise);
+                              await _deleteExercise(exercise);
                             }
                           },
                           itemBuilder: (context) => const [

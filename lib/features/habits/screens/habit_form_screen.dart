@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
@@ -85,7 +87,7 @@ class _HabitFormScreenState extends ConsumerState<HabitFormScreen> {
     _icon = habit?.icon ?? kDefaultHabitIcon;
     _color = habit?.color ?? kDefaultHabitColor;
     if (habit == null) {
-      _loadDefaultReminderTime();
+      unawaited(_loadDefaultReminderTime());
     }
   }
 

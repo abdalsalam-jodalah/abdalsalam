@@ -23,8 +23,8 @@ class HabitsHomeScreen extends ConsumerWidget {
     ref.invalidate(activeHabitsProvider);
   }
 
-  void _openDetail(BuildContext context, Habit habit) {
-    Navigator.of(context).pushNamed(HabitDetailScreen.routeName, arguments: habit.id);
+  Future<void> _openDetail(BuildContext context, Habit habit) async {
+    await Navigator.of(context).pushNamed(HabitDetailScreen.routeName, arguments: habit.id);
   }
 
   @override

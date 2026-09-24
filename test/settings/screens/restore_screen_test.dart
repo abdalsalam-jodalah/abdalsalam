@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:abdalsalam/core/errors/app_error.dart';
 import 'package:abdalsalam/core/constants/user_error_messages.dart';
 import 'package:abdalsalam/core/result/result.dart';
@@ -90,7 +92,7 @@ void main() {
       ),
     ));
 
-    navigatorKey.currentState!.push(MaterialPageRoute<void>(builder: (_) => const RestoreScreen()));
+    unawaited(navigatorKey.currentState!.push(MaterialPageRoute<void>(builder: (_) => const RestoreScreen())));
     await tester.pumpAndSettle();
 
     await tester.enterText(find.byType(TextField), '{"metadata": {}, "data": {}}');

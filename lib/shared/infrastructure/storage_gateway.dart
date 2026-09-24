@@ -368,7 +368,7 @@ class StorageGateway {
       await store.initializeWithTableSql(_codec.createTableSql(table));
       return store;
     } catch (error, stackTrace) {
-      _sqliteStores.remove(table);
+      _sqliteStores.remove(table)?.ignore();
       throw StorageUnavailableError(
         'Database failed to open for table $table',
         cause: error,

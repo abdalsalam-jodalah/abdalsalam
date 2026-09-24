@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -36,7 +38,7 @@ class _ReligiousSettingsScreenState extends ConsumerState<ReligiousSettingsScree
   @override
   void initState() {
     super.initState();
-    _load();
+    unawaited(_load());
   }
 
   @override
@@ -47,14 +49,23 @@ class _ReligiousSettingsScreenState extends ConsumerState<ReligiousSettingsScree
   }
 
   Future<void> _load() async {
-    final values = await ref.read(settingsServiceProvider).getSettings();
-    if (mounted) {
+    try {
+      final values = await ref.read(settingsServiceProvider).getSettings();
+      if (!mounted) return;
       setState(() {
         _settings = values;
         _pendingPrayerSource = (values['prayerTimeSource'] as String?) ?? 'scraped';
         _latController.text = ((values['prayerLocationLatitude'] as num?) ?? _defaultLatitude).toString();
         _longController.text = ((values['prayerLocationLongitude'] as num?) ?? _defaultLongitude).toString();
       });
+    } catch (error, stackTrace) {
+      final mapped = ref.read(errorHandlerProvider).mapException(
+        error,
+        context: '${widget.runtimeType}._load',
+        stackTrace: stackTrace,
+      );
+      if (!mounted) return;
+      AppFeedback.showError(context, mapped);
     }
   }
 

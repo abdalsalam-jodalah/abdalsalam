@@ -43,10 +43,10 @@ class _AbdalsalamAppState extends ConsumerState<AbdalsalamApp> {
       ref.read(syncQueueProcessorProvider);
       ref.read(religiousSyncSchedulerProvider).start();
       final reminders = ref.read(reminderServiceProvider);
-      _reminderTapSubscription = reminders.tapStream.listen((payload) {
+      _reminderTapSubscription = reminders.tapStream.listen((payload) async {
         final route = reminders.routeForPayload(payload);
         if (route != null) {
-          _navigatorKey.currentState?.pushNamed(route);
+          await _navigatorKey.currentState?.pushNamed(route);
         }
       });
     });
@@ -54,7 +54,7 @@ class _AbdalsalamAppState extends ConsumerState<AbdalsalamApp> {
 
   @override
   void dispose() {
-    _reminderTapSubscription?.cancel();
+    unawaited(_reminderTapSubscription?.cancel());
     super.dispose();
   }
 

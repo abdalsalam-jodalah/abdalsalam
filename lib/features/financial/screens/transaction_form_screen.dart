@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -88,7 +90,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
         _selectedCurrency = Currency.ils;
       }
     } else {
-      _loadDefaultCurrency();
+      unawaited(_loadDefaultCurrency());
     }
   }
 
@@ -939,7 +941,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
   }
 
   void _deleteTransaction() {
-    showDialog(
+    unawaited(showDialog<void>(
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: const Text(_deleteDialogTitle),
@@ -970,7 +972,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
           ),
         ],
       ),
-    );
+    ));
   }
 
   void _showValidationMessage(String message) {

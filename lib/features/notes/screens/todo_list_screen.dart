@@ -64,14 +64,14 @@ class TodoListScreen extends ConsumerWidget {
                         ),
                       PopupMenuButton<_TodoMenuAction>(
                         icon: const Icon(Icons.more_vert),
-                        onSelected: (action) {
+                        onSelected: (action) async {
                           switch (action) {
                             case _TodoMenuAction.edit:
-                              _editTodo(context, ref, todo);
+                              await _editTodo(context, ref, todo);
                             case _TodoMenuAction.delete:
-                              _deleteTodo(context, ref, todo);
+                              await _deleteTodo(context, ref, todo);
                             case _TodoMenuAction.unlinkHabit:
-                              _unlinkHabit(context, ref, todo);
+                              await _unlinkHabit(context, ref, todo);
                           }
                         },
                         itemBuilder: (context) => [

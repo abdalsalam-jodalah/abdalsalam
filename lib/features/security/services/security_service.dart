@@ -265,7 +265,8 @@ class SecurityService extends BaseServiceImpl<Credential> {
     }
 
     final payload = exported.data!;
-    payload['metadata']['sensitiveDataWarning'] =
+    final metadata = payload['metadata'] as Map<String, dynamic>;
+    metadata['sensitiveDataWarning'] =
         'Contains encrypted credentials; handle file carefully.';
 
     if (sanitizeSensitive) {

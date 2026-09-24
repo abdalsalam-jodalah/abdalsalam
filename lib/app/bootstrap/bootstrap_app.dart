@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -27,7 +29,7 @@ class _BootstrapAppState extends State<BootstrapApp> {
 
   @override
   void dispose() {
-    _bootstrapper.dispose();
+    unawaited(_bootstrapper.dispose());
     super.dispose();
   }
 

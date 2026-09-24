@@ -67,9 +67,9 @@ class CrashLogRecorder {
   }
 
   Future<void> _ensureInitialized() {
-    return _initialization ??= _preferencesStorage.initialize().catchError((Object error) {
+    return _initialization ??= _preferencesStorage.initialize().catchError((Object error, StackTrace stackTrace) {
       _initialization = null;
-      throw error;
+      Error.throwWithStackTrace(error, stackTrace);
     });
   }
 

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
@@ -264,9 +266,9 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage> {
                         ),
                       ),
                     ],
-                    onSelected: (value) {
+                    onSelected: (value) async {
                       if (value == 'edit') {
-                        _showCategoryDialog(category: category);
+                        await _showCategoryDialog(category: category);
                       } else if (value == 'delete') {
                         _deleteCategory(category);
                       }
@@ -308,7 +310,7 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage> {
   }
 
   void _showCategoryDetails(CategoryModel category, double monthTotal) {
-    showModalBottomSheet(
+    unawaited(showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       builder: (sheetContext) => DraggableScrollableSheet(
@@ -419,7 +421,7 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage> {
           );
         },
       ),
-    );
+    ));
   }
 
   Widget _buildStatCard(String label, String value, Color color) {
@@ -542,7 +544,7 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage> {
   }
 
   void _deleteCategory(CategoryModel category) {
-    showDialog(
+    unawaited(showDialog<void>(
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: const Text(_deleteCategoryTitle),
@@ -576,7 +578,7 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage> {
           ),
         ],
       ),
-    );
+    ));
   }
 
 }
