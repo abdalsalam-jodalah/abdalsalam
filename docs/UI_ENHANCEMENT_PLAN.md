@@ -5,8 +5,8 @@
 | Phase | Scope | Status | Commit |
 |---|---|---|---|
 | 0 | Plan doc + `tool/ui_audit.sh` baseline | ✅ Done | `7c9adc4` |
-| 1 | Design system foundation — tokens, theme builder, fonts | 🔄 In progress | |
-| 2 | Live appearance customization — Settings → Appearance | ⬜ Todo | |
+| 1 | Design system foundation — tokens, theme builder, fonts | ✅ Done | `edd236b` |
+| 2 | Live appearance customization — Settings → Appearance | 🔄 In progress | |
 | 3 | Shared component library + gallery + goldens | ⬜ Todo | |
 | 4 | App shell + dashboard | ⬜ Todo | |
 | 5 | Financial module | ⬜ Todo | |
@@ -20,19 +20,19 @@ Legend: ⬜ Todo · 🔄 In progress · ✅ Done. A phase is Done only after `fl
 
 ## Scorecard History
 
-| Metric | Baseline (P0) | P0 |
-|---|---|---|
-| U1 Hardcoded colors | 207 | 207 |
-| U2 Literal radii | 79 | 79 |
-| U3 fontSize literals | 109 | 109 |
-| U3 TextStyle literals | 147 | 147 |
-| U4 Literal spacing | 857 | 857 |
-| U5 Redundant input borders | 119 | 119 |
-| U6 Duplicated UI (private stat/date widgets, raw dialogs/sheets) | 48 | 48 |
-| U10 Direct fl_chart imports | 4 | 4 |
-| Design-system checks passing | 1 / 10 | 1 / 10 |
-| `flutter analyze` issues | 0 | 0 |
-| `flutter test` | 1019 · all pass | 1019 · all pass |
+| Metric | Baseline (P0) | P0 | P1 |
+|---|---|---|---|
+| U1 Hardcoded colors | 207 | 207 | 207 |
+| U2 Literal radii | 79 | 79 | 79 |
+| U3 fontSize literals | 109 | 109 | 109 |
+| U3 TextStyle literals | 147 | 147 | 147 |
+| U4 Literal spacing | 857 | 857 | 857 |
+| U5 Redundant input borders | 119 | 119 | 119 |
+| U6 Duplicated UI (private stat/date widgets, raw dialogs/sheets) | 48 | 48 | 48 |
+| U10 Direct fl_chart imports | 4 | 4 | 4 |
+| Design-system checks passing | 1 / 10 | 1 / 10 | 5 / 10 |
+| `flutter analyze` issues | 0 | 0 | 0 |
+| `flutter test` | 1019 · all pass | 1019 · all pass | 1034 · all pass |
 
 ## Context
 The app works and is robust (the previous hardening plan is done), but the UI is inconsistent, dated and hard to maintain:
