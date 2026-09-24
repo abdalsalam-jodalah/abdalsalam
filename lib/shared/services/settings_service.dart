@@ -1,4 +1,5 @@
 import '../../core/errors/app_error.dart';
+import '../../core/theme/appearance.dart';
 import '../infrastructure/storage_gateway.dart';
 
 class SettingsService {
@@ -24,8 +25,12 @@ class SettingsService {
   }
 
   Future<void> updateSetting(String key, dynamic value) async {
+    await updateSettings(<String, dynamic>{key: value});
+  }
+
+  Future<void> updateSettings(Map<String, dynamic> values) async {
     final settings = await getSettings();
-    settings[key] = value;
+    settings.addAll(values);
     await storage.save(key: _key, value: settings);
   }
 
@@ -34,7 +39,7 @@ class SettingsService {
   }
 
   Map<String, dynamic> get defaults => <String, dynamic>{
-        'themeMode': 'system',
+        ...Appearance.defaults.toSettings(),
         'language': 'en',
         'firstDayOfWeek': 'saturday',
         'notificationsEnabled': true,

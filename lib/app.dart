@@ -8,9 +8,9 @@ import 'app/bootstrap/startup_status_banner.dart';
 import 'core/router/app_router.dart';
 import 'features/religious/providers/religious_tracking_providers.dart';
 import 'core/theme/app_theme_builder.dart';
-import 'core/theme/appearance.dart';
 import 'features/dashboard/screens/app_shell_screen.dart';
 import 'providers/app_providers.dart';
+import 'providers/appearance_controller.dart';
 import 'shared/services/reminder_service.dart';
 import 'shared/widgets/data_integrity_banner.dart';
 import 'shared/widgets/dev_tools_overlay.dart';
@@ -50,10 +50,7 @@ class _AbdalsalamAppState extends ConsumerState<AbdalsalamApp> {
 
   @override
   Widget build(BuildContext context) {
-    final appearance = ref.watch(appSettingsProvider).maybeWhen(
-          data: Appearance.fromSettings,
-          orElse: () => Appearance.defaults,
-        );
+    final appearance = ref.watch(appearanceProvider);
 
     return MaterialApp(
       title: 'Abdalsalam',
@@ -63,13 +60,21 @@ class _AbdalsalamAppState extends ConsumerState<AbdalsalamApp> {
       darkTheme: buildAppTheme(appearance, Brightness.dark),
       themeMode: appearance.themeMode,
       onGenerateRoute: AppRouter.onGenerateRoute,
-      builder: (context, child) => Column(
-        children: [
-          const StartupStatusBanner(),
-          DataIntegrityBanner(navigatorKey: _navigatorKey),
-          Expanded(child: child ?? const SizedBox.shrink()),
-        ],
-      ),
+      builder: (context, child) {
+        final mediaQuery = MediaQuery.of(context);
+        return MediaQuery(
+          data: mediaQuery.copyWith(
+            textScaler: TextScaler.linear(mediaQuery.textScaler.scale(1) * appearance.textScale),
+          ),
+          child: Column(
+            children: [
+              const StartupStatusBanner(),
+              DataIntegrityBanner(navigatorKey: _navigatorKey),
+              Expanded(child: child ?? const SizedBox.shrink()),
+            ],
+          ),
+        );
+      },
       home: kDebugMode
           ? DevToolsOverlay(child: const AppShellScreen())
           : const AppShellScreen(),

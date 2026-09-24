@@ -77,6 +77,7 @@ import '../../features/settings/screens/calendar_settings_screen.dart';
 import '../../features/settings/screens/dashboard_settings_screen.dart';
 import '../../features/settings/screens/financial_settings_screen.dart';
 import '../../features/settings/screens/food_settings_screen.dart';
+import '../../features/settings/screens/appearance_settings_screen.dart';
 import '../../features/settings/screens/general_settings_screen.dart';
 import '../../features/settings/screens/habits_settings_screen.dart';
 import '../../features/settings/screens/health_settings_screen.dart';
@@ -455,6 +456,11 @@ class AppRouter {
       case SettingsHubScreen.routeName:
         return MaterialPageRoute<void>(
           builder: (_) => const SettingsHubScreen(),
+          settings: settings,
+        );
+      case AppearanceSettingsScreen.routeName:
+        return MaterialPageRoute<void>(
+          builder: (_) => const AppearanceSettingsScreen(),
           settings: settings,
         );
       case GeneralSettingsScreen.routeName:

@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app.dart';
 import '../../providers/app_providers.dart';
+import '../../providers/appearance_controller.dart';
 import '../error_handling/app_provider_observer.dart';
 import 'app_bootstrap_result.dart';
 import 'app_bootstrapper.dart';
@@ -68,6 +69,7 @@ class _BootstrapAppState extends State<BootstrapApp> {
             notificationServiceProvider.overrideWithValue(result.notificationService),
             reminderServiceProvider.overrideWithValue(result.reminderService),
             initialSidebarOrderProvider.overrideWithValue(result.initialSidebarOrder),
+            initialAppearanceProvider.overrideWithValue(result.initialAppearance),
             startupReportProvider.overrideWithValue(result.startupReport),
           ],
           child: const AbdalsalamApp(),

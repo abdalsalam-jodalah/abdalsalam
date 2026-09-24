@@ -7,6 +7,7 @@ import 'package:sqflite/sqflite.dart' show databaseFactory;
 import 'package:sqflite_common_ffi_web/sqflite_ffi_web.dart';
 
 import '../../core/errors/app_error.dart';
+import '../../core/theme/appearance.dart';
 import '../../data/repositories/health/health_repository.dart';
 import '../../data/repositories/health/medication_log_repository.dart';
 import '../../features/health/services/health_service.dart';
@@ -87,12 +88,14 @@ class AppBootstrapper {
     );
 
     List<String>? initialSidebarOrder;
+    var initialAppearance = Appearance.defaults;
 
     final startupReport = await _runner.runAll(<BootstrapStep>[
       BootstrapStep.optional('Device status', appStateManager.initialize),
       BootstrapStep.optional('Settings', () async {
         final settings = await settingsService.getSettings();
         initialSidebarOrder = _readSidebarOrder(settings[_sidebarOrderSetting]);
+        initialAppearance = Appearance.fromSettings(settings);
       }),
       BootstrapStep.optional('Notifications and reminders', () async {
         final initialization = await notificationService.initialize(
@@ -138,6 +141,7 @@ class AppBootstrapper {
       notificationService: notificationService,
       reminderService: reminderService,
       initialSidebarOrder: initialSidebarOrder,
+      initialAppearance: initialAppearance,
       startupReport: startupReport,
     );
   }

@@ -14,13 +14,14 @@ const List<String> appFontFamilyFallback = <String>['IBMPlexSansArabic'];
 
 const double _buttonHeight = 48;
 const double _compactButtonHeight = 42;
+const double _buttonMinWidth = 64;
 const double _navigationBarHeight = 68;
 const double _progressHeight = 8;
 const double _focusBorderWidth = 1.5;
 const double _dividerOpacity = 0.5;
 const double _inputFillOpacity = 0.55;
-const double _lightGradientTint = 0.1;
-const double _darkGradientTint = 0.16;
+const double _lightGradientTint = 0.12;
+const double _darkGradientTint = 0.18;
 
 ThemeData buildAppTheme(Appearance appearance, Brightness brightness) {
   final scheme = ColorScheme.fromSeed(seedColor: appearance.accent.color, brightness: brightness);
@@ -35,7 +36,7 @@ ThemeData buildAppTheme(Appearance appearance, Brightness brightness) {
     backgroundGradient: _backgroundGradient(scheme),
   );
   final isCompact = appearance.density == DensityOption.compact;
-  final buttonSize = Size.fromHeight(isCompact ? _compactButtonHeight : _buttonHeight);
+  final buttonSize = Size(_buttonMinWidth, isCompact ? _compactButtonHeight : _buttonHeight);
   final buttonShape = RoundedRectangleBorder(borderRadius: radius.mediumBorder);
   final buttonPadding = EdgeInsets.symmetric(horizontal: spacing.xl, vertical: spacing.md);
 

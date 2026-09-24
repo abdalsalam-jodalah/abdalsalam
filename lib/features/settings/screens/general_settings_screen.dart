@@ -80,7 +80,6 @@ class _GeneralSettingsScreenState extends ConsumerState<GeneralSettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final themeMode = (_settings['themeMode'] as String?) ?? 'system';
     final language = (_settings['language'] as String?) ?? 'en';
     final firstDay = (_settings['firstDayOfWeek'] as String?) ?? 'saturday';
     final notificationsEnabled = (_settings['notificationsEnabled'] as bool?) ?? true;
@@ -94,18 +93,6 @@ class _GeneralSettingsScreenState extends ConsumerState<GeneralSettingsScreen> {
       appBar: AppBar(title: const Text('General')),
       body: ListView(
         children: [
-          const SettingsSectionHeader('Appearance'),
-          PickerListTile<String>(
-            title: 'Theme mode',
-            value: themeMode,
-            icon: Icons.brightness_6_outlined,
-            options: const [
-              PickerOption('system', 'System theme'),
-              PickerOption('light', 'Light theme'),
-              PickerOption('dark', 'Dark theme'),
-            ],
-            onChanged: (value) => _update('themeMode', value),
-          ),
           const SettingsSectionHeader('Localization'),
           PickerListTile<String>(
             title: 'Language',

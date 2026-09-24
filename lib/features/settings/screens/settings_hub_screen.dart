@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../widgets/settings_hub_tile.dart';
+import 'appearance_settings_screen.dart';
 import 'calendar_settings_screen.dart';
 import 'dashboard_settings_screen.dart';
 import 'financial_settings_screen.dart';
@@ -32,9 +33,15 @@ class _SettingsHubEntry {
 
 const _hubEntries = <_SettingsHubEntry>[
   _SettingsHubEntry(
+    icon: Icons.palette_outlined,
+    title: 'Appearance',
+    subtitle: 'Theme, accent colour, corners, text size, density',
+    routeName: AppearanceSettingsScreen.routeName,
+  ),
+  _SettingsHubEntry(
     icon: Icons.tune,
     title: 'General',
-    subtitle: 'Theme, language, notifications, backup',
+    subtitle: 'Language, notifications, backup',
     routeName: GeneralSettingsScreen.routeName,
   ),
   _SettingsHubEntry(
