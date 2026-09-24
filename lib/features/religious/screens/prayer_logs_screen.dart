@@ -4,6 +4,8 @@ import 'package:intl/intl.dart';
 
 import '../../../data/models/religious/prayer_log.dart';
 import '../../../providers/app_providers.dart';
+import '../../../shared/widgets/app_feedback.dart';
+import '../../../shared/widgets/async_error_view.dart';
 import '../../../shared/widgets/empty_state.dart';
 import '../../../shared/widgets/section_header.dart';
 import '../providers/prayer_providers.dart';
@@ -97,7 +99,11 @@ class PrayerLogsScreen extends ConsumerWidget {
               padding: EdgeInsets.symmetric(vertical: 24),
               child: Center(child: CircularProgressIndicator()),
             ),
-            error: (err, _) => Text('Could not load stats: $err'),
+            error: (err, _) => AsyncErrorView(
+              error: err,
+              isCompact: true,
+              onRetry: () => ref.invalidate(prayerAllLogsProvider),
+            ),
           ),
           const SizedBox(height: 16),
           allLogsState.when(
@@ -105,7 +111,11 @@ class PrayerLogsScreen extends ConsumerWidget {
               dailyCompletions: _dailyCompletions(allLogs),
             ),
             loading: () => const Center(child: CircularProgressIndicator()),
-            error: (err, _) => Text('Could not load heatmap: $err'),
+            error: (err, _) => AsyncErrorView(
+              error: err,
+              isCompact: true,
+              onRetry: () => ref.invalidate(prayerAllLogsProvider),
+            ),
           ),
           const SizedBox(height: 20),
           const SectionHeader(title: 'Today'),
@@ -118,7 +128,11 @@ class PrayerLogsScreen extends ConsumerWidget {
                   )
                 : Column(children: logs.map((log) => _PrayerLogCard(log: log)).toList()),
             loading: () => const Center(child: CircularProgressIndicator()),
-            error: (err, _) => Text('Error: $err'),
+            error: (err, _) => AsyncErrorView(
+              error: err,
+              isCompact: true,
+              onRetry: () => ref.invalidate(prayerLogsControllerProvider),
+            ),
           ),
           const SizedBox(height: 20),
           const SectionHeader(title: 'History'),
@@ -139,7 +153,11 @@ class PrayerLogsScreen extends ConsumerWidget {
               );
             },
             loading: () => const Center(child: CircularProgressIndicator()),
-            error: (err, _) => Text('Error: $err'),
+            error: (err, _) => AsyncErrorView(
+              error: err,
+              isCompact: true,
+              onRetry: () => ref.invalidate(prayerAllLogsProvider),
+            ),
           ),
         ],
       );
@@ -180,7 +198,12 @@ class PrayerLogsScreen extends ConsumerWidget {
     try {
       final snapshot = await ref.read(todayPrayerTimesProvider.future);
       scheduledAt = scheduledTimeForPrayer(PrayerName.fajr, snapshot);
-    } catch (_) {
+    } catch (error, stackTrace) {
+      ref.read(loggerProvider).error(
+            'Could not resolve today\'s scheduled prayer time for the add-log dialog default.',
+            error: error,
+            stackTrace: stackTrace,
+          );
       scheduledAt = null;
     }
 
@@ -203,9 +226,7 @@ class PrayerLogsScreen extends ConsumerWidget {
         );
 
     if (error != null && context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(ref.read(userErrorMessageMapperProvider).toUserMessage(error))),
-      );
+      AppFeedback.showError(context, error);
     }
   }
 }
@@ -261,7 +282,12 @@ class _PrayerLogDialogContentState extends State<_PrayerLogDialogContent> {
       final snapshot = await widget.ref.read(todayPrayerTimesProvider.future);
       if (!mounted) return;
       setState(() => scheduledAt = scheduledTimeForPrayer(prayer, snapshot));
-    } catch (_) {
+    } catch (error, stackTrace) {
+      widget.ref.read(loggerProvider).error(
+            'Could not resolve scheduled prayer time for $prayer in the add-log dialog.',
+            error: error,
+            stackTrace: stackTrace,
+          );
       if (!mounted) return;
       setState(() => scheduledAt = null);
     }

@@ -2,7 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
-import '../../../providers/app_providers.dart';
+import '../../../core/errors/app_error.dart';
+import '../../../core/validation/validation_utils.dart';
+import '../../../shared/widgets/app_feedback.dart';
+import '../../../shared/widgets/async_error_view.dart';
 import '../../../shared/widgets/chart_widgets.dart';
 import '../../../shared/widgets/empty_state.dart';
 import '../../../shared/widgets/section_header.dart';
@@ -148,7 +151,10 @@ class BadPracticeScreen extends ConsumerWidget {
           );
         },
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (err, _) => Center(child: Text('Error: $err')),
+        error: (err, _) => AsyncErrorView(
+          error: err,
+          onRetry: () => ref.invalidate(badPracticeLogControllerProvider),
+        ),
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _showAddDialog(context, ref),
@@ -159,63 +165,34 @@ class BadPracticeScreen extends ConsumerWidget {
   }
 
   Future<void> _showAddDialog(BuildContext context, WidgetRef ref) async {
-    final result = await showDialog<_BadPracticeResult>(
+    await showDialog<void>(
       context: context,
-      builder: (_) => const _BadPracticeDialogContent(),
+      builder: (_) => _BadPracticeDialogContent(ref: ref),
     );
-
-    if (result == null) return;
-
-    final error = await ref.read(badPracticeLogControllerProvider.notifier).logEvent(
-          title: result.title,
-          occurredAt: result.occurredAt,
-          feelingBefore: result.feelingBefore,
-          feelingAfter: result.feelingAfter,
-          consequences: result.consequences,
-          notes: result.notes,
-        );
-
-    if (error != null && context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(ref.read(userErrorMessageMapperProvider).toUserMessage(error))),
-      );
-    }
   }
 }
 
-class _BadPracticeResult {
-  _BadPracticeResult({
-    required this.title,
-    required this.occurredAt,
-    required this.feelingBefore,
-    required this.feelingAfter,
-    required this.consequences,
-    required this.notes,
-  });
-
-  final String title;
-  final DateTime occurredAt;
-  final String? feelingBefore;
-  final String? feelingAfter;
-  final String? consequences;
-  final String? notes;
-}
-
 class _BadPracticeDialogContent extends StatefulWidget {
-  const _BadPracticeDialogContent();
+  const _BadPracticeDialogContent({required this.ref});
+
+  final WidgetRef ref;
 
   @override
   State<_BadPracticeDialogContent> createState() => _BadPracticeDialogContentState();
 }
 
 class _BadPracticeDialogContentState extends State<_BadPracticeDialogContent> {
+  static const String _titleFieldKey = 'title';
+
+  final _formKey = GlobalKey<FormState>();
   final titleController = TextEditingController();
   final feelingBeforeController = TextEditingController();
   final feelingAfterController = TextEditingController();
   final consequencesController = TextEditingController();
   final notesController = TextEditingController();
   DateTime occurredAt = DateTime.now();
-  String? titleError;
+  var isSaving = false;
+  Map<String, String> fieldErrors = const <String, String>{};
 
   @override
   void dispose() {
@@ -227,20 +204,65 @@ class _BadPracticeDialogContentState extends State<_BadPracticeDialogContent> {
     super.dispose();
   }
 
+  String? _validateTitle(String? value) {
+    final requiredError = ValidationUtils.requiredField(value, 'What happened');
+    return requiredError ?? fieldErrors[_titleFieldKey];
+  }
+
+  Future<void> _save() async {
+    if (!_formKey.currentState!.validate()) {
+      return;
+    }
+
+    setState(() {
+      isSaving = true;
+      fieldErrors = const <String, String>{};
+    });
+
+    final error = await widget.ref.read(badPracticeLogControllerProvider.notifier).logEvent(
+          title: titleController.text.trim(),
+          occurredAt: occurredAt,
+          feelingBefore: feelingBeforeController.text.trim().isEmpty
+              ? null
+              : feelingBeforeController.text.trim(),
+          feelingAfter: feelingAfterController.text.trim().isEmpty
+              ? null
+              : feelingAfterController.text.trim(),
+          consequences: consequencesController.text.trim().isEmpty
+              ? null
+              : consequencesController.text.trim(),
+          notes: notesController.text.trim().isEmpty ? null : notesController.text.trim(),
+        );
+
+    if (!mounted) return;
+
+    if (error != null) {
+      setState(() {
+        isSaving = false;
+        fieldErrors = error is ValidationError ? error.fieldErrors : const <String, String>{};
+      });
+      _formKey.currentState!.validate();
+      AppFeedback.showError(context, error);
+      return;
+    }
+
+    Navigator.of(context).pop();
+  }
+
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
       title: const Text('Log Bad Practice'),
       content: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
+        child: Form(
+          key: _formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+            TextFormField(
               controller: titleController,
-              decoration: InputDecoration(
-                labelText: 'What happened',
-                errorText: titleError,
-              ),
+              decoration: const InputDecoration(labelText: 'What happened'),
+              validator: _validateTitle,
             ),
             const SizedBox(height: 12),
             OutlinedButton.icon(
@@ -258,7 +280,7 @@ class _BadPracticeDialogContentState extends State<_BadPracticeDialogContent> {
                   context: context,
                   initialTime: TimeOfDay.fromDateTime(occurredAt),
                 );
-                if (pickedTime == null) {
+                if (pickedTime == null || !mounted) {
                   return;
                 }
                 setState(() {
@@ -296,39 +318,24 @@ class _BadPracticeDialogContentState extends State<_BadPracticeDialogContent> {
               maxLines: 2,
               decoration: const InputDecoration(labelText: 'Notes (optional)'),
             ),
-          ],
+            ],
+          ),
         ),
       ),
       actions: [
         TextButton(
-          onPressed: () => Navigator.of(context).pop(),
+          onPressed: isSaving ? null : () => Navigator.of(context).pop(),
           child: const Text('Cancel'),
         ),
         FilledButton(
-          onPressed: () {
-            setState(() {
-              titleError = titleController.text.trim().isEmpty ? 'This field is required' : null;
-            });
-            if (titleError == null) {
-              Navigator.of(context).pop(
-                _BadPracticeResult(
-                  title: titleController.text.trim(),
-                  occurredAt: occurredAt,
-                  feelingBefore: feelingBeforeController.text.trim().isEmpty
-                      ? null
-                      : feelingBeforeController.text.trim(),
-                  feelingAfter: feelingAfterController.text.trim().isEmpty
-                      ? null
-                      : feelingAfterController.text.trim(),
-                  consequences: consequencesController.text.trim().isEmpty
-                      ? null
-                      : consequencesController.text.trim(),
-                  notes: notesController.text.trim().isEmpty ? null : notesController.text.trim(),
-                ),
-              );
-            }
-          },
-          child: const Text('Save'),
+          onPressed: isSaving ? null : _save,
+          child: isSaving
+              ? const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Text('Save'),
         ),
       ],
     );

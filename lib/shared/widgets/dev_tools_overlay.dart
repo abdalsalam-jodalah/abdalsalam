@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:abdalsalam_logic_flutter/abdalsalam_logic_flutter.dart' as logic;
 import '../../providers/app_providers.dart';
 import '../../features/financial/providers/financial_providers.dart';
+import 'app_feedback.dart';
 
 /// Dev Tools Overlay for monitoring app state and diagnostics
 /// Only visible in debug mode
@@ -19,6 +20,8 @@ class DevToolsOverlay extends ConsumerStatefulWidget {
 }
 
 class _DevToolsOverlayState extends ConsumerState<DevToolsOverlay> {
+  static const String _seedSuccessMessage = 'Financial data seeded successfully!';
+
   bool _isVisible = false;
   bool _isExpanded = false;
 
@@ -206,23 +209,16 @@ class _DevToolsOverlayState extends ConsumerState<DevToolsOverlay> {
             try {
               final seeder = ref.read(financialDataSeederProvider);
               await seeder.seedAll();
-              if (context.mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Financial data seeded successfully!'),
-                    backgroundColor: Colors.green,
-                  ),
-                );
-              }
-            } catch (e) {
-              if (context.mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('Failed to seed data: $e'),
-                    backgroundColor: Colors.red,
-                  ),
-                );
-              }
+              if (!mounted) return;
+              AppFeedback.showSuccess(context, _seedSuccessMessage);
+            } catch (error, stackTrace) {
+              final mapped = ref.read(errorHandlerProvider).mapException(
+                    error,
+                    context: 'DevToolsOverlay.seedFinancialData',
+                    stackTrace: stackTrace,
+                  );
+              if (!mounted) return;
+              AppFeedback.showError(context, mapped);
             }
           },
         ),

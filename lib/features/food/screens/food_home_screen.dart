@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../data/models/food/food_log.dart';
+import '../../../shared/widgets/async_error_view.dart';
 import '../providers/food_providers.dart';
 import 'food_log_form_screen.dart';
 
@@ -41,6 +42,7 @@ class _FoodHomeScreenState extends ConsumerState<FoodHomeScreen> {
       context,
       MaterialPageRoute(builder: (context) => FoodLogFormScreen(template: log)),
     );
+    if (!mounted) return;
     if (saved == true) {
       ref.invalidate(foodLogsProvider);
       ref.invalidate(foodLogStatisticsProvider);
@@ -73,7 +75,11 @@ class _FoodHomeScreenState extends ConsumerState<FoodHomeScreen> {
         const SizedBox(height: 8),
         stats.when(
           loading: () => const Center(child: CircularProgressIndicator()),
-          error: (error, _) => Text('Failed to load stats: $error'),
+          error: (error, _) => AsyncErrorView(
+            error: error,
+            isCompact: true,
+            onRetry: () => ref.invalidate(foodLogStatisticsProvider),
+          ),
           data: (data) {
             return Card(
               child: Padding(
@@ -96,7 +102,11 @@ class _FoodHomeScreenState extends ConsumerState<FoodHomeScreen> {
         const SizedBox(height: 8),
         logs.when(
           loading: () => const Center(child: CircularProgressIndicator()),
-          error: (error, _) => Text('Failed to load meals: $error'),
+          error: (error, _) => AsyncErrorView(
+            error: error,
+            isCompact: true,
+            onRetry: () => ref.invalidate(foodLogsProvider),
+          ),
           data: (allLogs) {
             final groups = _groupTodayByCategory(allLogs);
             if (groups.isEmpty) {

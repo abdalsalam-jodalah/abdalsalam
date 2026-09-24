@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../../../data/models/religious/religious_entry.dart';
+import '../../../shared/widgets/async_error_view.dart';
 import '../../../shared/widgets/empty_state.dart';
 import '../providers/religious_tracking_providers.dart';
 
@@ -124,7 +125,10 @@ class _ReligiousHistoryScreenState extends ConsumerState<ReligiousHistoryScreen>
                 );
               },
               loading: () => const Center(child: CircularProgressIndicator()),
-              error: (error, _) => Center(child: Text('Error: $error')),
+              error: (error, _) => AsyncErrorView(
+                error: error,
+                onRetry: () => ref.invalidate(religiousLogsControllerProvider),
+              ),
             ),
           ),
         ],

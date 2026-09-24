@@ -4,6 +4,8 @@ import 'package:intl/intl.dart';
 import 'package:uuid/uuid.dart';
 import '../../../data/models/financial/budget_model.dart';
 import '../../../data/models/financial/category_model.dart';
+import '../../../shared/widgets/async_error_view.dart';
+import '../../../shared/widgets/app_feedback.dart';
 import '../providers/financial_providers.dart';
 import '../../../providers/app_providers.dart';
 
@@ -22,6 +24,14 @@ class BudgetsPage extends ConsumerStatefulWidget {
 
 class _BudgetsPageState extends ConsumerState<BudgetsPage> {
   static const _defaultUserId = 'user1';
+  static const String _budgetCreatedMessage = 'Budget created successfully';
+  static const String _budgetUpdatedMessage = 'Budget updated';
+  static const String _budgetDeletedMessage = 'Budget deleted';
+  static const String _deleteBudgetTitle = 'Delete Budget';
+  static const String _deleteBudgetMessage = 'Are you sure you want to delete this budget?';
+  static const String _cancelLabel = 'Cancel';
+  static const String _deleteLabel = 'Delete';
+  static const String _createCategoryFirstMessage = 'Create a category first';
 
   BudgetPeriod _selectedPeriod = BudgetPeriod.monthly;
   final _uuid = const Uuid();
@@ -125,7 +135,10 @@ class _BudgetsPageState extends ConsumerState<BudgetsPage> {
 
     return budgetsAsync.when(
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (error, stack) => Center(child: Text('Failed to load budgets')),
+      error: (error, stack) => AsyncErrorView(
+        error: error,
+        onRetry: () => ref.invalidate(activeBudgetsProvider),
+      ),
       data: (budgets) {
         final filtered = budgets
             .where((budget) => budget.period == _selectedPeriod)
@@ -203,6 +216,12 @@ class _BudgetsPageState extends ConsumerState<BudgetsPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            if (progressAsync.hasError)
+              AsyncErrorView(
+                error: progressAsync.error!,
+                isCompact: true,
+                onRetry: () => ref.invalidate(budgetProgressProvider(budget)),
+              ),
             Row(
               children: [
                 Container(
@@ -415,7 +434,7 @@ class _BudgetsPageState extends ConsumerState<BudgetsPage> {
 
     if (categories.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Create a category first')),
+        const SnackBar(content: Text(_createCategoryFirstMessage)),
       );
       return;
     }
@@ -429,7 +448,7 @@ class _BudgetsPageState extends ConsumerState<BudgetsPage> {
       ),
     );
 
-    if (result == null) return;
+    if (result == null || !mounted) return;
 
     final service = ref.read(financialServiceProvider);
     final now = DateTime.now();
@@ -453,11 +472,12 @@ class _BudgetsPageState extends ConsumerState<BudgetsPage> {
         ),
       );
       if (!mounted) return;
-      _showResultSnackBar(
-        isSuccess: saveResult.isSuccess,
-        successMessage: 'Budget created successfully',
-        successColor: Colors.green,
-      );
+      if (saveResult.isSuccess) {
+        AppFeedback.showSuccess(context, _budgetCreatedMessage);
+      } else {
+        AppFeedback.showError(context, saveResult.error!);
+        return;
+      }
     } else {
       final saveResult = await service.updateBudget(
         budget.copyWith(
@@ -470,11 +490,12 @@ class _BudgetsPageState extends ConsumerState<BudgetsPage> {
         ),
       );
       if (!mounted) return;
-      _showResultSnackBar(
-        isSuccess: saveResult.isSuccess,
-        successMessage: 'Budget updated',
-        successColor: Colors.green,
-      );
+      if (saveResult.isSuccess) {
+        AppFeedback.showSuccess(context, _budgetUpdatedMessage);
+      } else {
+        AppFeedback.showError(context, saveResult.error!);
+        return;
+      }
     }
 
     ref.invalidate(activeBudgetsProvider);
@@ -484,45 +505,35 @@ class _BudgetsPageState extends ConsumerState<BudgetsPage> {
     showDialog(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('Delete Budget'),
-        content: const Text('Are you sure you want to delete this budget?'),
+        title: const Text(_deleteBudgetTitle),
+        content: const Text(_deleteBudgetMessage),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext),
-            child: const Text('Cancel'),
+            child: const Text(_cancelLabel),
           ),
           FilledButton(
             onPressed: () async {
-              Navigator.pop(dialogContext);
               final result =
                   await ref.read(financialServiceProvider).deleteBudget(budget);
-              if (!mounted) return;
-              _showResultSnackBar(
-                isSuccess: result.isSuccess,
-                successMessage: 'Budget deleted',
-                successColor: Colors.red,
-              );
-              ref.invalidate(activeBudgetsProvider);
+              if (!dialogContext.mounted) return;
+
+              if (result.isSuccess) {
+                Navigator.pop(dialogContext);
+                if (mounted) {
+                  ref.invalidate(activeBudgetsProvider);
+                  AppFeedback.showSuccess(context, _budgetDeletedMessage);
+                }
+              } else {
+                AppFeedback.showError(dialogContext, result.error!);
+              }
             },
             style: FilledButton.styleFrom(
               backgroundColor: Colors.red,
             ),
-            child: const Text('Delete'),
+            child: const Text(_deleteLabel),
           ),
         ],
-      ),
-    );
-  }
-
-  void _showResultSnackBar({
-    required bool isSuccess,
-    required String successMessage,
-    required Color successColor,
-  }) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(isSuccess ? successMessage : 'Something went wrong'),
-        backgroundColor: isSuccess ? successColor : Colors.red,
       ),
     );
   }
@@ -653,7 +664,7 @@ class _BudgetDialogContentState extends State<_BudgetDialogContent> {
                       lastDate: DateTime(2100),
                       initialDateRange: customRange,
                     );
-                    if (picked != null) {
+                    if (picked != null && mounted) {
                       setState(() => customRange = picked);
                     }
                   },

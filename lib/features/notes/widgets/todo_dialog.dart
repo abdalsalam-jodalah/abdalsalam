@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../../core/errors/app_error.dart';
 import '../../../data/models/habits/habit.dart';
 import '../../../data/models/notes/todo.dart';
+import '../../../shared/widgets/app_feedback.dart';
 import '../../habits/screens/habit_form_screen.dart';
 import '../providers/notes_providers.dart';
 
@@ -16,72 +18,62 @@ Future<bool> showTodoDialog(
   Todo? existing,
   int order = 0,
 }) async {
-  final result = await showDialog<_TodoDialogResult>(
-    context: context,
-    builder: (_) => _TodoDialogContent(existing: existing),
-  );
-
-  if (result == null) return false;
-
   final service = ref.read(todoServiceProvider);
-  final now = DateTime.now();
 
-  final saveResult = existing == null
-      ? await service.create(
-          Todo(
-            id: _uuid.v4(),
-            createdAt: now,
-            updatedAt: now,
-            userId: notesUserId,
-            title: result.title,
-            description: result.description.isEmpty ? null : result.description,
-            dueDate: null,
-            priority: TodoPriority.medium,
-            status: TodoStatus.pending,
-            categoryId: null,
-            tags: const [],
-            reminderAt: null,
-            parentTodoId: null,
-            order: order,
-            habitId: result.linkedHabitId,
-          ),
-        )
-      : await service.update(
-          existing.copyWith(
-            title: result.title,
-            description: result.description.isEmpty ? null : result.description,
-            updatedAt: now,
-            habitId: result.linkedHabitId,
-          ),
-        );
-
-  if (context.mounted) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          saveResult.isSuccess ? (existing == null ? 'Todo created' : 'Todo updated') : 'Something went wrong',
+  Future<AppError?> saveTodo(String title, String description, String? linkedHabitId) async {
+    final now = DateTime.now();
+    final normalizedDescription = description.isEmpty ? null : description;
+    if (existing == null) {
+      final createResult = await service.create(
+        Todo(
+          id: _uuid.v4(),
+          createdAt: now,
+          updatedAt: now,
+          userId: notesUserId,
+          title: title,
+          description: normalizedDescription,
+          dueDate: null,
+          priority: TodoPriority.medium,
+          status: TodoStatus.pending,
+          categoryId: null,
+          tags: const [],
+          reminderAt: null,
+          parentTodoId: null,
+          order: order,
+          habitId: linkedHabitId,
         ),
-        backgroundColor: saveResult.isSuccess ? Colors.green : Colors.red,
+      );
+      return createResult.error;
+    }
+    final updateResult = await service.update(
+      existing.copyWith(
+        title: title,
+        description: normalizedDescription,
+        updatedAt: now,
+        habitId: linkedHabitId,
       ),
     );
+    return updateResult.error;
   }
 
-  ref.invalidate(activeTodosProvider);
-  return saveResult.isSuccess;
-}
+  final isSaved = await showDialog<bool>(
+        context: context,
+        builder: (_) => _TodoDialogContent(existing: existing, onSave: saveTodo),
+      ) ??
+      false;
 
-class _TodoDialogResult {
-  _TodoDialogResult(this.title, this.description, this.linkedHabitId);
-
-  final String title;
-  final String description;
-  final String? linkedHabitId;
+  if (isSaved && context.mounted) {
+    AppFeedback.showSuccess(context, existing == null ? 'Todo created' : 'Todo updated');
+    ref.invalidate(activeTodosProvider);
+  }
+  return isSaved;
 }
 
 class _TodoDialogContent extends StatefulWidget {
-  const _TodoDialogContent({this.existing});
+  const _TodoDialogContent({this.existing, required this.onSave});
 
   final Todo? existing;
+  final Future<AppError?> Function(String title, String description, String? linkedHabitId) onSave;
 
   @override
   State<_TodoDialogContent> createState() => _TodoDialogContentState();
@@ -91,6 +83,7 @@ class _TodoDialogContentState extends State<_TodoDialogContent> {
   final formKey = GlobalKey<FormState>();
   late final TextEditingController titleController;
   late final TextEditingController descriptionController;
+  bool isSaving = false;
   String? linkedHabitId;
 
   @override
@@ -106,6 +99,19 @@ class _TodoDialogContentState extends State<_TodoDialogContent> {
     titleController.dispose();
     descriptionController.dispose();
     super.dispose();
+  }
+
+  Future<void> _save() async {
+    if (!(formKey.currentState?.validate() ?? false)) return;
+    setState(() => isSaving = true);
+    final error = await widget.onSave(titleController.text.trim(), descriptionController.text.trim(), linkedHabitId);
+    if (!mounted) return;
+    if (error == null) {
+      Navigator.pop(context, true);
+      return;
+    }
+    setState(() => isSaving = false);
+    AppFeedback.showError(context, error);
   }
 
   @override
@@ -144,6 +150,7 @@ class _TodoDialogContentState extends State<_TodoDialogContent> {
                               ),
                             ),
                           );
+                          if (!mounted) return;
                           if (habit != null) {
                             setState(() => linkedHabitId = habit.id);
                           }
@@ -159,14 +166,7 @@ class _TodoDialogContentState extends State<_TodoDialogContent> {
       actions: [
         TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
         FilledButton(
-          onPressed: () {
-            if (formKey.currentState?.validate() ?? false) {
-              Navigator.pop(
-                context,
-                _TodoDialogResult(titleController.text.trim(), descriptionController.text.trim(), linkedHabitId),
-              );
-            }
-          },
+          onPressed: isSaving ? null : _save,
           child: Text(widget.existing == null ? 'Create' : 'Save'),
         ),
       ],

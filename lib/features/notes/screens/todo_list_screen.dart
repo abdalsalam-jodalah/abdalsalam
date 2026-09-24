@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../core/constants/user_error_messages.dart';
 import '../../../data/models/notes/todo.dart';
+import '../../../shared/widgets/app_feedback.dart';
+import '../../../shared/widgets/async_error_view.dart';
 import '../../habits/screens/habit_detail_screen.dart';
 import '../providers/notes_providers.dart';
 import '../widgets/notes_widgets.dart';
@@ -27,7 +28,10 @@ class TodoListScreen extends ConsumerWidget {
       ),
       body: todosAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (error, stack) => const Center(child: Text('Failed to load todos')),
+        error: (error, stack) => AsyncErrorView(
+          error: error,
+          onRetry: () => ref.invalidate(activeTodosProvider),
+        ),
         data: (todos) {
           if (todos.isEmpty) {
             return const Center(child: Text('No todos yet. Tap + to add one.'));
@@ -112,7 +116,7 @@ class TodoListScreen extends ConsumerWidget {
       ),
     );
     if (!context.mounted) return;
-    if (updateResult.isFailure) _showFailureSnackBar(context);
+    if (updateResult.isFailure) AppFeedback.showError(context, updateResult.error!);
     ref.invalidate(activeTodosProvider);
   }
 
@@ -120,7 +124,7 @@ class TodoListScreen extends ConsumerWidget {
     final service = ref.read(todoServiceProvider);
     final deleteResult = await service.softDelete(todo.id);
     if (!context.mounted) return;
-    if (deleteResult.isFailure) _showFailureSnackBar(context);
+    if (deleteResult.isFailure) AppFeedback.showError(context, deleteResult.error!);
     ref.invalidate(activeTodosProvider);
   }
 
@@ -128,7 +132,7 @@ class TodoListScreen extends ConsumerWidget {
     final service = ref.read(todoServiceProvider);
     final updateResult = await service.update(todo.copyWith(clearHabitId: true, updatedAt: DateTime.now()));
     if (!context.mounted) return;
-    if (updateResult.isFailure) _showFailureSnackBar(context);
+    if (updateResult.isFailure) AppFeedback.showError(context, updateResult.error!);
     ref.invalidate(activeTodosProvider);
   }
 
@@ -143,13 +147,7 @@ class TodoListScreen extends ConsumerWidget {
     ];
     final updateResult = await service.updateBulk(updated);
     if (!context.mounted) return;
-    if (updateResult.isFailure) _showFailureSnackBar(context);
+    if (updateResult.isFailure) AppFeedback.showError(context, updateResult.error!);
     ref.invalidate(activeTodosProvider);
-  }
-
-  void _showFailureSnackBar(BuildContext context) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text(UserErrorMessages.generic), backgroundColor: Colors.red),
-    );
   }
 }

@@ -19,6 +19,9 @@ AppError fakePlanningStorageFailure() => DatabaseError('fake planning storage fa
 class FakePlanningCrudRepository<T extends BaseModel> {
   final List<T> items;
   bool shouldFailGetActive = false;
+  bool shouldFailCreate = false;
+  bool shouldFailUpdate = false;
+  bool shouldFailSoftDelete = false;
 
   FakePlanningCrudRepository([List<T>? seed]) : items = seed ?? <T>[];
 
@@ -27,6 +30,33 @@ class FakePlanningCrudRepository<T extends BaseModel> {
       return Failure(fakePlanningStorageFailure());
     }
     return Success(List<T>.of(items));
+  }
+
+  Future<Result<T, AppError>> create(T entity) async {
+    if (shouldFailCreate) {
+      return Failure(fakePlanningStorageFailure());
+    }
+    items.add(entity);
+    return Success(entity);
+  }
+
+  Future<Result<void, AppError>> update(T entity) async {
+    if (shouldFailUpdate) {
+      return Failure(fakePlanningStorageFailure());
+    }
+    final index = items.indexWhere((item) => item.id == entity.id);
+    if (index != -1) {
+      items[index] = entity;
+    }
+    return const Success(null);
+  }
+
+  Future<Result<void, AppError>> softDelete(String id) async {
+    if (shouldFailSoftDelete) {
+      return Failure(fakePlanningStorageFailure());
+    }
+    items.removeWhere((item) => item.id == id);
+    return const Success(null);
   }
 
   @override

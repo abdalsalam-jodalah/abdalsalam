@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../data/models/habits/habit.dart';
 import '../../../data/models/habits/habit_log.dart';
+import '../../../shared/widgets/async_error_view.dart';
 import '../providers/habits_providers.dart';
 import '../widgets/habits_widgets.dart';
 import '../widgets/log_habit_sheet.dart';
@@ -16,6 +17,9 @@ class HabitsHomeScreen extends ConsumerWidget {
 
   Future<void> _openNewHabit(BuildContext context, WidgetRef ref) async {
     await Navigator.of(context).pushNamed(HabitFormScreen.routeName);
+    if (!context.mounted) {
+      return;
+    }
     ref.invalidate(activeHabitsProvider);
   }
 
@@ -31,7 +35,10 @@ class HabitsHomeScreen extends ConsumerWidget {
       appBar: AppBar(title: const Text('Habits Home')),
       body: habitsAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (error, _) => Center(child: Text('Failed to load habits: $error')),
+        error: (error, _) => AsyncErrorView(
+          error: error,
+          onRetry: () => ref.invalidate(activeHabitsProvider),
+        ),
         data: (habits) {
           final goodHabits = habits.where((habit) => habit.isGoodHabit).toList(growable: false);
           final badHabits = habits.where((habit) => !habit.isGoodHabit).toList(growable: false);

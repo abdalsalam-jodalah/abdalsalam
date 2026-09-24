@@ -9,6 +9,9 @@ import '../services/currency_service.dart';
 import '../services/recurring_transaction_generator.dart';
 import '../providers/financial_providers.dart';
 import '../../../providers/app_providers.dart';
+import '../../../core/validation/validation_utils.dart';
+import '../../../shared/widgets/async_error_view.dart';
+import '../../../shared/widgets/app_feedback.dart';
 
 class TransactionFormScreen extends ConsumerStatefulWidget {
   static const routeName = '/financial/transaction-form';
@@ -21,6 +24,19 @@ class TransactionFormScreen extends ConsumerStatefulWidget {
 }
 
 class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
+  static const String _amountRequiredMessage = 'Amount is required';
+  static const String _amountInvalidMessage = 'Enter a valid amount';
+  static const String _amountPositiveMessage = 'Amount must be greater than 0';
+  static const String _descriptionRequiredMessage = 'Description is required';
+  static const String _selectCategoryMessage = 'Please select a category';
+  static const String _transactionCreatedMessage = 'Transaction created successfully';
+  static const String _transactionUpdatedMessage = 'Transaction updated successfully';
+  static const String _deleteDialogTitle = 'Delete Transaction';
+  static const String _deleteDialogMessage = 'Are you sure you want to delete this transaction?';
+  static const String _cancelLabel = 'Cancel';
+  static const String _deleteLabel = 'Delete';
+
+  final _formKey = GlobalKey<FormState>();
   late final TextEditingController _descriptionController;
   late final TextEditingController _amountController;
 
@@ -125,49 +141,52 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
           // Form content
           SingleChildScrollView(
             padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Quick amount display
-                _buildAmountPreview(),
-                const SizedBox(height: 24),
+            child: Form(
+              key: _formKey,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Quick amount display
+                  _buildAmountPreview(),
+                  const SizedBox(height: 24),
 
-                // Transaction Type Selector
-                _buildTypeSelector(),
-                const SizedBox(height: 24),
+                  // Transaction Type Selector
+                  _buildTypeSelector(),
+                  const SizedBox(height: 24),
 
-                // Amount Input
-                _buildAmountInput(),
-                const SizedBox(height: 20),
+                  // Amount Input
+                  _buildAmountInput(),
+                  const SizedBox(height: 20),
 
-                // Description Input
-                _buildDescriptionInput(),
-                const SizedBox(height: 20),
+                  // Description Input
+                  _buildDescriptionInput(),
+                  const SizedBox(height: 20),
 
-                // Category Selector with icons
-                _buildCategorySelector(),
-                const SizedBox(height: 20),
+                  // Category Selector with icons
+                  _buildCategorySelector(),
+                  const SizedBox(height: 20),
 
-                // Date Picker
-                _buildDatePicker(),
-                const SizedBox(height: 20),
+                  // Date Picker
+                  _buildDatePicker(),
+                  const SizedBox(height: 20),
 
-                // Payment Method with icons
-                _buildPaymentMethodSelector(),
-                const SizedBox(height: 20),
+                  // Payment Method with icons
+                  _buildPaymentMethodSelector(),
+                  const SizedBox(height: 20),
 
-                // Tags
-                _buildTagsInput(),
-                const SizedBox(height: 20),
+                  // Tags
+                  _buildTagsInput(),
+                  const SizedBox(height: 20),
 
-                // Advanced Options
-                _buildAdvancedOptions(),
-                const SizedBox(height: 24),
+                  // Advanced Options
+                  _buildAdvancedOptions(),
+                  const SizedBox(height: 24),
 
-                // Action Buttons
-                _buildActionButtons(),
-                const SizedBox(height: 20),
-              ],
+                  // Action Buttons
+                  _buildActionButtons(),
+                  const SizedBox(height: 20),
+                ],
+              ),
             ),
           ),
         ],
@@ -356,10 +375,11 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
             const SizedBox(width: 12),
             // Amount Input
             Expanded(
-              child: TextField(
+              child: TextFormField(
                 controller: _amountController,
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
                 onChanged: (_) => setState(() {}),
+                validator: _validateAmount,
                 decoration: InputDecoration(
                   hintText: '0.00',
                   prefixText: '${_selectedCurrency.symbol} ',
@@ -417,8 +437,9 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
           ),
         ),
         const SizedBox(height: 12),
-        TextField(
+        TextFormField(
           controller: _descriptionController,
+          validator: _validateDescription,
           decoration: InputDecoration(
             hintText: 'What did you spend on?',
             border: OutlineInputBorder(
@@ -469,7 +490,11 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
         const SizedBox(height: 12),
         categoriesAsync.when(
           loading: () => const LinearProgressIndicator(),
-          error: (error, stack) => Text('Failed to load categories: $error'),
+          error: (error, stack) => AsyncErrorView(
+            error: error,
+            isCompact: true,
+            onRetry: () => ref.invalidate(allCategoriesProvider),
+          ),
           data: (allCategories) {
             final matchingType =
                 allCategories.where((c) => c.type == _matchingCategoryType).toList();
@@ -483,7 +508,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
 
             final selectedId = matchingType.any((c) => c.id == _selectedCategoryId)
                 ? _selectedCategoryId
-                : matchingType.first.id;
+                : (matchingType.isEmpty ? null : matchingType.first.id);
             if (selectedId != _selectedCategoryId) {
               WidgetsBinding.instance.addPostFrameCallback((_) {
                 if (mounted) setState(() => _selectedCategoryId = selectedId);
@@ -831,7 +856,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
       lastDate: DateTime.now(),
     );
 
-    if (picked != null) {
+    if (picked != null && mounted) {
       setState(() => _selectedDate = picked);
     }
   }
@@ -846,24 +871,32 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
     }
   }
 
+  String? _validateAmount(String? value) {
+    final requiredError = ValidationUtils.requiredField(value, 'Amount');
+    if (requiredError != null) return _amountRequiredMessage;
+    final parsed = double.tryParse(value!.trim());
+    if (parsed == null) return _amountInvalidMessage;
+    return ValidationUtils.positiveNumber(value: parsed, fieldName: 'Amount') != null
+        ? _amountPositiveMessage
+        : null;
+  }
+
+  String? _validateDescription(String? value) {
+    return ValidationUtils.requiredField(value, 'Description') != null
+        ? _descriptionRequiredMessage
+        : null;
+  }
+
   Future<void> _saveTransaction() async {
-    final amount = double.tryParse(_amountController.text);
-    final description = _descriptionController.text.trim();
-
-    if (amount == null || amount <= 0) {
-      _showError('Please enter a valid amount');
-      return;
-    }
-
-    if (description.isEmpty) {
-      _showError('Please enter a description');
-      return;
-    }
+    if (!(_formKey.currentState?.validate() ?? false)) return;
 
     if (_selectedCategoryId == null) {
-      _showError('Please select a category');
+      _showValidationMessage(_selectCategoryMessage);
       return;
     }
+
+    final amount = double.parse(_amountController.text.trim());
+    final description = _descriptionController.text.trim();
 
     final transaction = TransactionModel(
       id: widget.transaction?.id ?? const Uuid().v4(),
@@ -888,66 +921,63 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
 
     final financialService = ref.read(financialServiceProvider);
     final isEditing = widget.transaction != null;
-    final isSuccess = isEditing
-        ? (await financialService.updateTransaction(transaction)).isSuccess
-        : (await financialService.createTransaction(transaction)).isSuccess;
+    final result = isEditing
+        ? await financialService.updateTransaction(transaction)
+        : await financialService.createTransaction(transaction);
 
     if (!mounted) return;
 
-    if (isSuccess) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            isEditing ? 'Transaction updated successfully' : 'Transaction created successfully',
-          ),
-          duration: const Duration(seconds: 2),
-          behavior: SnackBarBehavior.floating,
-          backgroundColor: Colors.green,
-        ),
+    if (result.isSuccess) {
+      AppFeedback.showSuccess(
+        context,
+        isEditing ? _transactionUpdatedMessage : _transactionCreatedMessage,
       );
       Navigator.pop(context, transaction);
     } else {
-      _showError('Failed to save transaction');
+      AppFeedback.showError(context, result.error!);
     }
   }
 
   void _deleteTransaction() {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Delete Transaction'),
-        content: const Text('Are you sure you want to delete this transaction?'),
+      builder: (dialogContext) => AlertDialog(
+        title: const Text(_deleteDialogTitle),
+        content: const Text(_deleteDialogMessage),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text(_cancelLabel),
           ),
           FilledButton(
             onPressed: () async {
-              final navigator = Navigator.of(context);
               final result = await ref
                   .read(financialServiceProvider)
                   .deleteTransaction(widget.transaction!.id);
-              navigator.pop();
+              if (!dialogContext.mounted) return;
+
               if (result.isSuccess) {
-                navigator.pop('deleted');
+                Navigator.pop(dialogContext);
+                if (mounted) Navigator.pop(context, 'deleted');
+              } else {
+                AppFeedback.showError(dialogContext, result.error!);
               }
             },
             style: FilledButton.styleFrom(
               backgroundColor: Colors.red,
             ),
-            child: const Text('Delete'),
+            child: const Text(_deleteLabel),
           ),
         ],
       ),
     );
   }
 
-  void _showError(String message) {
+  void _showValidationMessage(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
-        backgroundColor: Colors.red,
+        backgroundColor: Theme.of(context).colorScheme.error,
         duration: const Duration(seconds: 2),
         behavior: SnackBarBehavior.floating,
       ),

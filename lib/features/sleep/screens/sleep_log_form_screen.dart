@@ -2,9 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../../core/errors/app_error.dart';
 import '../../../data/models/sleep/sleep_log.dart';
+import '../../../shared/widgets/app_feedback.dart';
 import '../providers/sleep_providers.dart';
 import '../services/sleep_log_service.dart';
+
+const _sleepEndBeforeStartMessage = 'Sleep end must be after sleep start.';
 
 class SleepLogFormScreen extends ConsumerStatefulWidget {
   static const routeName = '/sleep/logs/form';
@@ -89,6 +93,13 @@ class _SleepLogFormScreenState extends ConsumerState<SleepLogFormScreen> {
     if (!(_formKey.currentState?.validate() ?? false)) {
       return;
     }
+    if (!_sleepEnd.isAfter(_sleepStart)) {
+      AppFeedback.showError(
+        context,
+        ValidationError(_sleepEndBeforeStartMessage, fieldErrors: {'sleepEnd': _sleepEndBeforeStartMessage}),
+      );
+      return;
+    }
 
     final log = SleepLog(
       id: widget.log?.id ?? _uuid.v4(),
@@ -113,22 +124,12 @@ class _SleepLogFormScreenState extends ConsumerState<SleepLogFormScreen> {
 
     final result = widget.log == null ? await _service.create(log) : await _service.update(log);
 
+    if (!mounted) return;
     if (result.isSuccess) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Sleep log ${widget.log == null ? 'added' : 'updated'}')),
-        );
-        Navigator.of(context).pop(true);
-      }
+      AppFeedback.showSuccess(context, 'Sleep log ${widget.log == null ? 'added' : 'updated'}');
+      Navigator.of(context).pop(true);
     } else {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error: ${result.error?.message ?? 'Unknown error'}'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
+      AppFeedback.showError(context, result.error!);
     }
   }
 

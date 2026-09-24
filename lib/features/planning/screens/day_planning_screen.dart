@@ -2,9 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
-import '../../../core/constants/user_error_messages.dart';
 import '../../../data/models/planning/goal.dart';
 import '../../../data/models/planning/planning_task.dart';
+import '../../../shared/widgets/app_feedback.dart';
+import '../../../shared/widgets/async_error_view.dart';
 import '../providers/planning_providers.dart';
 import '../widgets/planning_task_dialog.dart';
 import '../widgets/reorderable_task_list.dart';
@@ -39,6 +40,7 @@ class _DayPlanningScreenState extends ConsumerState<DayPlanningScreen> {
       firstDate: DateTime(2020),
       lastDate: DateTime(2100),
     );
+    if (!mounted) return;
     if (picked != null) {
       setState(() => _selectedDate = _dateOnly(picked));
     }
@@ -85,7 +87,11 @@ class _DayPlanningScreenState extends ConsumerState<DayPlanningScreen> {
             padding: EdgeInsets.symmetric(vertical: 12),
             child: Center(child: CircularProgressIndicator()),
           ),
-          error: (error, stack) => const Text('Failed to load goals'),
+          error: (error, stack) => AsyncErrorView(
+            error: error,
+            isCompact: true,
+            onRetry: () => ref.invalidate(goalsForDateProvider(_selectedDate)),
+          ),
           data: (goals) {
             if (goals.isEmpty) {
               return const Padding(
@@ -140,7 +146,11 @@ class _DayPlanningScreenState extends ConsumerState<DayPlanningScreen> {
             padding: EdgeInsets.symmetric(vertical: 12),
             child: Center(child: CircularProgressIndicator()),
           ),
-          error: (error, stack) => const Text('Failed to load tasks'),
+          error: (error, stack) => AsyncErrorView(
+            error: error,
+            isCompact: true,
+            onRetry: () => ref.invalidate(tasksForDateProvider(_selectedDate)),
+          ),
           data: (tasks) => ReorderableTaskList(
             tasks: tasks,
             onToggle: _toggleTask,
@@ -177,7 +187,10 @@ class _DayPlanningScreenState extends ConsumerState<DayPlanningScreen> {
       ),
     );
     if (!mounted) return;
-    if (saveResult.isFailure) _showFailureSnackBar();
+    if (saveResult.isFailure) {
+      AppFeedback.showError(context, saveResult.error!);
+      return;
+    }
     ref.invalidate(goalsForDateProvider(_selectedDate));
     ref.invalidate(activeGoalsProvider);
   }
@@ -191,7 +204,10 @@ class _DayPlanningScreenState extends ConsumerState<DayPlanningScreen> {
       ),
     );
     if (!mounted) return;
-    if (updateResult.isFailure) _showFailureSnackBar();
+    if (updateResult.isFailure) {
+      AppFeedback.showError(context, updateResult.error!);
+      return;
+    }
     ref.invalidate(goalsForDateProvider(_selectedDate));
     ref.invalidate(activeGoalsProvider);
   }
@@ -200,7 +216,10 @@ class _DayPlanningScreenState extends ConsumerState<DayPlanningScreen> {
     final service = ref.read(goalServiceProvider);
     final deleteResult = await service.softDelete(goal.id);
     if (!mounted) return;
-    if (deleteResult.isFailure) _showFailureSnackBar();
+    if (deleteResult.isFailure) {
+      AppFeedback.showError(context, deleteResult.error!);
+      return;
+    }
     ref.invalidate(goalsForDateProvider(_selectedDate));
     ref.invalidate(activeGoalsProvider);
   }
@@ -228,7 +247,10 @@ class _DayPlanningScreenState extends ConsumerState<DayPlanningScreen> {
     final service = ref.read(planningTaskServiceProvider);
     final updateResult = await service.update(task.copyWith(isCompleted: completed, updatedAt: DateTime.now()));
     if (!mounted) return;
-    if (updateResult.isFailure) _showFailureSnackBar();
+    if (updateResult.isFailure) {
+      AppFeedback.showError(context, updateResult.error!);
+      return;
+    }
     ref.invalidate(tasksForDateProvider(_selectedDate));
   }
 
@@ -236,7 +258,10 @@ class _DayPlanningScreenState extends ConsumerState<DayPlanningScreen> {
     final service = ref.read(planningTaskServiceProvider);
     final deleteResult = await service.softDelete(task.id);
     if (!mounted) return;
-    if (deleteResult.isFailure) _showFailureSnackBar();
+    if (deleteResult.isFailure) {
+      AppFeedback.showError(context, deleteResult.error!);
+      return;
+    }
     ref.invalidate(tasksForDateProvider(_selectedDate));
   }
 
@@ -247,14 +272,11 @@ class _DayPlanningScreenState extends ConsumerState<DayPlanningScreen> {
     ];
     final updateResult = await service.updateBulk(updated);
     if (!mounted) return;
-    if (updateResult.isFailure) _showFailureSnackBar();
+    if (updateResult.isFailure) {
+      AppFeedback.showError(context, updateResult.error!);
+      return;
+    }
     ref.invalidate(tasksForDateProvider(_selectedDate));
-  }
-
-  void _showFailureSnackBar() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text(UserErrorMessages.generic), backgroundColor: Colors.red),
-    );
   }
 }
 

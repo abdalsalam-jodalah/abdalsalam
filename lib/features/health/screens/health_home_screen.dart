@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../data/models/health/health_metric.dart';
-import '../../../providers/app_providers.dart';
+import '../../../shared/widgets/app_feedback.dart';
+import '../../../shared/widgets/async_error_view.dart';
 import '../../../shared/widgets/chart_widgets.dart';
 import '../../food/screens/food_home_screen.dart';
 import '../../food/screens/food_log_form_screen.dart';
@@ -62,7 +63,11 @@ class HealthHomeScreen extends ConsumerWidget {
         const SizedBox(height: 8),
         checklist.when(
           loading: () => const Center(child: CircularProgressIndicator()),
-          error: (error, _) => Text('Failed to load schedule: $error'),
+          error: (error, _) => AsyncErrorView(
+            error: error,
+            isCompact: true,
+            onRetry: () => ref.invalidate(todayMedicationChecklistProvider),
+          ),
           data: (items) {
             if (items.isEmpty) {
               return const Text('No medications scheduled today.');
@@ -91,7 +96,11 @@ class HealthHomeScreen extends ConsumerWidget {
             padding: const EdgeInsets.all(12),
             child: medicationStats.when(
               loading: () => const Center(child: CircularProgressIndicator()),
-              error: (error, _) => Text('Failed to load stats: $error'),
+              error: (error, _) => AsyncErrorView(
+                error: error,
+                isCompact: true,
+                onRetry: () => ref.invalidate(medicationStatisticsProvider),
+              ),
               data: (stats) {
                 final adherence = double.tryParse('${stats['adherenceRate'] ?? 0}') ?? 0;
                 return Column(
@@ -111,7 +120,11 @@ class HealthHomeScreen extends ConsumerWidget {
         const SizedBox(height: 8),
         metrics.when(
           loading: () => const Center(child: CircularProgressIndicator()),
-          error: (error, _) => Text('Failed to load metrics: $error'),
+          error: (error, _) => AsyncErrorView(
+            error: error,
+            isCompact: true,
+            onRetry: () => ref.invalidate(healthMetricsProvider),
+          ),
           data: (allMetrics) {
             if (allMetrics.isEmpty) {
               return const Text('No metrics logged yet.');
@@ -136,7 +149,11 @@ class HealthHomeScreen extends ConsumerWidget {
         const SizedBox(height: 8),
         healthSummary.when(
           loading: () => const Center(child: CircularProgressIndicator()),
-          error: (error, _) => Text('Failed to load sleep/food summary: $error'),
+          error: (error, _) => AsyncErrorView(
+            error: error,
+            isCompact: true,
+            onRetry: () => ref.invalidate(healthSummaryProvider),
+          ),
           data: (summary) {
             final sleepMinutes = summary['sleepAverageDurationMinutesLast7Days'] as double?;
             final sleepFeeling = summary['sleepAverageFeelingOnWakeup'] as double?;
@@ -227,13 +244,18 @@ class HealthHomeScreen extends ConsumerWidget {
         const SizedBox(height: 8),
         bloodTestStats.when(
           loading: () => const SizedBox.shrink(),
-          error: (error, _) => Text('Failed to load blood test stats: $error'),
+          error: (error, _) => AsyncErrorView(
+            error: error,
+            isCompact: true,
+            onRetry: () => ref.invalidate(bloodTestStatisticsProvider),
+          ),
           data: (stats) {
             final nextTest = stats['nextTestDate'] as String?;
+            final nextTestDate = nextTest != null ? DateTime.tryParse(nextTest) : null;
             return Card(
               child: ListTile(
                 leading: const Icon(Icons.science_outlined),
-                title: Text(nextTest != null ? 'Next blood test: ${_formatDate(DateTime.parse(nextTest))}' : 'No upcoming blood test'),
+                title: Text(nextTestDate != null ? 'Next blood test: ${_formatDate(nextTestDate)}' : 'No upcoming blood test'),
                 subtitle: Text('${stats['scheduledCount'] ?? 0} scheduled, ${stats['completedCount'] ?? 0} completed'),
               ),
             );
@@ -242,13 +264,18 @@ class HealthHomeScreen extends ConsumerWidget {
         const SizedBox(height: 8),
         doctorVisitStats.when(
           loading: () => const SizedBox.shrink(),
-          error: (error, _) => Text('Failed to load doctor visit stats: $error'),
+          error: (error, _) => AsyncErrorView(
+            error: error,
+            isCompact: true,
+            onRetry: () => ref.invalidate(doctorVisitStatisticsProvider),
+          ),
           data: (stats) {
             final nextVisit = stats['nextVisitDate'] as String?;
+            final nextVisitDate = nextVisit != null ? DateTime.tryParse(nextVisit) : null;
             return Card(
               child: ListTile(
                 leading: const Icon(Icons.medical_services_outlined),
-                title: Text(nextVisit != null ? 'Next visit: ${_formatDate(DateTime.parse(nextVisit))}' : 'No upcoming doctor visit'),
+                title: Text(nextVisitDate != null ? 'Next visit: ${_formatDate(nextVisitDate)}' : 'No upcoming doctor visit'),
                 subtitle: Text('${stats['totalVisits'] ?? 0} visit(s) logged'),
               ),
             );
@@ -259,7 +286,11 @@ class HealthHomeScreen extends ConsumerWidget {
         const SizedBox(height: 8),
         activityFeed.when(
           loading: () => const Center(child: CircularProgressIndicator()),
-          error: (error, _) => Text('Failed to load activity: $error'),
+          error: (error, _) => AsyncErrorView(
+            error: error,
+            isCompact: true,
+            onRetry: () => ref.invalidate(healthActivityFeedProvider),
+          ),
           data: (items) {
             if (items.isEmpty) {
               return const Text('No recent activity yet.');
@@ -299,16 +330,12 @@ class _ExportReportButtonState extends ConsumerState<_ExportReportButton> {
 
   Future<void> _export() async {
     setState(() => _isExporting = true);
-    final messenger = ScaffoldMessenger.of(context);
     final result = await ref.read(healthReportServiceProvider).shareReport();
     if (!mounted) {
       return;
     }
     if (result.isFailure) {
-      final message = ref.read(userErrorMessageMapperProvider).toUserMessage(result.error!);
-      messenger.showSnackBar(
-        SnackBar(content: Text(message), backgroundColor: Colors.red),
-      );
+      AppFeedback.showError(context, result.error!);
     }
     setState(() => _isExporting = false);
   }

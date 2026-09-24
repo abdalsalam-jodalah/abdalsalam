@@ -3,6 +3,8 @@ import 'package:intl/intl.dart';
 import '../../../data/models/weather/weather_model.dart';
 
 class WeatherWidget extends StatelessWidget {
+  static const String _staleHint = 'Offline — showing saved weather';
+
   final WeatherModel weather;
   final VoidCallback? onRefresh;
 
@@ -45,6 +47,21 @@ class WeatherWidget extends StatelessWidget {
               ],
             ),
           ),
+
+          if (weather.isStale)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Row(
+                children: [
+                  Icon(Icons.cloud_off, size: 14, color: Colors.grey[600]),
+                  const SizedBox(width: 6),
+                  Text(
+                    _staleHint,
+                    style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                  ),
+                ],
+              ),
+            ),
 
           // Current Weather
           Padding(

@@ -7,10 +7,12 @@ import 'package:uuid/uuid.dart';
 
 import '../../../data/models/food/food_log.dart';
 import '../../../providers/app_providers.dart';
+import '../../../shared/widgets/app_feedback.dart';
 import '../providers/food_providers.dart';
 import '../services/food_log_service.dart';
 
 const _foodCategories = <String>['Breakfast', 'Lunch', 'Dinner', 'Snack', 'Other'];
+const _invalidNumberMessage = 'Must be a number';
 
 class FoodLogFormScreen extends ConsumerStatefulWidget {
   static const routeName = '/food/logs/form';
@@ -93,7 +95,7 @@ class _FoodLogFormScreenState extends ConsumerState<FoodLogFormScreen> {
     final result = await FilePicker.platform.pickFiles(type: FileType.image);
     if (result == null || result.files.isEmpty) return;
     final sourcePath = result.files.single.path;
-    if (sourcePath == null) return;
+    if (sourcePath == null || !mounted) return;
 
     setState(() => _isSavingImage = true);
     final attachmentStorage = ref.read(foodAttachmentStorageServiceProvider);
@@ -113,6 +115,13 @@ class _FoodLogFormScreenState extends ConsumerState<FoodLogFormScreen> {
   }
 
   double? _parseOptionalDouble(String value) => value.trim().isEmpty ? null : double.tryParse(value.trim());
+
+  String? _validateOptionalNumber(String? value) {
+    if (value == null || value.trim().isEmpty) {
+      return null;
+    }
+    return double.tryParse(value.trim()) == null ? _invalidNumberMessage : null;
+  }
 
   Future<void> _save() async {
     if (!(_formKey.currentState?.validate() ?? false)) {
@@ -139,22 +148,12 @@ class _FoodLogFormScreenState extends ConsumerState<FoodLogFormScreen> {
 
     final result = widget.log == null ? await _service.create(log) : await _service.update(log);
 
+    if (!mounted) return;
     if (result.isSuccess) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Food log ${widget.log == null ? 'added' : 'updated'}')),
-        );
-        Navigator.of(context).pop(true);
-      }
+      AppFeedback.showSuccess(context, 'Food log ${widget.log == null ? 'added' : 'updated'}');
+      Navigator.of(context).pop(true);
     } else {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error: ${result.error?.message ?? 'Unknown error'}'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
+      AppFeedback.showError(context, result.error!);
     }
   }
 
@@ -285,6 +284,7 @@ class _FoodLogFormScreenState extends ConsumerState<FoodLogFormScreen> {
               TextFormField(
                 controller: _caloriesController,
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                validator: _validateOptionalNumber,
                 decoration: const InputDecoration(
                   labelText: 'Calories',
                   border: OutlineInputBorder(),
@@ -294,6 +294,7 @@ class _FoodLogFormScreenState extends ConsumerState<FoodLogFormScreen> {
               TextFormField(
                 controller: _proteinController,
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                validator: _validateOptionalNumber,
                 decoration: const InputDecoration(
                   labelText: 'Protein (g)',
                   border: OutlineInputBorder(),
@@ -303,6 +304,7 @@ class _FoodLogFormScreenState extends ConsumerState<FoodLogFormScreen> {
               TextFormField(
                 controller: _fatController,
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                validator: _validateOptionalNumber,
                 decoration: const InputDecoration(
                   labelText: 'Fat (g)',
                   border: OutlineInputBorder(),
@@ -312,6 +314,7 @@ class _FoodLogFormScreenState extends ConsumerState<FoodLogFormScreen> {
               TextFormField(
                 controller: _carbController,
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                validator: _validateOptionalNumber,
                 decoration: const InputDecoration(
                   labelText: 'Carbs (g)',
                   border: OutlineInputBorder(),

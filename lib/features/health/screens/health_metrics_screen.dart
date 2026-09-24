@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../data/models/health/health_metric.dart';
+import '../../../shared/widgets/app_feedback.dart';
+import '../../../shared/widgets/async_error_view.dart';
 import '../providers/health_providers.dart';
 import 'health_metric_form_screen.dart';
 
@@ -21,7 +23,12 @@ class HealthMetricsScreen extends ConsumerStatefulWidget {
 class _HealthMetricsScreenState extends ConsumerState<HealthMetricsScreen> {
   Future<void> _delete(HealthMetric metric) async {
     final service = ref.read(healthMetricServiceProvider);
-    await service.softDelete(metric.id);
+    final result = await service.softDelete(metric.id);
+    if (!mounted) return;
+    if (result.isFailure) {
+      AppFeedback.showError(context, result.error!);
+      return;
+    }
     ref.invalidate(healthMetricsProvider);
     ref.invalidate(healthMetricStatisticsProvider);
   }
@@ -31,6 +38,7 @@ class _HealthMetricsScreenState extends ConsumerState<HealthMetricsScreen> {
       context,
       MaterialPageRoute(builder: (context) => HealthMetricFormScreen(metric: metric)),
     );
+    if (!mounted) return;
     if (saved == true) {
       ref.invalidate(healthMetricsProvider);
       ref.invalidate(healthMetricStatisticsProvider);
@@ -44,7 +52,10 @@ class _HealthMetricsScreenState extends ConsumerState<HealthMetricsScreen> {
 
     final content = metricsAsync.when(
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (error, _) => Center(child: Text('Failed to load metrics: $error')),
+      error: (error, _) => AsyncErrorView(
+        error: error,
+        onRetry: () => ref.invalidate(healthMetricsProvider),
+      ),
       data: (metrics) {
         if (metrics.isEmpty) {
           return const Center(child: Text('No metrics logged yet. Tap + to add one.'));

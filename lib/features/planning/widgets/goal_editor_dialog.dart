@@ -3,9 +3,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../../data/models/planning/goal.dart';
+import '../../../shared/widgets/app_feedback.dart';
 import '../providers/planning_providers.dart';
 
 const _uuid = Uuid();
+const String _goalCreatedMessage = 'Goal created';
+const String _goalUpdatedMessage = 'Goal updated';
 
 String goalScopeLabel(GoalScope scope) {
   switch (scope) {
@@ -112,17 +115,13 @@ Future<bool> showGoalEditorDialog(
           ),
         );
 
-  if (context.mounted) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          saveResult.isSuccess ? (existing == null ? 'Goal created' : 'Goal updated') : 'Something went wrong',
-        ),
-        backgroundColor: saveResult.isSuccess ? Colors.green : Colors.red,
-      ),
-    );
+  if (!context.mounted) return false;
+  if (saveResult.isFailure) {
+    AppFeedback.showError(context, saveResult.error!);
+    return false;
   }
 
+  AppFeedback.showSuccess(context, existing == null ? _goalCreatedMessage : _goalUpdatedMessage);
   ref.invalidate(activeGoalsProvider);
   ref.invalidate(todaysGoalsProvider);
   final resolvedTopicId = topicId ?? existing?.topicId;
@@ -130,7 +129,7 @@ Future<bool> showGoalEditorDialog(
     ref.invalidate(goalsForTopicProvider(resolvedTopicId));
   }
 
-  return saveResult.isSuccess;
+  return true;
 }
 
 class _GoalEditorResult {
@@ -274,6 +273,7 @@ class _GoalEditorContentState extends State<_GoalEditorContent> {
                     firstDate: DateTime(2020),
                     lastDate: DateTime(2100),
                   );
+                  if (!mounted) return;
                   if (picked != null) {
                     setState(() => selectedDate = picked);
                   }

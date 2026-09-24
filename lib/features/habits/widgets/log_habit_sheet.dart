@@ -4,6 +4,7 @@ import 'package:uuid/uuid.dart';
 
 import '../../../data/models/habits/habit.dart';
 import '../../../data/models/habits/habit_log.dart';
+import '../../../shared/widgets/app_feedback.dart';
 import '../providers/habits_providers.dart';
 import 'habit_style_picker.dart';
 
@@ -15,6 +16,9 @@ Future<void> showLogHabitSheet(BuildContext context, WidgetRef ref, Habit habit)
     isScrollControlled: true,
     builder: (sheetContext) => _LogHabitSheet(habit: habit),
   );
+  if (!context.mounted) {
+    return;
+  }
   ref.invalidate(logsForHabitProvider(habit.id));
   ref.invalidate(habitStatisticsProvider(habit.id));
 }
@@ -29,6 +33,12 @@ class _LogHabitSheet extends ConsumerStatefulWidget {
 }
 
 class _LogHabitSheetState extends ConsumerState<_LogHabitSheet> {
+  static const int _maxFreeTextLength = 500;
+  static const String _situationRequiredMessage = 'Situation is required';
+  static const String _valueInvalidMessage = 'Value must be a number';
+  static const String _loggedMessage = 'Logged';
+
+  final _formKey = GlobalKey<FormState>();
   DateTime _completedAt = DateTime.now();
   final _notesController = TextEditingController();
   final _valueController = TextEditingController();
@@ -69,7 +79,7 @@ class _LogHabitSheetState extends ConsumerState<_LogHabitSheet> {
       return;
     }
     final time = await showTimePicker(context: context, initialTime: TimeOfDay.fromDateTime(_completedAt));
-    if (time == null) {
+    if (time == null || !mounted) {
       return;
     }
     setState(() {
@@ -77,7 +87,34 @@ class _LogHabitSheetState extends ConsumerState<_LogHabitSheet> {
     });
   }
 
+  String? _optionalTextValidator(String? value) {
+    if (value != null && value.trim().length > _maxFreeTextLength) {
+      return 'Must be $_maxFreeTextLength characters or fewer';
+    }
+    return null;
+  }
+
+  String? _situationValidator(String? value) {
+    if (value == null || value.trim().isEmpty) {
+      return _situationRequiredMessage;
+    }
+    return _optionalTextValidator(value);
+  }
+
+  String? _valueValidator(String? value) {
+    if (value == null || value.trim().isEmpty) {
+      return null;
+    }
+    if (double.tryParse(value.trim()) == null) {
+      return _valueInvalidMessage;
+    }
+    return null;
+  }
+
   Future<void> _submit() async {
+    if (!(_formKey.currentState?.validate() ?? false)) {
+      return;
+    }
     setState(() => _isSaving = true);
     final now = DateTime.now();
     final log = HabitLog(
@@ -106,15 +143,14 @@ class _LogHabitSheetState extends ConsumerState<_LogHabitSheet> {
       return;
     }
     setState(() => _isSaving = false);
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(result.isSuccess ? 'Logged' : 'Something went wrong'),
-        backgroundColor: result.isSuccess ? Colors.green : Colors.red,
-      ),
-    );
-    if (result.isSuccess) {
-      Navigator.of(context).pop();
+
+    if (result.isFailure) {
+      AppFeedback.showError(context, result.error!);
+      return;
     }
+
+    AppFeedback.showSuccess(context, _loggedMessage);
+    Navigator.of(context).pop();
   }
 
   String? _emptyToNull(String value) => value.trim().isEmpty ? null : value.trim();
@@ -129,10 +165,12 @@ class _LogHabitSheetState extends ConsumerState<_LogHabitSheet> {
         bottom: MediaQuery.of(context).viewInsets.bottom + 16,
       ),
       child: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
+        child: Form(
+          key: _formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
             Text(
               widget.habit.isGoodHabit ? 'Log occurrence' : 'Log incident',
               style: Theme.of(context).textTheme.titleMedium,
@@ -164,43 +202,51 @@ class _LogHabitSheetState extends ConsumerState<_LogHabitSheet> {
                 controller: _valueController,
                 keyboardType: TextInputType.number,
                 decoration: const InputDecoration(labelText: 'Value (optional)', border: OutlineInputBorder()),
+                validator: _valueValidator,
               ),
               const SizedBox(height: 12),
               TextFormField(
                 controller: _notesController,
                 maxLines: 3,
                 decoration: const InputDecoration(labelText: 'Notes (optional)', border: OutlineInputBorder()),
+                validator: _optionalTextValidator,
               ),
             ] else ...[
               const SizedBox(height: 12),
               TextFormField(
                 controller: _situationController,
                 decoration: const InputDecoration(labelText: 'Situation', border: OutlineInputBorder()),
+                validator: _situationValidator,
               ),
               const SizedBox(height: 12),
               TextFormField(
                 controller: _causeController,
                 decoration: const InputDecoration(labelText: 'Cause', border: OutlineInputBorder()),
+                validator: _optionalTextValidator,
               ),
               const SizedBox(height: 12),
               TextFormField(
                 controller: _triggerController,
                 decoration: const InputDecoration(labelText: 'Trigger', border: OutlineInputBorder()),
+                validator: _optionalTextValidator,
               ),
               const SizedBox(height: 12),
               TextFormField(
                 controller: _locationController,
                 decoration: const InputDecoration(labelText: 'Location', border: OutlineInputBorder()),
+                validator: _optionalTextValidator,
               ),
               const SizedBox(height: 12),
               TextFormField(
                 controller: _thoughtsBeforeController,
                 decoration: const InputDecoration(labelText: 'Thoughts before', border: OutlineInputBorder()),
+                validator: _optionalTextValidator,
               ),
               const SizedBox(height: 12),
               TextFormField(
                 controller: _thoughtsAfterController,
                 decoration: const InputDecoration(labelText: 'Thoughts after', border: OutlineInputBorder()),
+                validator: _optionalTextValidator,
               ),
               const SizedBox(height: 12),
               Text('Intensity: $_intensity', style: Theme.of(context).textTheme.titleSmall),
@@ -216,12 +262,14 @@ class _LogHabitSheetState extends ConsumerState<_LogHabitSheet> {
               TextFormField(
                 controller: _recoveryActionController,
                 decoration: const InputDecoration(labelText: 'Recovery action', border: OutlineInputBorder()),
+                validator: _optionalTextValidator,
               ),
               const SizedBox(height: 12),
               TextFormField(
                 controller: _notesController,
                 maxLines: 3,
                 decoration: const InputDecoration(labelText: 'Notes (optional)', border: OutlineInputBorder()),
+                validator: _optionalTextValidator,
               ),
             ],
             const SizedBox(height: 20),
@@ -231,6 +279,7 @@ class _LogHabitSheetState extends ConsumerState<_LogHabitSheet> {
               label: const Text('Save log'),
             ),
           ],
+          ),
         ),
       ),
     );

@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../data/models/sleep/sleep_log.dart';
+import '../../../shared/widgets/app_feedback.dart';
+import '../../../shared/widgets/async_error_view.dart';
 import '../providers/sleep_providers.dart';
 import 'sleep_log_form_screen.dart';
 
@@ -21,7 +23,12 @@ class SleepLogsScreen extends ConsumerStatefulWidget {
 class _SleepLogsScreenState extends ConsumerState<SleepLogsScreen> {
   Future<void> _delete(SleepLog log) async {
     final service = ref.read(sleepLogServiceProvider);
-    await service.softDelete(log.id);
+    final result = await service.softDelete(log.id);
+    if (!mounted) return;
+    if (result.isFailure) {
+      AppFeedback.showError(context, result.error!);
+      return;
+    }
     ref.invalidate(sleepLogsProvider);
     ref.invalidate(sleepLogStatisticsProvider);
   }
@@ -31,6 +38,7 @@ class _SleepLogsScreenState extends ConsumerState<SleepLogsScreen> {
       context,
       MaterialPageRoute(builder: (context) => SleepLogFormScreen(log: log)),
     );
+    if (!mounted) return;
     if (saved == true) {
       ref.invalidate(sleepLogsProvider);
       ref.invalidate(sleepLogStatisticsProvider);
@@ -46,7 +54,10 @@ class _SleepLogsScreenState extends ConsumerState<SleepLogsScreen> {
 
     final content = logsAsync.when(
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (error, _) => Center(child: Text('Failed to load sleep logs: $error')),
+      error: (error, _) => AsyncErrorView(
+        error: error,
+        onRetry: () => ref.invalidate(sleepLogsProvider),
+      ),
       data: (logs) {
         if (logs.isEmpty) {
           return const Center(child: Text('No sleep logs yet. Tap + to add one.'));

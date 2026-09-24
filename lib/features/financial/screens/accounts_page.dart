@@ -3,6 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 import '../../../data/models/financial/account_model.dart';
 import '../../../data/models/financial/financial_icon_palette.dart';
+import '../../../providers/app_providers.dart';
+import '../../../shared/widgets/async_error_view.dart';
+import '../../../shared/widgets/app_feedback.dart';
 import '../providers/financial_providers.dart';
 
 class AccountsPage extends ConsumerStatefulWidget {
@@ -35,6 +38,12 @@ class _AccountsPageState extends ConsumerState<AccountsPage> {
     Colors.teal,
   ];
   static const _currencyOptions = ['ILS', 'USD', 'JOD'];
+  static const String _accountCreatedMessage = 'Account created successfully';
+  static const String _accountUpdatedMessage = 'Account updated';
+  static const String _accountDeletedMessage = 'Account deleted';
+  static const String _deleteAccountTitle = 'Delete Account';
+  static const String _cancelLabel = 'Cancel';
+  static const String _deleteLabel = 'Delete';
 
   final _uuid = const Uuid();
 
@@ -89,7 +98,10 @@ class _AccountsPageState extends ConsumerState<AccountsPage> {
 
     return accountsAsync.when(
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (error, stack) => const Center(child: Text('Failed to load accounts')),
+      error: (error, stack) => AsyncErrorView(
+        error: error,
+        onRetry: () => ref.invalidate(activeAccountsProvider),
+      ),
       data: (accounts) {
         if (accounts.isEmpty) {
           return Center(
@@ -152,7 +164,15 @@ class _AccountsPageState extends ConsumerState<AccountsPage> {
                 height: 16,
                 child: CircularProgressIndicator(strokeWidth: 2),
               ),
-              error: (_, _) => const Text('—'),
+              error: (error, _) => IconButton(
+                icon: Icon(
+                  Icons.error_outline,
+                  color: Theme.of(context).colorScheme.error,
+                  size: 18,
+                ),
+                tooltip: ref.watch(userErrorMessageMapperProvider).toUserMessage(error),
+                onPressed: () => ref.invalidate(accountBalanceProvider(account)),
+              ),
             ),
             PopupMenuButton(
               itemBuilder: (context) => [
@@ -184,7 +204,7 @@ class _AccountsPageState extends ConsumerState<AccountsPage> {
       ),
     );
 
-    if (result == null) return;
+    if (result == null || !mounted) return;
 
     final service = ref.read(financialServiceProvider);
     final now = DateTime.now();
@@ -205,7 +225,12 @@ class _AccountsPageState extends ConsumerState<AccountsPage> {
         ),
       );
       if (!mounted) return;
-      _showResultSnackBar(saveResult.isSuccess, 'Account created successfully');
+      if (saveResult.isSuccess) {
+        AppFeedback.showSuccess(context, _accountCreatedMessage);
+      } else {
+        AppFeedback.showError(context, saveResult.error!);
+        return;
+      }
     } else {
       final saveResult = await service.updateAccount(
         account.copyWith(
@@ -219,7 +244,12 @@ class _AccountsPageState extends ConsumerState<AccountsPage> {
         ),
       );
       if (!mounted) return;
-      _showResultSnackBar(saveResult.isSuccess, 'Account updated');
+      if (saveResult.isSuccess) {
+        AppFeedback.showSuccess(context, _accountUpdatedMessage);
+      } else {
+        AppFeedback.showError(context, saveResult.error!);
+        return;
+      }
     }
 
     ref.invalidate(allAccountsProvider);
@@ -230,35 +260,33 @@ class _AccountsPageState extends ConsumerState<AccountsPage> {
     showDialog(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('Delete Account'),
+        title: const Text(_deleteAccountTitle),
         content: Text('Are you sure you want to delete "${account.name}"?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext),
-            child: const Text('Cancel'),
+            child: const Text(_cancelLabel),
           ),
           FilledButton(
             onPressed: () async {
-              Navigator.pop(dialogContext);
               final result = await ref.read(financialServiceProvider).deleteAccount(account);
-              if (!mounted) return;
-              _showResultSnackBar(result.isSuccess, 'Account deleted');
-              ref.invalidate(allAccountsProvider);
-              ref.invalidate(activeAccountsProvider);
+              if (!dialogContext.mounted) return;
+
+              if (result.isSuccess) {
+                Navigator.pop(dialogContext);
+                if (mounted) {
+                  ref.invalidate(allAccountsProvider);
+                  ref.invalidate(activeAccountsProvider);
+                  AppFeedback.showSuccess(context, _accountDeletedMessage);
+                }
+              } else {
+                AppFeedback.showError(dialogContext, result.error!);
+              }
             },
             style: FilledButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('Delete'),
+            child: const Text(_deleteLabel),
           ),
         ],
-      ),
-    );
-  }
-
-  void _showResultSnackBar(bool isSuccess, String successMessage) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(isSuccess ? successMessage : 'Something went wrong'),
-        backgroundColor: isSuccess ? Colors.green : Colors.red,
       ),
     );
   }

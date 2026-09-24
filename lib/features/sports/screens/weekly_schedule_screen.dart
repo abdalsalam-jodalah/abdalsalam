@@ -2,19 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
-import '../../../core/constants/user_error_messages.dart';
 import '../../../data/models/sports/exercise.dart';
 import '../../../data/models/sports/weekly_schedule_entry.dart';
+import '../../../shared/widgets/app_feedback.dart';
+import '../../../shared/widgets/async_error_view.dart';
 import '../providers/sports_providers.dart';
 import '../widgets/reorderable_sport_list.dart';
 
 const _uuid = Uuid();
-
-void _showFailureSnackBar(BuildContext context) {
-  ScaffoldMessenger.of(context).showSnackBar(
-    const SnackBar(content: Text(UserErrorMessages.generic), backgroundColor: Colors.red),
-  );
-}
 
 const List<String> _dayLabels = [
   'Monday',
@@ -119,11 +114,18 @@ class _DayScheduleListState extends ConsumerState<_DayScheduleList> {
 
     return entriesAsync.when(
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (error, stack) => const Center(child: Text('Failed to load schedule')),
+      error: (error, stack) => AsyncErrorView(
+        error: error,
+        onRetry: () => ref.invalidate(scheduleForDayProvider(dayOfWeek)),
+      ),
       data: (entries) {
         return exercisesAsync.when(
           loading: () => const Center(child: CircularProgressIndicator()),
-          error: (error, stack) => const Center(child: Text('Failed to load exercises')),
+          error: (error, stack) => AsyncErrorView(
+            error: error,
+            isCompact: true,
+            onRetry: () => ref.invalidate(allActiveExercisesProvider),
+          ),
           data: (allExercises) {
             final exerciseById = {for (final exercise in allExercises) exercise.id: exercise};
 
@@ -175,7 +177,9 @@ class _DayScheduleListState extends ConsumerState<_DayScheduleList> {
     if (!mounted) {
       return;
     }
-    if (updateResult.isFailure) _showFailureSnackBar(context);
+    if (updateResult.isFailure) {
+      AppFeedback.showError(context, updateResult.error!);
+    }
     ref.invalidate(scheduleForDayProvider(dayOfWeek));
   }
 
@@ -185,7 +189,9 @@ class _DayScheduleListState extends ConsumerState<_DayScheduleList> {
     if (!mounted) {
       return;
     }
-    if (deleteResult.isFailure) _showFailureSnackBar(context);
+    if (deleteResult.isFailure) {
+      AppFeedback.showError(context, deleteResult.error!);
+    }
     ref.invalidate(scheduleForDayProvider(dayOfWeek));
   }
 
@@ -238,7 +244,9 @@ class _DayScheduleListState extends ConsumerState<_DayScheduleList> {
     if (!mounted) {
       return;
     }
-    if (createResult.isFailure) _showFailureSnackBar(context);
+    if (createResult.isFailure) {
+      AppFeedback.showError(context, createResult.error!);
+    }
     ref.invalidate(scheduleForDayProvider(dayOfWeek));
   }
 }

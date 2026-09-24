@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../data/models/food/food_log.dart';
+import '../../../shared/widgets/app_feedback.dart';
+import '../../../shared/widgets/async_error_view.dart';
 import '../providers/food_providers.dart';
 import 'food_log_form_screen.dart';
 
@@ -21,7 +23,12 @@ class FoodLogsScreen extends ConsumerStatefulWidget {
 class _FoodLogsScreenState extends ConsumerState<FoodLogsScreen> {
   Future<void> _delete(FoodLog log) async {
     final service = ref.read(foodLogServiceProvider);
-    await service.softDelete(log.id);
+    final result = await service.softDelete(log.id);
+    if (!mounted) return;
+    if (result.isFailure) {
+      AppFeedback.showError(context, result.error!);
+      return;
+    }
     ref.invalidate(foodLogsProvider);
     ref.invalidate(foodLogStatisticsProvider);
   }
@@ -31,6 +38,7 @@ class _FoodLogsScreenState extends ConsumerState<FoodLogsScreen> {
       context,
       MaterialPageRoute(builder: (context) => FoodLogFormScreen(log: log)),
     );
+    if (!mounted) return;
     if (saved == true) {
       ref.invalidate(foodLogsProvider);
       ref.invalidate(foodLogStatisticsProvider);
@@ -42,6 +50,7 @@ class _FoodLogsScreenState extends ConsumerState<FoodLogsScreen> {
       context,
       MaterialPageRoute(builder: (context) => FoodLogFormScreen(template: log)),
     );
+    if (!mounted) return;
     if (saved == true) {
       ref.invalidate(foodLogsProvider);
       ref.invalidate(foodLogStatisticsProvider);
@@ -66,7 +75,10 @@ class _FoodLogsScreenState extends ConsumerState<FoodLogsScreen> {
 
     final content = logsAsync.when(
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (error, _) => Center(child: Text('Failed to load food logs: $error')),
+      error: (error, _) => AsyncErrorView(
+        error: error,
+        onRetry: () => ref.invalidate(foodLogsProvider),
+      ),
       data: (logs) {
         if (logs.isEmpty) {
           return const Center(child: Text('No food logs yet. Tap + to add one.'));

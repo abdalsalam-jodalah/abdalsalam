@@ -8,6 +8,7 @@ import '../../weather/widgets/weather_widget.dart';
 import '../../financial/widgets/currency_rates_widget.dart';
 import '../providers/dashboard_providers.dart';
 import '../../../providers/app_providers.dart';
+import '../../../shared/widgets/async_error_view.dart';
 import '../../../shared/widgets/offline_banner.dart';
 
 class DashboardScreen extends ConsumerWidget {
@@ -119,20 +120,10 @@ class DashboardScreen extends ConsumerWidget {
               },
               error: (error, stack) {
                 return Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Row(
-                      children: [
-                        const Icon(Icons.error_outline, color: Colors.orange),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Text(
-                            'Weather unavailable',
-                            style: TextStyle(color: Colors.grey[600]),
-                          ),
-                        ),
-                      ],
-                    ),
+                  child: AsyncErrorView(
+                    error: error,
+                    isCompact: true,
+                    onRetry: () => ref.invalidate(weatherProvider),
                   ),
                 );
               },
@@ -170,20 +161,14 @@ class DashboardScreen extends ConsumerWidget {
                 ),
               ),
               error: (error, stack) => Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.error_outline, color: Colors.orange),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Text(
-                          'Exchange rates unavailable',
-                          style: TextStyle(color: Colors.grey[600]),
-                        ),
-                      ),
-                    ],
-                  ),
+                child: AsyncErrorView(
+                  error: error,
+                  isCompact: true,
+                  onRetry: () {
+                    ref.invalidate(currencyRatesProvider);
+                    ref.invalidate(usdHistoryProvider);
+                    ref.invalidate(jodHistoryProvider);
+                  },
                 ),
               ),
             ),
@@ -241,7 +226,11 @@ class DashboardScreen extends ConsumerWidget {
                     const SizedBox(height: 8),
                     todaysGoalsAsync.when(
                       loading: () => const Center(child: CircularProgressIndicator()),
-                      error: (error, stack) => const Text('Failed to load goals'),
+                      error: (error, stack) => AsyncErrorView(
+                        error: error,
+                        isCompact: true,
+                        onRetry: () => ref.invalidate(todaysGoalsProvider),
+                      ),
                       data: (goals) {
                         if (goals.isEmpty) {
                           return const Text('No goals set for today.');

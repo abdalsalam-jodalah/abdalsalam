@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../../../data/models/financial/financial_activity_log_model.dart';
+import '../../../shared/widgets/async_error_view.dart';
 import '../providers/financial_providers.dart';
 
 class FinancialActivityLogScreen extends ConsumerWidget {
@@ -18,7 +19,10 @@ class FinancialActivityLogScreen extends ConsumerWidget {
       appBar: AppBar(title: const Text('Activity Log')),
       body: logAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (error, stack) => Center(child: Text('Failed to load activity log: $error')),
+        error: (error, stack) => AsyncErrorView(
+          error: error,
+          onRetry: () => ref.invalidate(recentActivityLogProvider),
+        ),
         data: (entries) {
           if (entries.isEmpty) {
             return Center(

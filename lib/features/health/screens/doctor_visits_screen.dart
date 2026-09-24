@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../data/models/health/doctor_visit.dart';
+import '../../../shared/widgets/app_feedback.dart';
+import '../../../shared/widgets/async_error_view.dart';
 import '../providers/health_providers.dart';
 import 'doctor_visit_form_screen.dart';
 
@@ -21,7 +23,12 @@ class DoctorVisitsScreen extends ConsumerStatefulWidget {
 class _DoctorVisitsScreenState extends ConsumerState<DoctorVisitsScreen> {
   Future<void> _delete(DoctorVisit visit) async {
     final service = ref.read(doctorVisitServiceProvider);
-    await service.deleteWithAttachments(visit.id);
+    final result = await service.deleteWithAttachments(visit.id);
+    if (!mounted) return;
+    if (result.isFailure) {
+      AppFeedback.showError(context, result.error!);
+      return;
+    }
     ref.invalidate(doctorVisitsProvider);
     ref.invalidate(doctorVisitStatisticsProvider);
   }
@@ -31,6 +38,7 @@ class _DoctorVisitsScreenState extends ConsumerState<DoctorVisitsScreen> {
       context,
       MaterialPageRoute(builder: (context) => DoctorVisitFormScreen(visit: visit)),
     );
+    if (!mounted) return;
     if (saved == true) {
       ref.invalidate(doctorVisitsProvider);
       ref.invalidate(doctorVisitStatisticsProvider);
@@ -46,7 +54,10 @@ class _DoctorVisitsScreenState extends ConsumerState<DoctorVisitsScreen> {
 
     final content = visitsAsync.when(
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (error, _) => Center(child: Text('Failed to load doctor visits: $error')),
+      error: (error, _) => AsyncErrorView(
+        error: error,
+        onRetry: () => ref.invalidate(doctorVisitsProvider),
+      ),
       data: (visits) {
         if (visits.isEmpty) {
           return const Center(child: Text('No doctor visits logged yet. Tap + to add one.'));

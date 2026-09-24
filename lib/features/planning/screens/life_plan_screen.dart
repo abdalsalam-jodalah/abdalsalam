@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../../data/models/planning/life_plan.dart';
+import '../../../shared/widgets/app_feedback.dart';
+import '../../../shared/widgets/async_error_view.dart';
 import '../providers/planning_providers.dart';
 
 class LifePlanScreen extends ConsumerStatefulWidget {
@@ -15,6 +17,8 @@ class LifePlanScreen extends ConsumerStatefulWidget {
 }
 
 class _LifePlanScreenState extends ConsumerState<LifePlanScreen> {
+  static const String _lifePlanSavedMessage = 'Life plan saved';
+
   final _uuid = const Uuid();
   final _visionController = TextEditingController();
   final _missionController = TextEditingController();
@@ -64,16 +68,13 @@ class _LifePlanScreenState extends ConsumerState<LifePlanScreen> {
     final result = _existingPlan == null ? await service.create(plan) : await service.update(plan);
 
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(result.isSuccess ? 'Life plan saved' : 'Something went wrong'),
-        backgroundColor: result.isSuccess ? Colors.green : Colors.red,
-      ),
-    );
-    if (result.isSuccess) {
-      _existingPlan = plan;
-      ref.invalidate(lifePlanProvider);
+    if (result.isFailure) {
+      AppFeedback.showError(context, result.error!);
+      return;
     }
+    AppFeedback.showSuccess(context, _lifePlanSavedMessage);
+    _existingPlan = plan;
+    ref.invalidate(lifePlanProvider);
   }
 
   @override
@@ -84,7 +85,10 @@ class _LifePlanScreenState extends ConsumerState<LifePlanScreen> {
       appBar: AppBar(title: const Text('Life Plan')),
       body: lifePlanAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (error, stack) => const Center(child: Text('Failed to load life plan')),
+        error: (error, stack) => AsyncErrorView(
+          error: error,
+          onRetry: () => ref.invalidate(lifePlanProvider),
+        ),
         data: (plan) {
           _loadFrom(plan);
           return ListView(

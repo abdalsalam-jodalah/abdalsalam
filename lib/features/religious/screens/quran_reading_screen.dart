@@ -2,8 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
+import '../../../core/errors/app_error.dart';
+import '../../../core/validation/validation_utils.dart';
 import '../../../data/models/religious/quran_reading.dart';
-import '../../../providers/app_providers.dart';
+import '../../../shared/widgets/app_feedback.dart';
+import '../../../shared/widgets/async_error_view.dart';
 import '../../../shared/widgets/chart_widgets.dart';
 import '../../../shared/widgets/empty_state.dart';
 import '../../../shared/widgets/section_header.dart';
@@ -69,13 +72,10 @@ class QuranReadingScreen extends ConsumerWidget {
                 if (!context.mounted) {
                   return;
                 }
-                final message = result.when(
-                  success: _legacyImportSummaryMessage,
-                  failure: (error) =>
-                      ref.read(userErrorMessageMapperProvider).toUserMessage(error),
-                );
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text(message)),
+                result.when(
+                  success: (report) =>
+                      AppFeedback.showSuccess(context, _legacyImportSummaryMessage(report)),
+                  failure: (error) => AppFeedback.showError(context, error),
                 );
               }
             },
@@ -187,7 +187,11 @@ class QuranReadingScreen extends ConsumerWidget {
                   ),
                 ),
                 loading: () => const Center(child: CircularProgressIndicator()),
-                error: (err, _) => Text('Could not load chart: $err'),
+                error: (err, _) => AsyncErrorView(
+                  error: err,
+                  isCompact: true,
+                  onRetry: () => ref.invalidate(quranPagesLast7DaysProvider),
+                ),
               ),
               const SizedBox(height: 20),
               const SectionHeader(title: 'History'),
@@ -204,70 +208,49 @@ class QuranReadingScreen extends ConsumerWidget {
                   return Column(children: sorted.map((log) => _ReadingCard(log: log)).toList());
                 },
                 loading: () => const Center(child: CircularProgressIndicator()),
-                error: (err, _) => Text('Error: $err'),
+                error: (err, _) => AsyncErrorView(
+                  error: err,
+                  isCompact: true,
+                  onRetry: () => ref.invalidate(quranAllReadingsProvider),
+                ),
               ),
             ],
           );
         },
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (err, _) => Center(child: Text('Error: $err')),
+        error: (err, _) => AsyncErrorView(
+          error: err,
+          onRetry: () => ref.invalidate(quranReadingControllerProvider),
+        ),
       );
   }
 
   Future<void> _showAddDialog(BuildContext context, WidgetRef ref) async {
-    final result = await showDialog<_QuranReadingResult>(
+    await showDialog<void>(
       context: context,
-      builder: (_) => const _QuranReadingDialogContent(),
+      builder: (_) => _QuranReadingDialogContent(ref: ref),
     );
-
-    if (result == null) return;
-
-    final error = await ref.read(quranReadingControllerProvider.notifier).addReading(
-          surahNumber: result.surah,
-          ayahFrom: result.ayahFrom,
-          ayahTo: result.ayahTo,
-          durationMinutes: result.minutes,
-          pagesRead: result.pages,
-          memorized: result.memorized,
-          place: result.place,
-        );
-
-    if (error != null && context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(ref.read(userErrorMessageMapperProvider).toUserMessage(error))),
-      );
-    }
   }
 }
 
-class _QuranReadingResult {
-  _QuranReadingResult({
-    required this.surah,
-    required this.ayahFrom,
-    required this.ayahTo,
-    required this.pages,
-    required this.minutes,
-    required this.memorized,
-    required this.place,
-  });
-
-  final int surah;
-  final int ayahFrom;
-  final int ayahTo;
-  final int pages;
-  final int minutes;
-  final bool memorized;
-  final String? place;
-}
-
 class _QuranReadingDialogContent extends StatefulWidget {
-  const _QuranReadingDialogContent();
+  const _QuranReadingDialogContent({required this.ref});
+
+  final WidgetRef ref;
 
   @override
   State<_QuranReadingDialogContent> createState() => _QuranReadingDialogContentState();
 }
 
 class _QuranReadingDialogContentState extends State<_QuranReadingDialogContent> {
+  static const String _surahFieldKey = 'surahNumber';
+  static const String _ayahToFieldKey = 'ayahTo';
+  static const String _pagesFieldKey = 'pagesRead';
+  static const String _minutesFieldKey = 'durationMinutes';
+  static const int _minSurahNumber = 1;
+  static const int _maxSurahNumber = 114;
+
+  final _formKey = GlobalKey<FormState>();
   final surahController = TextEditingController();
   final ayahFromController = TextEditingController();
   final ayahToController = TextEditingController();
@@ -275,7 +258,8 @@ class _QuranReadingDialogContentState extends State<_QuranReadingDialogContent> 
   final pagesController = TextEditingController();
   final placeController = TextEditingController();
   var memorized = false;
-  String? error;
+  var isSaving = false;
+  Map<String, String> fieldErrors = const <String, String>{};
 
   @override
   void dispose() {
@@ -288,111 +272,177 @@ class _QuranReadingDialogContentState extends State<_QuranReadingDialogContent> 
     super.dispose();
   }
 
+  String? _validateSurah(String? value) {
+    final requiredError = ValidationUtils.requiredField(value, 'Surah number');
+    if (requiredError != null) return requiredError;
+    final parsed = int.tryParse(value!.trim());
+    if (parsed == null) return 'Surah number must be a whole number';
+    final rangeError = ValidationUtils.numericRange(
+      value: parsed,
+      fieldName: 'Surah number',
+      min: _minSurahNumber,
+      max: _maxSurahNumber,
+    );
+    return rangeError ?? fieldErrors[_surahFieldKey];
+  }
+
+  String? _validateAyahFrom(String? value) {
+    final requiredError = ValidationUtils.requiredField(value, 'Ayah from');
+    if (requiredError != null) return requiredError;
+    final parsed = int.tryParse(value!.trim());
+    if (parsed == null) return 'Ayah from must be a whole number';
+    return ValidationUtils.positiveNumber(value: parsed, fieldName: 'Ayah from');
+  }
+
+  String? _validateAyahTo(String? value) {
+    final requiredError = ValidationUtils.requiredField(value, 'Ayah to');
+    if (requiredError != null) return requiredError;
+    final parsed = int.tryParse(value!.trim());
+    if (parsed == null) return 'Ayah to must be a whole number';
+    final positiveError = ValidationUtils.positiveNumber(value: parsed, fieldName: 'Ayah to');
+    if (positiveError != null) return positiveError;
+    final ayahFrom = int.tryParse(ayahFromController.text.trim());
+    if (ayahFrom != null && parsed < ayahFrom) {
+      return 'Ayah to must be at least ayah from';
+    }
+    return fieldErrors[_ayahToFieldKey];
+  }
+
+  String? _validatePages(String? value) {
+    final requiredError = ValidationUtils.requiredField(value, 'Pages read');
+    if (requiredError != null) return requiredError;
+    final parsed = int.tryParse(value!.trim());
+    if (parsed == null) return 'Pages read must be a whole number';
+    final rangeError = ValidationUtils.numericRange(value: parsed, fieldName: 'Pages read', min: 0);
+    return rangeError ?? fieldErrors[_pagesFieldKey];
+  }
+
+  String? _validateMinutes(String? value) {
+    final requiredError = ValidationUtils.requiredField(value, 'Minutes spent');
+    if (requiredError != null) return requiredError;
+    final parsed = int.tryParse(value!.trim());
+    if (parsed == null) return 'Minutes spent must be a whole number';
+    final positiveError = ValidationUtils.positiveNumber(value: parsed, fieldName: 'Minutes spent');
+    return positiveError ?? fieldErrors[_minutesFieldKey];
+  }
+
+  Future<void> _save() async {
+    if (!_formKey.currentState!.validate()) {
+      return;
+    }
+
+    setState(() {
+      isSaving = true;
+      fieldErrors = const <String, String>{};
+    });
+
+    final error = await widget.ref.read(quranReadingControllerProvider.notifier).addReading(
+          surahNumber: int.parse(surahController.text.trim()),
+          ayahFrom: int.parse(ayahFromController.text.trim()),
+          ayahTo: int.parse(ayahToController.text.trim()),
+          durationMinutes: int.parse(durationController.text.trim()),
+          pagesRead: int.parse(pagesController.text.trim()),
+          memorized: memorized,
+          place: placeController.text.trim().isEmpty ? null : placeController.text.trim(),
+        );
+
+    if (!mounted) return;
+
+    if (error != null) {
+      setState(() {
+        isSaving = false;
+        fieldErrors = error is ValidationError ? error.fieldErrors : const <String, String>{};
+      });
+      _formKey.currentState!.validate();
+      AppFeedback.showError(context, error);
+      return;
+    }
+
+    Navigator.of(context).pop();
+  }
+
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
       title: const Text('Add Quran Reading'),
       content: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: surahController,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(labelText: 'Surah number (1-114)'),
-            ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: ayahFromController,
-                    keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(labelText: 'Ayah from'),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: TextField(
-                    controller: ayahToController,
-                    keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(labelText: 'Ayah to'),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: pagesController,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(labelText: 'Pages read'),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: durationController,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(labelText: 'Minutes spent'),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: placeController,
-              decoration: const InputDecoration(labelText: 'Place (optional)'),
-            ),
-            const SizedBox(height: 8),
-            SwitchListTile(
-              contentPadding: EdgeInsets.zero,
-              title: const Text('Memorized this range'),
-              value: memorized,
-              onChanged: (value) => setState(() => memorized = value),
-            ),
-            if (error != null)
-              Padding(
-                padding: const EdgeInsets.only(top: 8),
-                child: Text(error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
+        child: Form(
+          key: _formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextFormField(
+                controller: surahController,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(labelText: 'Surah number (1-114)'),
+                validator: _validateSurah,
               ),
-          ],
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextFormField(
+                      controller: ayahFromController,
+                      keyboardType: TextInputType.number,
+                      decoration: const InputDecoration(labelText: 'Ayah from'),
+                      validator: _validateAyahFrom,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: TextFormField(
+                      controller: ayahToController,
+                      keyboardType: TextInputType.number,
+                      decoration: const InputDecoration(labelText: 'Ayah to'),
+                      validator: _validateAyahTo,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: pagesController,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(labelText: 'Pages read'),
+                validator: _validatePages,
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: durationController,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(labelText: 'Minutes spent'),
+                validator: _validateMinutes,
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: placeController,
+                decoration: const InputDecoration(labelText: 'Place (optional)'),
+              ),
+              const SizedBox(height: 8),
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                title: const Text('Memorized this range'),
+                value: memorized,
+                onChanged: (value) => setState(() => memorized = value),
+              ),
+            ],
+          ),
         ),
       ),
       actions: [
         TextButton(
-          onPressed: () => Navigator.of(context).pop(),
+          onPressed: isSaving ? null : () => Navigator.of(context).pop(),
           child: const Text('Cancel'),
         ),
         FilledButton(
-          onPressed: () {
-            final surah = int.tryParse(surahController.text.trim()) ?? 0;
-            final ayahFrom = int.tryParse(ayahFromController.text.trim()) ?? 0;
-            final ayahTo = int.tryParse(ayahToController.text.trim()) ?? 0;
-            final pages = int.tryParse(pagesController.text.trim()) ?? 0;
-            final minutes = int.tryParse(durationController.text.trim()) ?? 0;
-            setState(() {
-              if (surah < 1 || surah > 114) {
-                error = 'Surah number must be between 1 and 114';
-              } else if (ayahTo < ayahFrom) {
-                error = 'Ayah to must be >= ayah from';
-              } else if (minutes <= 0) {
-                error = 'Minutes must be greater than 0';
-              } else if (pages < 0) {
-                error = 'Pages cannot be negative';
-              } else {
-                error = null;
-              }
-            });
-            if (error == null) {
-              Navigator.of(context).pop(
-                _QuranReadingResult(
-                  surah: surah,
-                  ayahFrom: ayahFrom,
-                  ayahTo: ayahTo,
-                  pages: pages,
-                  minutes: minutes,
-                  memorized: memorized,
-                  place: placeController.text.trim().isEmpty ? null : placeController.text.trim(),
-                ),
-              );
-            }
-          },
-          child: const Text('Save'),
+          onPressed: isSaving ? null : _save,
+          child: isSaving
+              ? const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Text('Save'),
         ),
       ],
     );

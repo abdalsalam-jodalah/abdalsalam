@@ -18,6 +18,7 @@ const Map<String, IconData> kHabitIconOptions = <String, IconData>{
 
 const String kDefaultHabitIcon = 'star';
 const String kDefaultHabitColor = '#2196F3';
+const int _kFallbackHabitColorValue = 0xFF2196F3;
 
 const List<String> kHabitMoodLabels = <String>['Great', 'Good', 'Neutral', 'Low', 'Bad'];
 
@@ -32,8 +33,8 @@ double? habitMoodScore(String? mood) {
 
 Color habitColorFromHex(String hex) {
   final normalized = hex.replaceFirst('#', '');
-  final value = int.parse(normalized.length == 6 ? 'FF$normalized' : normalized, radix: 16);
-  return Color(value);
+  final parsed = int.tryParse(normalized.length == 6 ? 'FF$normalized' : normalized, radix: 16);
+  return Color(parsed ?? _kFallbackHabitColorValue);
 }
 
 String habitColorToHex(Color color) {

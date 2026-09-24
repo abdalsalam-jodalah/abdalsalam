@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../../core/errors/app_error.dart';
 import '../../../data/models/habits/habit.dart';
 import '../../../providers/app_providers.dart';
+import '../../../shared/widgets/app_feedback.dart';
 import '../providers/habits_providers.dart';
 import '../widgets/habit_style_picker.dart';
 
@@ -40,6 +42,12 @@ class HabitFormScreen extends ConsumerStatefulWidget {
 }
 
 class _HabitFormScreenState extends ConsumerState<HabitFormScreen> {
+  static const int _maxDescriptionLength = 500;
+  static const String _habitCreatedMessage = 'Habit created';
+  static const String _habitUpdatedMessage = 'Habit updated';
+  static const String _customCategoryRequiredMessage = 'Custom category name is required';
+  static const String _descriptionTooLongMessage = 'Description must be $_maxDescriptionLength characters or fewer';
+
   final _formKey = GlobalKey<FormState>();
   late final TextEditingController _nameController;
   late final TextEditingController _descriptionController;
@@ -98,9 +106,17 @@ class _HabitFormScreenState extends ConsumerState<HabitFormScreen> {
     super.dispose();
   }
 
-  TimeOfDay _parseTimeOfDay(String value) {
+  TimeOfDay? _parseTimeOfDay(String value) {
     final parts = value.split(':');
-    return TimeOfDay(hour: int.parse(parts[0]), minute: int.parse(parts[1]));
+    if (parts.length != 2) {
+      return null;
+    }
+    final hour = int.tryParse(parts[0]);
+    final minute = int.tryParse(parts[1]);
+    if (hour == null || minute == null || hour < 0 || hour > 23 || minute < 0 || minute > 59) {
+      return null;
+    }
+    return TimeOfDay(hour: hour, minute: minute);
   }
 
   String _formatTimeOfDay(TimeOfDay time) =>
@@ -156,14 +172,23 @@ class _HabitFormScreenState extends ConsumerState<HabitFormScreen> {
     );
 
     final bool isSuccess;
+    final AppError? writeError;
     if (_existing == null) {
-      isSuccess = (await service.create(habit)).isSuccess;
+      final result = await service.create(habit);
+      isSuccess = result.isSuccess;
+      writeError = result.error;
     } else {
-      isSuccess = (await service.update(habit)).isSuccess;
+      final result = await service.update(habit);
+      isSuccess = result.isSuccess;
+      writeError = result.error;
     }
 
+    AppError? reminderError;
     if (isSuccess && _reminderTime != null) {
-      await service.scheduleHabitReminder(habit);
+      final reminderResult = await service.scheduleHabitReminder(habit);
+      if (reminderResult.isFailure) {
+        reminderError = reminderResult.error;
+      }
     }
 
     if (!mounted) {
@@ -171,22 +196,23 @@ class _HabitFormScreenState extends ConsumerState<HabitFormScreen> {
     }
     setState(() => _isSaving = false);
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(isSuccess
-            ? (_existing == null ? 'Habit created' : 'Habit updated')
-            : 'Something went wrong'),
-        backgroundColor: isSuccess ? Colors.green : Colors.red,
-      ),
-    );
-
-    if (isSuccess) {
-      ref.invalidate(activeHabitsProvider);
-      if (_existing != null) {
-        ref.invalidate(habitByIdProvider(habit.id));
-      }
-      Navigator.of(context).pop(habit);
+    if (!isSuccess) {
+      AppFeedback.showError(context, writeError!);
+      return;
     }
+
+    ref.invalidate(activeHabitsProvider);
+    if (_existing != null) {
+      ref.invalidate(habitByIdProvider(habit.id));
+    }
+
+    if (reminderError != null) {
+      AppFeedback.showError(context, reminderError);
+    } else {
+      AppFeedback.showSuccess(context, _existing == null ? _habitCreatedMessage : _habitUpdatedMessage);
+    }
+
+    Navigator.of(context).pop(habit);
   }
 
   @override
@@ -214,6 +240,8 @@ class _HabitFormScreenState extends ConsumerState<HabitFormScreen> {
                 controller: _descriptionController,
                 maxLines: 3,
                 decoration: const InputDecoration(labelText: 'Description', border: OutlineInputBorder()),
+                validator: (value) =>
+                    (value != null && value.trim().length > _maxDescriptionLength) ? _descriptionTooLongMessage : null,
               ),
               const SizedBox(height: 16),
               Text('Is this a good or bad habit?', style: Theme.of(context).textTheme.titleSmall),
@@ -248,6 +276,8 @@ class _HabitFormScreenState extends ConsumerState<HabitFormScreen> {
                       labelText: 'Custom category name',
                       border: OutlineInputBorder(),
                     ),
+                    validator: (value) =>
+                        (value == null || value.trim().isEmpty) ? _customCategoryRequiredMessage : null,
                   ),
                 ],
               ],
@@ -338,9 +368,10 @@ class _HabitFormScreenState extends ConsumerState<HabitFormScreen> {
                     return;
                   }
                   final picked = await showTimePicker(context: context, initialTime: _reminderTime!);
-                  if (picked != null) {
-                    setState(() => _reminderTime = picked);
+                  if (picked == null || !mounted) {
+                    return;
                   }
+                  setState(() => _reminderTime = picked);
                 },
               ),
               const SizedBox(height: 20),

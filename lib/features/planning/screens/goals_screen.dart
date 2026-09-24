@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../data/models/planning/goal.dart';
+import '../../../shared/widgets/app_feedback.dart';
+import '../../../shared/widgets/async_error_view.dart';
 import '../providers/planning_providers.dart';
 import '../widgets/goal_editor_dialog.dart';
 
@@ -15,6 +17,8 @@ class GoalsScreen extends ConsumerStatefulWidget {
 }
 
 class _GoalsScreenState extends ConsumerState<GoalsScreen> {
+  static const String _goalDeletedMessage = 'Goal deleted';
+
   GoalScope? _selectedScope;
   LifeArea? _selectedArea;
 
@@ -42,7 +46,10 @@ class _GoalsScreenState extends ConsumerState<GoalsScreen> {
           Expanded(
             child: goalsAsync.when(
               loading: () => const Center(child: CircularProgressIndicator()),
-              error: (error, stack) => const Center(child: Text('Failed to load goals')),
+              error: (error, stack) => AsyncErrorView(
+                error: error,
+                onRetry: () => ref.invalidate(activeGoalsProvider),
+              ),
               data: (goals) {
                 final filtered = goals
                     .where((goal) => _selectedScope == null || goal.scope == _selectedScope)
@@ -221,12 +228,11 @@ class _GoalsScreenState extends ConsumerState<GoalsScreen> {
 
     final result = await ref.read(goalServiceProvider).softDelete(goal.id);
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(result.isSuccess ? 'Goal deleted' : 'Something went wrong'),
-        backgroundColor: result.isSuccess ? Colors.red : Colors.grey,
-      ),
-    );
+    if (result.isFailure) {
+      AppFeedback.showError(context, result.error!);
+      return;
+    }
+    AppFeedback.showSuccess(context, _goalDeletedMessage);
     ref.invalidate(activeGoalsProvider);
     ref.invalidate(todaysGoalsProvider);
   }

@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 import '../providers/financial_providers.dart';
 import '../../../data/models/financial/transaction_model.dart';
 import '../../../data/models/financial/category_model.dart';
+import '../../../shared/widgets/async_error_view.dart';
 import 'transactions_page.dart';
 import 'budgets_page.dart';
 import 'categories_page.dart';
@@ -88,7 +89,7 @@ class _FinancialDashboardScreenState extends ConsumerState<FinancialDashboardScr
       '/financial/transaction-form',
     );
 
-    if (result != null) {
+    if (result != null && mounted) {
       ref.invalidate(allTransactionsProvider);
       ref.invalidate(recentTransactionsProvider);
       ref.invalidate(financialSummaryProvider);
@@ -170,7 +171,10 @@ class _FinancialDashboardScreenState extends ConsumerState<FinancialDashboardScr
       error: (error, stack) => Card(
         child: Padding(
           padding: const EdgeInsets.all(20),
-          child: Text('Error loading summary: $error'),
+          child: AsyncErrorView(
+            error: error,
+            onRetry: () => ref.invalidate(netWorthProvider),
+          ),
         ),
       ),
       data: (summary) {
@@ -344,7 +348,10 @@ class _FinancialDashboardScreenState extends ConsumerState<FinancialDashboardScr
       error: (error, stack) => Card(
         child: Padding(
           padding: const EdgeInsets.all(20),
-          child: Text('Error loading balance: $error'),
+          child: AsyncErrorView(
+            error: error,
+            onRetry: () => ref.invalidate(financialSummaryProvider(dateRange)),
+          ),
         ),
       ),
     );
@@ -546,7 +553,11 @@ class _FinancialDashboardScreenState extends ConsumerState<FinancialDashboardScr
         );
       },
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (error, stack) => Center(child: Text('Error: $error')),
+      error: (error, stack) => AsyncErrorView(
+        error: error,
+        isCompact: true,
+        onRetry: () => ref.invalidate(allTransactionsProvider),
+      ),
     );
   }
 
@@ -605,7 +616,7 @@ class _FinancialDashboardScreenState extends ConsumerState<FinancialDashboardScr
               onPressed: () async {
                 await Navigator.pushNamed(context, BudgetsPage.routeName);
 
-                // Refresh budgets after returning
+                if (!mounted) return;
                 ref.invalidate(activeBudgetsProvider);
               },
               child: const Text('View More'),
@@ -658,12 +669,12 @@ class _FinancialDashboardScreenState extends ConsumerState<FinancialDashboardScr
                           category.icon,
                           category.color,
                         ),
-                        error: (_, _) => _buildBudgetCard(
+                        error: (error, stack) => _buildBudgetCardError(
                           category.name,
-                          budget.amount,
-                          0,
                           category.icon,
                           category.color,
+                          error,
+                          () => ref.invalidate(budgetProgressProvider(budget)),
                         ),
                       );
                     },
@@ -671,16 +682,75 @@ class _FinancialDashboardScreenState extends ConsumerState<FinancialDashboardScr
                       width: 160,
                       child: Card(child: Center(child: CircularProgressIndicator())),
                     ),
-                    error: (_, _) => const SizedBox(width: 160),
+                    error: (error, stack) => SizedBox(
+                      width: 160,
+                      child: Card(
+                        child: AsyncErrorView(
+                          error: error,
+                          isCompact: true,
+                          onRetry: () => ref.invalidate(allCategoriesProvider),
+                        ),
+                      ),
+                    ),
                   );
                 },
               ),
             );
           },
           loading: () => const Center(child: CircularProgressIndicator()),
-          error: (error, stack) => Text('Error loading budgets: $error'),
+          error: (error, stack) => AsyncErrorView(
+            error: error,
+            onRetry: () => ref.invalidate(activeBudgetsProvider),
+          ),
         ),
       ],
+    );
+  }
+
+  Widget _buildBudgetCardError(
+    String name,
+    IconData icon,
+    Color color,
+    Object error,
+    VoidCallback onRetry,
+  ) {
+    return Card(
+      margin: const EdgeInsets.only(right: 12),
+      child: Container(
+        width: 160,
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: color.withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Icon(icon, color: color, size: 16),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    name,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
+            AsyncErrorView(error: error, onRetry: onRetry, isCompact: true),
+          ],
+        ),
+      ),
     );
   }
 
@@ -782,7 +852,7 @@ class _FinancialDashboardScreenState extends ConsumerState<FinancialDashboardScr
               onPressed: () async {
                 await Navigator.pushNamed(context, TransactionsPage.routeName);
 
-                // Refresh transactions after returning
+                if (!mounted) return;
                 ref.invalidate(allTransactionsProvider);
                 ref.invalidate(recentTransactionsProvider);
                 ref.invalidate(financialSummaryProvider);
@@ -827,11 +897,18 @@ class _FinancialDashboardScreenState extends ConsumerState<FinancialDashboardScr
                 );
               },
               loading: () => const Center(child: CircularProgressIndicator()),
-              error: (_, _) => const Text('Error loading categories'),
+              error: (error, stack) => AsyncErrorView(
+                error: error,
+                isCompact: true,
+                onRetry: () => ref.invalidate(allCategoriesProvider),
+              ),
             );
           },
           loading: () => const Center(child: CircularProgressIndicator()),
-          error: (error, stack) => Text('Error loading transactions: $error'),
+          error: (error, stack) => AsyncErrorView(
+            error: error,
+            onRetry: () => ref.invalidate(recentTransactionsProvider),
+          ),
         ),
       ],
     );
@@ -903,7 +980,7 @@ class _FinancialDashboardScreenState extends ConsumerState<FinancialDashboardScr
               onPressed: () async {
                 await Navigator.pushNamed(context, CategoriesPage.routeName);
 
-                // Refresh categories after returning
+                if (!mounted) return;
                 ref.invalidate(allCategoriesProvider);
                 ref.invalidate(categoryTotalsProvider);
               },
@@ -949,11 +1026,18 @@ class _FinancialDashboardScreenState extends ConsumerState<FinancialDashboardScr
                 );
               },
               loading: () => const Center(child: CircularProgressIndicator()),
-              error: (_, _) => const Text('Error loading totals'),
+              error: (error, stack) => AsyncErrorView(
+                error: error,
+                isCompact: true,
+                onRetry: () => ref.invalidate(categoryTotalsProvider(dateRange)),
+              ),
             );
           },
           loading: () => const Center(child: CircularProgressIndicator()),
-          error: (error, stack) => Text('Error loading categories: $error'),
+          error: (error, stack) => AsyncErrorView(
+            error: error,
+            onRetry: () => ref.invalidate(allCategoriesProvider),
+          ),
         ),
       ],
     );

@@ -5,6 +5,8 @@ import 'package:uuid/uuid.dart';
 
 import '../../../data/models/health/doctor_visit.dart';
 import '../../../providers/app_providers.dart';
+import '../../../shared/widgets/app_feedback.dart';
+import '../../../shared/widgets/async_error_view.dart';
 import '../providers/health_providers.dart';
 import '../services/doctor_visit_service.dart';
 
@@ -70,7 +72,7 @@ class _DoctorVisitFormScreenState extends ConsumerState<DoctorVisitFormScreen> {
     final result = await FilePicker.platform.pickFiles();
     if (result == null || result.files.isEmpty) return;
     final sourcePath = result.files.single.path;
-    if (sourcePath == null) return;
+    if (sourcePath == null || !mounted) return;
 
     setState(() => _isSavingAttachment = true);
     final attachmentStorage = ref.read(attachmentStorageServiceProvider);
@@ -114,22 +116,12 @@ class _DoctorVisitFormScreenState extends ConsumerState<DoctorVisitFormScreen> {
         ? await _service.create(visit)
         : await _service.updateWithAttachmentCleanup(widget.visit!, visit);
 
+    if (!mounted) return;
     if (result.isSuccess) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Doctor visit ${widget.visit == null ? 'added' : 'updated'}')),
-        );
-        Navigator.of(context).pop(true);
-      }
+      AppFeedback.showSuccess(context, 'Doctor visit ${widget.visit == null ? 'added' : 'updated'}');
+      Navigator.of(context).pop(true);
     } else {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error: ${result.error?.message ?? 'Unknown error'}'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
+      AppFeedback.showError(context, result.error!);
     }
   }
 
@@ -202,7 +194,11 @@ class _DoctorVisitFormScreenState extends ConsumerState<DoctorVisitFormScreen> {
               const SizedBox(height: 8),
               medicationsAsync.when(
                 loading: () => const Center(child: CircularProgressIndicator()),
-                error: (error, _) => Text('Failed to load medications: $error'),
+                error: (error, _) => AsyncErrorView(
+                  error: error,
+                  isCompact: true,
+                  onRetry: () => ref.invalidate(sortedMedicationsProvider),
+                ),
                 data: (medications) {
                   if (medications.isEmpty) {
                     return const Text('No medications recorded yet.');

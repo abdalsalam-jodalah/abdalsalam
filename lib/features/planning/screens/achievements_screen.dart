@@ -4,6 +4,8 @@ import 'package:uuid/uuid.dart';
 
 import '../../../data/models/planning/achievement.dart';
 import '../../../data/models/planning/goal.dart';
+import '../../../shared/widgets/app_feedback.dart';
+import '../../../shared/widgets/async_error_view.dart';
 import '../providers/planning_providers.dart';
 
 class AchievementsScreen extends ConsumerStatefulWidget {
@@ -16,6 +18,8 @@ class AchievementsScreen extends ConsumerStatefulWidget {
 }
 
 class _AchievementsScreenState extends ConsumerState<AchievementsScreen> {
+  static const String _achievementLoggedMessage = 'Achievement logged';
+
   final _uuid = const Uuid();
 
   @override
@@ -31,7 +35,10 @@ class _AchievementsScreenState extends ConsumerState<AchievementsScreen> {
       ),
       body: achievementsAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (error, stack) => const Center(child: Text('Failed to load achievements')),
+        error: (error, stack) => AsyncErrorView(
+          error: error,
+          onRetry: () => ref.invalidate(achievementsProvider),
+        ),
         data: (achievements) {
           if (achievements.isEmpty) {
             return const Center(child: Text('No achievements yet. Tap + to log one.'));
@@ -105,12 +112,11 @@ class _AchievementsScreenState extends ConsumerState<AchievementsScreen> {
     );
 
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(saveResult.isSuccess ? 'Achievement logged' : 'Something went wrong'),
-        backgroundColor: saveResult.isSuccess ? Colors.green : Colors.red,
-      ),
-    );
+    if (saveResult.isFailure) {
+      AppFeedback.showError(context, saveResult.error!);
+      return;
+    }
+    AppFeedback.showSuccess(context, _achievementLoggedMessage);
     ref.invalidate(achievementsProvider);
   }
 }
@@ -198,6 +204,7 @@ class _AchievementDialogContentState extends State<_AchievementDialogContent> {
                     firstDate: DateTime(2020),
                     lastDate: DateTime(2100),
                   );
+                  if (!mounted) return;
                   if (picked != null) {
                     setState(() => achievedAt = picked);
                   }

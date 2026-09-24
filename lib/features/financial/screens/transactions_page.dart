@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../../../data/models/financial/transaction_model.dart';
+import '../../../shared/widgets/async_error_view.dart';
+import '../../../shared/widgets/app_feedback.dart';
 import '../providers/financial_providers.dart';
 
 class TransactionsPage extends ConsumerStatefulWidget {
@@ -18,6 +20,13 @@ class TransactionsPage extends ConsumerStatefulWidget {
 }
 
 class _TransactionsPageState extends ConsumerState<TransactionsPage> {
+  static const String _deleteDialogTitle = 'Delete Transaction';
+  static const String _deleteDialogMessage =
+      'Are you sure you want to delete this transaction?';
+  static const String _cancelLabel = 'Cancel';
+  static const String _deleteLabel = 'Delete';
+  static const String _transactionDeletedMessage = 'Transaction deleted';
+
   String? _selectedCategory;
   TransactionType? _selectedType;
 
@@ -87,7 +96,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
       '/financial/transaction-form',
     );
 
-    if (result != null) {
+    if (result != null && mounted) {
       ref.invalidate(allTransactionsProvider);
     }
   }
@@ -196,15 +205,9 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
         );
       },
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (error, stack) => Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.error_outline, size: 64, color: Colors.red),
-            const SizedBox(height: 16),
-            Text('Error loading transactions: $error'),
-          ],
-        ),
+      error: (error, stack) => AsyncErrorView(
+        error: error,
+        onRetry: () => ref.invalidate(allTransactionsProvider),
       ),
     );
   }
@@ -297,7 +300,11 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
                 );
               },
               loading: () => const CircularProgressIndicator(),
-              error: (_, _) => const Text('Error loading categories'),
+              error: (error, stack) => AsyncErrorView(
+                error: error,
+                isCompact: true,
+                onRetry: () => ref.invalidate(allCategoriesProvider),
+              ),
             ),
             const SizedBox(height: 16),
             DropdownButtonFormField<TransactionType>(
@@ -345,7 +352,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
   void _showTransactionDetails(TransactionModel transaction) {
     showModalBottomSheet(
       context: context,
-      builder: (context) => Container(
+      builder: (sheetContext) => Container(
         padding: const EdgeInsets.all(24),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -363,7 +370,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
                 ),
                 IconButton(
                   icon: const Icon(Icons.close),
-                  onPressed: () => Navigator.pop(context),
+                  onPressed: () => Navigator.pop(sheetContext),
                 ),
               ],
             ),
@@ -382,16 +389,13 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
                 Expanded(
                   child: OutlinedButton.icon(
                     onPressed: () async {
-                      Navigator.pop(context);
-                      
-                      // Navigate to edit form
+                      Navigator.pop(sheetContext);
                       final result = await Navigator.pushNamed(
                         context,
                         '/financial/transaction-form',
                         arguments: transaction,
                       );
-                      
-                      // Refresh after edit
+                      if (!mounted) return;
                       if (result != null) {
                         ref.invalidate(allTransactionsProvider);
                       }
@@ -404,7 +408,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
                 Expanded(
                   child: FilledButton.icon(
                     onPressed: () {
-                      Navigator.pop(context);
+                      Navigator.pop(sheetContext);
                       _deleteTransaction(transaction);
                     },
                     icon: const Icon(Icons.delete),
@@ -454,43 +458,37 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
   void _deleteTransaction(TransactionModel transaction) {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Delete Transaction'),
-        content: const Text('Are you sure you want to delete this transaction?'),
+      builder: (dialogContext) => AlertDialog(
+        title: const Text(_deleteDialogTitle),
+        content: const Text(_deleteDialogMessage),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text(_cancelLabel),
           ),
           FilledButton(
             onPressed: () async {
-              final navigator = Navigator.of(context);
-              final messenger = ScaffoldMessenger.of(context);
               final result =
                   await ref.read(financialServiceProvider).deleteTransaction(transaction.id);
-              navigator.pop();
+              if (!dialogContext.mounted) return;
 
               if (result.isSuccess) {
-                ref.invalidate(allTransactionsProvider);
-                ref.invalidate(recentTransactionsProvider);
-                ref.invalidate(financialSummaryProvider);
-                ref.invalidate(categoryTotalsProvider);
-                messenger.showSnackBar(
-                  const SnackBar(
-                    content: Text('Transaction deleted'),
-                    backgroundColor: Colors.red,
-                  ),
-                );
+                Navigator.pop(dialogContext);
+                if (mounted) {
+                  ref.invalidate(allTransactionsProvider);
+                  ref.invalidate(recentTransactionsProvider);
+                  ref.invalidate(financialSummaryProvider);
+                  ref.invalidate(categoryTotalsProvider);
+                  AppFeedback.showSuccess(context, _transactionDeletedMessage);
+                }
               } else {
-                messenger.showSnackBar(
-                  SnackBar(content: Text('Failed to delete: ${result.error}')),
-                );
+                AppFeedback.showError(dialogContext, result.error!);
               }
             },
             style: FilledButton.styleFrom(
               backgroundColor: Colors.red,
             ),
-            child: const Text('Delete'),
+            child: const Text(_deleteLabel),
           ),
         ],
       ),

@@ -2,18 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
-import '../../../core/constants/user_error_messages.dart';
+import '../../../core/errors/app_error.dart';
+import '../../../core/validation/validation_utils.dart';
 import '../../../data/models/sports/exercise.dart';
 import '../../../data/models/sports/exercise_category.dart';
+import '../../../shared/widgets/app_feedback.dart';
+import '../../../shared/widgets/async_error_view.dart';
 import '../providers/sports_providers.dart';
 
 const _uuid = Uuid();
-
-void _showFailureSnackBar(BuildContext context) {
-  ScaffoldMessenger.of(context).showSnackBar(
-    const SnackBar(content: Text(UserErrorMessages.generic), backgroundColor: Colors.red),
-  );
-}
 
 class ExerciseLibraryScreen extends ConsumerStatefulWidget {
   static const routeName = '/sports/library';
@@ -35,7 +32,10 @@ class _ExerciseLibraryScreenState extends ConsumerState<ExerciseLibraryScreen> {
 
     final body = categoriesAsync.when(
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (error, stack) => const Center(child: Text('Failed to load categories')),
+      error: (error, stack) => AsyncErrorView(
+        error: error,
+        onRetry: () => ref.invalidate(exerciseCategoriesProvider),
+      ),
       data: (categories) {
         if (categories.isEmpty) {
           return Center(
@@ -105,7 +105,7 @@ class _ExerciseLibraryScreenState extends ConsumerState<ExerciseLibraryScreen> {
     final service = ref.read(exerciseCategoryServiceProvider);
     final now = DateTime.now();
 
-    final bool isSuccess;
+    AppError? failure;
     if (category == null) {
       final existing = ref.read(exerciseCategoriesProvider).maybeWhen(
             data: (list) => list,
@@ -121,15 +121,17 @@ class _ExerciseLibraryScreenState extends ConsumerState<ExerciseLibraryScreen> {
           order: existing.length,
         ),
       );
-      isSuccess = createResult.isSuccess;
+      failure = createResult.isFailure ? createResult.error : null;
     } else {
       final updateResult = await service.update(category.copyWith(name: name, updatedAt: now));
-      isSuccess = updateResult.isSuccess;
+      failure = updateResult.isFailure ? updateResult.error : null;
     }
     if (!mounted) {
       return;
     }
-    if (!isSuccess) _showFailureSnackBar(context);
+    if (failure != null) {
+      AppFeedback.showError(context, failure);
+    }
     ref.invalidate(exerciseCategoriesProvider);
   }
 }
@@ -230,7 +232,11 @@ class _CategorySectionState extends ConsumerState<_CategorySection> {
                 padding: EdgeInsets.symmetric(vertical: 8),
                 child: LinearProgressIndicator(),
               ),
-              error: (error, stack) => const Text('Failed to load exercises'),
+              error: (error, stack) => AsyncErrorView(
+                error: error,
+                isCompact: true,
+                onRetry: () => ref.invalidate(exercisesByCategoryProvider(widget.category.id)),
+              ),
               data: (exercises) {
                 if (exercises.isEmpty) {
                   return const Padding(
@@ -301,7 +307,9 @@ class _CategorySectionState extends ConsumerState<_CategorySection> {
     if (!mounted) {
       return;
     }
-    if (deleteResult.isFailure) _showFailureSnackBar(context);
+    if (deleteResult.isFailure) {
+      AppFeedback.showError(context, deleteResult.error!);
+    }
     ref.invalidate(exercisesByCategoryProvider(widget.category.id));
     ref.invalidate(allActiveExercisesProvider);
   }
@@ -320,7 +328,7 @@ class _CategorySectionState extends ConsumerState<_CategorySection> {
     final service = ref.read(exerciseServiceProvider);
     final now = DateTime.now();
 
-    final bool isSuccess;
+    AppError? failure;
     if (exercise == null) {
       final existing = ref.read(exercisesByCategoryProvider(widget.category.id)).maybeWhen(
             data: (list) => list,
@@ -344,7 +352,7 @@ class _CategorySectionState extends ConsumerState<_CategorySection> {
           order: existing.length,
         ),
       );
-      isSuccess = createResult.isSuccess;
+      failure = createResult.isFailure ? createResult.error : null;
     } else {
       final updateResult = await service.update(
         exercise.copyWith(
@@ -359,13 +367,15 @@ class _CategorySectionState extends ConsumerState<_CategorySection> {
           updatedAt: now,
         ),
       );
-      isSuccess = updateResult.isSuccess;
+      failure = updateResult.isFailure ? updateResult.error : null;
     }
 
     if (!mounted) {
       return;
     }
-    if (!isSuccess) _showFailureSnackBar(context);
+    if (failure != null) {
+      AppFeedback.showError(context, failure);
+    }
     ref.invalidate(exercisesByCategoryProvider(widget.category.id));
     ref.invalidate(allActiveExercisesProvider);
   }
@@ -403,6 +413,9 @@ class _ExerciseDialogContent extends StatefulWidget {
 }
 
 class _ExerciseDialogContentState extends State<_ExerciseDialogContent> {
+  static const String _mustBeWholeNumberMessage = 'Must be a whole number';
+  static const String _mustBeNumberMessage = 'Must be a number';
+
   final formKey = GlobalKey<FormState>();
   late final TextEditingController nameController;
   late final TextEditingController instructionsController;
@@ -436,6 +449,28 @@ class _ExerciseDialogContentState extends State<_ExerciseDialogContent> {
     repsController.dispose();
     weightController.dispose();
     super.dispose();
+  }
+
+  String? _validateOptionalPositiveInt(String? value, String fieldName) {
+    if (value == null || value.trim().isEmpty) {
+      return null;
+    }
+    final parsed = int.tryParse(value);
+    if (parsed == null) {
+      return _mustBeWholeNumberMessage;
+    }
+    return ValidationUtils.positiveNumber(value: parsed, fieldName: fieldName);
+  }
+
+  String? _validateOptionalNonNegativeWeight(String? value) {
+    if (value == null || value.trim().isEmpty) {
+      return null;
+    }
+    final parsed = double.tryParse(value);
+    if (parsed == null) {
+      return _mustBeNumberMessage;
+    }
+    return ValidationUtils.numericRange(value: parsed, fieldName: 'Default weight', min: 0);
   }
 
   @override
@@ -492,6 +527,7 @@ class _ExerciseDialogContentState extends State<_ExerciseDialogContent> {
                         controller: setsController,
                         keyboardType: TextInputType.number,
                         decoration: const InputDecoration(labelText: 'Default sets', border: OutlineInputBorder()),
+                        validator: (value) => _validateOptionalPositiveInt(value, 'Default sets'),
                       ),
                     ),
                     const SizedBox(width: 8),
@@ -500,6 +536,7 @@ class _ExerciseDialogContentState extends State<_ExerciseDialogContent> {
                         controller: repsController,
                         keyboardType: TextInputType.number,
                         decoration: const InputDecoration(labelText: 'Default reps', border: OutlineInputBorder()),
+                        validator: (value) => _validateOptionalPositiveInt(value, 'Default reps'),
                       ),
                     ),
                   ],
@@ -510,6 +547,7 @@ class _ExerciseDialogContentState extends State<_ExerciseDialogContent> {
                   keyboardType: const TextInputType.numberWithOptions(decimal: true),
                   decoration:
                       const InputDecoration(labelText: 'Default weight (kg, optional)', border: OutlineInputBorder()),
+                  validator: _validateOptionalNonNegativeWeight,
                 ),
               ],
               const SizedBox(height: 12),

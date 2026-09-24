@@ -13,6 +13,9 @@ class HabitsService extends BaseServiceImpl<Habit> {
   static const String userIdField = 'userId';
   static const String nameField = 'name';
   static const String targetCountField = 'targetCount';
+  static const String _reminderTimeSeparator = ':';
+  static const int _maxHour = 23;
+  static const int _maxMinute = 59;
 
   final ReminderService reminders;
 
@@ -173,7 +176,13 @@ class HabitsService extends BaseServiceImpl<Habit> {
   }
 
   Future<Result<void, AppError>> scheduleHabitReminder(Habit habit) async {
-    if (habit.reminderTime == null) {
+    final reminderTime = habit.reminderTime;
+    if (reminderTime == null) {
+      return const Success(null);
+    }
+    final scheduledAt = _nextOccurrence(reminderTime);
+    if (scheduledAt == null) {
+      logger.warning('[$serviceName] skipped reminder for ${habit.id}: invalid time "$reminderTime"');
       return const Success(null);
     }
     try {
@@ -183,13 +192,31 @@ class HabitsService extends BaseServiceImpl<Habit> {
           targetId: habit.id,
           title: 'Habit reminder',
           body: 'Time to complete ${habit.name}',
-          scheduledAt: DateTime.now(),
+          scheduledAt: scheduledAt,
         ),
       );
       return const Success(null);
     } catch (e, st) {
       return Failure(_errorHandler.mapException(e, context: '$serviceName.scheduleHabitReminder', stackTrace: st));
     }
+  }
+
+  DateTime? _nextOccurrence(String reminderTime) {
+    final parts = reminderTime.split(_reminderTimeSeparator);
+    if (parts.length != 2) {
+      return null;
+    }
+    final hour = int.tryParse(parts[0].trim());
+    final minute = int.tryParse(parts[1].trim());
+    if (hour == null || minute == null || hour < 0 || hour > _maxHour || minute < 0 || minute > _maxMinute) {
+      return null;
+    }
+    final now = DateTime.now();
+    var scheduled = DateTime(now.year, now.month, now.day, hour, minute);
+    if (scheduled.isBefore(now)) {
+      scheduled = scheduled.add(const Duration(days: 1));
+    }
+    return scheduled;
   }
 
   Future<Result<void, AppError>> handleReminderTap(Habit habit) async {

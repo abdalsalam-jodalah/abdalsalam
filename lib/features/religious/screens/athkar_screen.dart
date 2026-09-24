@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/errors/app_error.dart';
+import '../../../core/validation/validation_utils.dart';
 import '../../../data/models/religious/athkar_content.dart';
-import '../../../providers/app_providers.dart';
+import '../../../shared/widgets/app_feedback.dart';
+import '../../../shared/widgets/async_error_view.dart';
 import '../../../shared/widgets/empty_state.dart';
 import '../providers/athkar_providers.dart';
 import '../providers/prayer_providers.dart';
@@ -104,59 +107,34 @@ class _AthkarScreenState extends ConsumerState<AthkarScreen>
   }
 
   Future<void> _showAddCustomDialog(BuildContext context, WidgetRef ref) async {
-    final result = await showDialog<_CustomAthkarResult>(
+    await showDialog<void>(
       context: context,
-      builder: (_) => const _CustomAthkarDialogContent(),
+      builder: (_) => _CustomAthkarDialogContent(ref: ref),
     );
-
-    if (result == null) return;
-
-    final error = await ref.read(athkarLogsControllerProvider.notifier).addCustomAthkar(
-          arabicText: result.arabicText,
-          transliteration: result.transliteration,
-          translation: result.translation,
-          category: result.category,
-          targetCount: result.targetCount,
-        );
-
-    if (error != null && context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(ref.read(userErrorMessageMapperProvider).toUserMessage(error))),
-      );
-    }
   }
 }
 
-class _CustomAthkarResult {
-  _CustomAthkarResult({
-    required this.arabicText,
-    required this.transliteration,
-    required this.translation,
-    required this.category,
-    required this.targetCount,
-  });
-
-  final String arabicText;
-  final String? transliteration;
-  final String? translation;
-  final AthkarCategory category;
-  final int targetCount;
-}
-
 class _CustomAthkarDialogContent extends StatefulWidget {
-  const _CustomAthkarDialogContent();
+  const _CustomAthkarDialogContent({required this.ref});
+
+  final WidgetRef ref;
 
   @override
   State<_CustomAthkarDialogContent> createState() => _CustomAthkarDialogContentState();
 }
 
 class _CustomAthkarDialogContentState extends State<_CustomAthkarDialogContent> {
+  static const String _arabicTextFieldKey = 'arabicText';
+  static const String _targetCountFieldKey = 'targetCount';
+
+  final _formKey = GlobalKey<FormState>();
   final arabicController = TextEditingController();
   final transliterationController = TextEditingController();
   final translationController = TextEditingController();
   final targetCountController = TextEditingController(text: '1');
   var selectedCategory = AthkarCategory.custom;
-  String? arabicError;
+  var isSaving = false;
+  Map<String, String> fieldErrors = const <String, String>{};
 
   static const _categories = AthkarCategory.values;
 
@@ -169,79 +147,117 @@ class _CustomAthkarDialogContentState extends State<_CustomAthkarDialogContent> 
     super.dispose();
   }
 
+  String? _validateArabicText(String? value) {
+    final requiredError = ValidationUtils.requiredField(value, 'Arabic text');
+    return requiredError ?? fieldErrors[_arabicTextFieldKey];
+  }
+
+  String? _validateTargetCount(String? value) {
+    final requiredError = ValidationUtils.requiredField(value, 'Target count');
+    if (requiredError != null) return requiredError;
+    final parsed = int.tryParse(value!.trim());
+    if (parsed == null) return 'Target count must be a whole number';
+    final positiveError = ValidationUtils.positiveNumber(value: parsed, fieldName: 'Target count');
+    return positiveError ?? fieldErrors[_targetCountFieldKey];
+  }
+
+  Future<void> _save() async {
+    if (!_formKey.currentState!.validate()) {
+      return;
+    }
+
+    setState(() {
+      isSaving = true;
+      fieldErrors = const <String, String>{};
+    });
+
+    final error = await widget.ref.read(athkarLogsControllerProvider.notifier).addCustomAthkar(
+          arabicText: arabicController.text.trim(),
+          transliteration:
+              transliterationController.text.trim().isEmpty ? null : transliterationController.text.trim(),
+          translation: translationController.text.trim().isEmpty ? null : translationController.text.trim(),
+          category: selectedCategory,
+          targetCount: int.parse(targetCountController.text.trim()),
+        );
+
+    if (!mounted) return;
+
+    if (error != null) {
+      setState(() {
+        isSaving = false;
+        fieldErrors = error is ValidationError ? error.fieldErrors : const <String, String>{};
+      });
+      _formKey.currentState!.validate();
+      AppFeedback.showError(context, error);
+      return;
+    }
+
+    Navigator.of(context).pop();
+  }
+
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
       title: const Text('Add Custom Athkar'),
       content: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: arabicController,
-              textDirection: TextDirection.rtl,
-              decoration: InputDecoration(
-                labelText: 'Arabic text',
-                errorText: arabicError,
+        child: Form(
+          key: _formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextFormField(
+                controller: arabicController,
+                textDirection: TextDirection.rtl,
+                decoration: const InputDecoration(labelText: 'Arabic text'),
+                maxLines: 3,
+                validator: _validateArabicText,
               ),
-              maxLines: 3,
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: transliterationController,
-              decoration: const InputDecoration(labelText: 'Transliteration (optional)'),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: translationController,
-              decoration: const InputDecoration(labelText: 'Translation (optional)'),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: targetCountController,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(labelText: 'Target count'),
-            ),
-            const SizedBox(height: 12),
-            DropdownButtonFormField<AthkarCategory>(
-              initialValue: selectedCategory,
-              decoration: const InputDecoration(labelText: 'Category'),
-              items: _categories.map((c) => DropdownMenuItem(value: c, child: Text(athkarCategoryLabel(c)))).toList(),
-              onChanged: (value) {
-                if (value != null) {
-                  setState(() => selectedCategory = value);
-                }
-              },
-            ),
-          ],
+              const SizedBox(height: 12),
+              TextField(
+                controller: transliterationController,
+                decoration: const InputDecoration(labelText: 'Transliteration (optional)'),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: translationController,
+                decoration: const InputDecoration(labelText: 'Translation (optional)'),
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: targetCountController,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(labelText: 'Target count'),
+                validator: _validateTargetCount,
+              ),
+              const SizedBox(height: 12),
+              DropdownButtonFormField<AthkarCategory>(
+                initialValue: selectedCategory,
+                decoration: const InputDecoration(labelText: 'Category'),
+                items: _categories.map((c) => DropdownMenuItem(value: c, child: Text(athkarCategoryLabel(c)))).toList(),
+                onChanged: (value) {
+                  if (value != null) {
+                    setState(() => selectedCategory = value);
+                  }
+                },
+              ),
+            ],
+          ),
         ),
       ),
       actions: [
         TextButton(
-          onPressed: () => Navigator.of(context).pop(),
+          onPressed: isSaving ? null : () => Navigator.of(context).pop(),
           child: const Text('Cancel'),
         ),
         FilledButton(
-          onPressed: () {
-            setState(() {
-              arabicError = arabicController.text.trim().isEmpty ? 'Arabic text is required' : null;
-            });
-            if (arabicError == null) {
-              Navigator.of(context).pop(
-                _CustomAthkarResult(
-                  arabicText: arabicController.text.trim(),
-                  transliteration: transliterationController.text.trim().isEmpty
-                      ? null
-                      : transliterationController.text.trim(),
-                  translation:
-                      translationController.text.trim().isEmpty ? null : translationController.text.trim(),
-                  category: selectedCategory,
-                  targetCount: int.tryParse(targetCountController.text.trim()) ?? 1,
-                ),
-              );
-            }
-          },
-          child: const Text('Save'),
+          onPressed: isSaving ? null : _save,
+          child: isSaving
+              ? const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Text('Save'),
         ),
       ],
     );
@@ -272,7 +288,10 @@ class _CategoryTab extends ConsumerWidget {
         );
       },
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (err, _) => Center(child: Text('Error: $err')),
+      error: (err, _) => AsyncErrorView(
+        error: err,
+        onRetry: () => ref.invalidate(athkarCategoryProvider(category)),
+      ),
     );
   }
 }
@@ -357,18 +376,11 @@ class _AthkarCardState extends ConsumerState<_AthkarCard> {
                           final error = await ref
                               .read(athkarLogsControllerProvider.notifier)
                               .logCompletion(content: content, countDone: _done);
-                          if (error != null && context.mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text(
-                                  ref.read(userErrorMessageMapperProvider).toUserMessage(error),
-                                ),
-                              ),
-                            );
-                          } else if (context.mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('Athkar logged')),
-                            );
+                          if (!context.mounted) return;
+                          if (error != null) {
+                            AppFeedback.showError(context, error);
+                          } else {
+                            AppFeedback.showSuccess(context, 'Athkar logged');
                             setState(() => _done = 0);
                           }
                         },
@@ -389,13 +401,7 @@ class _AthkarCardState extends ConsumerState<_AthkarCard> {
                           .read(athkarLogsControllerProvider.notifier)
                           .deleteCustomAthkar(content.id);
                       if (error != null && context.mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(
-                              ref.read(userErrorMessageMapperProvider).toUserMessage(error),
-                            ),
-                          ),
-                        );
+                        AppFeedback.showError(context, error);
                       }
                     },
                     icon: Icon(Icons.delete_outline, color: scheme.error),

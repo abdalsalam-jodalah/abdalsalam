@@ -3,9 +3,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../../data/models/health/medication.dart';
+import '../../../shared/widgets/app_feedback.dart';
 import '../providers/health_providers.dart';
 import '../services/health_service.dart';
 import '../services/medication_service.dart';
+
+const _defaultReminderTime = TimeOfDay(hour: 8, minute: 0);
 
 class MedicationFormScreen extends ConsumerStatefulWidget {
   static const routeName = '/health/medication-form';
@@ -54,17 +57,15 @@ class _MedicationFormScreenState extends ConsumerState<MedicationFormScreen> {
       _timing = widget.medication!.timing;
       _selectedWeekDays = widget.medication!.weekDays.toSet();
       _times = widget.medication!.reminderTimes
-          .map((time) {
-            final parts = time.split(':');
-            return TimeOfDay(
-              hour: int.parse(parts[0]),
-              minute: int.parse(parts[1]),
-            );
-          })
+          .map(_parseReminderTime)
+          .whereType<TimeOfDay>()
           .toList();
+      if (_times.isEmpty) {
+        _times = [_defaultReminderTime];
+      }
     } else {
       _startDate = DateTime.now();
-      _times = [const TimeOfDay(hour: 8, minute: 0)];
+      _times = [_defaultReminderTime];
       _frequency = 'Daily';
       _isActive = true;
       _timing = MedicationTiming.anytime;
@@ -79,6 +80,19 @@ class _MedicationFormScreenState extends ConsumerState<MedicationFormScreen> {
     _prescribedByController.dispose();
     _notesController.dispose();
     super.dispose();
+  }
+
+  TimeOfDay? _parseReminderTime(String time) {
+    final parts = time.split(':');
+    if (parts.length != 2) {
+      return null;
+    }
+    final hour = int.tryParse(parts[0]);
+    final minute = int.tryParse(parts[1]);
+    if (hour == null || minute == null) {
+      return null;
+    }
+    return TimeOfDay(hour: hour, minute: minute);
   }
 
   Future<void> _saveMedication() async {
@@ -114,24 +128,22 @@ class _MedicationFormScreenState extends ConsumerState<MedicationFormScreen> {
         ? await _service.create(medication)
         : await _service.update(medication);
 
-    if (result.isSuccess) {
-      await _healthService.refreshReminders(medication);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Medication ${widget.medication == null ? 'added' : 'updated'}')),
-        );
-        Navigator.of(context).pop(true);
-      }
-    } else {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error: ${result.error?.message ?? 'Unknown error'}'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
+    if (!mounted) return;
+    if (result.isFailure) {
+      AppFeedback.showError(context, result.error!);
+      return;
     }
+
+    final reminderResult = await _healthService.refreshReminders(medication);
+    if (!mounted) return;
+    if (reminderResult.isFailure) {
+      AppFeedback.showError(context, reminderResult.error!);
+      Navigator.of(context).pop(true);
+      return;
+    }
+
+    AppFeedback.showSuccess(context, 'Medication ${widget.medication == null ? 'added' : 'updated'}');
+    Navigator.of(context).pop(true);
   }
 
   @override
@@ -274,7 +286,7 @@ class _MedicationFormScreenState extends ConsumerState<MedicationFormScreen> {
                       avatar: const Icon(Icons.access_time, size: 18),
                       onPressed: () async {
                         final picked = await showTimePicker(context: context, initialTime: _times[i]);
-                        if (picked != null) {
+                        if (picked != null && mounted) {
                           setState(() => _times[i] = picked);
                         }
                       },

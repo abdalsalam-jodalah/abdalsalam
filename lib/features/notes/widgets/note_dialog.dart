@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../../core/errors/app_error.dart';
 import '../../../data/models/notes/note.dart';
+import '../../../shared/widgets/app_feedback.dart';
 import '../providers/notes_providers.dart';
 
 const _uuid = Uuid();
@@ -14,62 +16,52 @@ Future<bool> showNoteDialog(
   Note? existing,
   int order = 0,
 }) async {
-  final result = await showDialog<_NoteDialogResult>(
-    context: context,
-    builder: (_) => _NoteDialogContent(existing: existing),
-  );
-
-  if (result == null) return false;
-
   final service = ref.read(notesServiceProvider);
-  final now = DateTime.now();
 
-  final saveResult = existing == null
-      ? await service.create(
-          Note(
-            id: _uuid.v4(),
-            createdAt: now,
-            updatedAt: now,
-            userId: notesUserId,
-            title: result.title,
-            content: result.content,
-            tags: const [],
-            categoryId: null,
-            pinned: false,
-            archived: false,
-            attachments: const [],
-            color: null,
-            order: order,
-          ),
-        )
-      : await service.update(existing.copyWith(title: result.title, content: result.content, updatedAt: now));
-
-  if (context.mounted) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          saveResult.isSuccess ? (existing == null ? 'Note created' : 'Note updated') : 'Something went wrong',
+  Future<AppError?> saveNote(String title, String content) async {
+    final now = DateTime.now();
+    if (existing == null) {
+      final createResult = await service.create(
+        Note(
+          id: _uuid.v4(),
+          createdAt: now,
+          updatedAt: now,
+          userId: notesUserId,
+          title: title,
+          content: content,
+          tags: const [],
+          categoryId: null,
+          pinned: false,
+          archived: false,
+          attachments: const [],
+          color: null,
+          order: order,
         ),
-        backgroundColor: saveResult.isSuccess ? Colors.green : Colors.red,
-      ),
-    );
+      );
+      return createResult.error;
+    }
+    final updateResult = await service.update(existing.copyWith(title: title, content: content, updatedAt: now));
+    return updateResult.error;
   }
 
-  ref.invalidate(activeNotesProvider);
-  return saveResult.isSuccess;
-}
+  final isSaved = await showDialog<bool>(
+        context: context,
+        builder: (_) => _NoteDialogContent(existing: existing, onSave: saveNote),
+      ) ??
+      false;
 
-class _NoteDialogResult {
-  _NoteDialogResult(this.title, this.content);
-
-  final String title;
-  final String content;
+  if (isSaved && context.mounted) {
+    AppFeedback.showSuccess(context, existing == null ? 'Note created' : 'Note updated');
+    ref.invalidate(activeNotesProvider);
+  }
+  return isSaved;
 }
 
 class _NoteDialogContent extends StatefulWidget {
-  const _NoteDialogContent({this.existing});
+  const _NoteDialogContent({this.existing, required this.onSave});
 
   final Note? existing;
+  final Future<AppError?> Function(String title, String content) onSave;
 
   @override
   State<_NoteDialogContent> createState() => _NoteDialogContentState();
@@ -79,6 +71,7 @@ class _NoteDialogContentState extends State<_NoteDialogContent> {
   final formKey = GlobalKey<FormState>();
   late final TextEditingController titleController;
   late final TextEditingController contentController;
+  bool isSaving = false;
 
   @override
   void initState() {
@@ -92,6 +85,19 @@ class _NoteDialogContentState extends State<_NoteDialogContent> {
     titleController.dispose();
     contentController.dispose();
     super.dispose();
+  }
+
+  Future<void> _save() async {
+    if (!(formKey.currentState?.validate() ?? false)) return;
+    setState(() => isSaving = true);
+    final error = await widget.onSave(titleController.text.trim(), contentController.text.trim());
+    if (!mounted) return;
+    if (error == null) {
+      Navigator.pop(context, true);
+      return;
+    }
+    setState(() => isSaving = false);
+    AppFeedback.showError(context, error);
   }
 
   @override
@@ -122,14 +128,7 @@ class _NoteDialogContentState extends State<_NoteDialogContent> {
       actions: [
         TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
         FilledButton(
-          onPressed: () {
-            if (formKey.currentState?.validate() ?? false) {
-              Navigator.pop(
-                context,
-                _NoteDialogResult(titleController.text.trim(), contentController.text.trim()),
-              );
-            }
-          },
+          onPressed: isSaving ? null : _save,
           child: Text(widget.existing == null ? 'Create' : 'Save'),
         ),
       ],

@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../core/constants/user_error_messages.dart';
 import '../../../data/models/notes/note.dart';
+import '../../../shared/widgets/app_feedback.dart';
+import '../../../shared/widgets/async_error_view.dart';
 import '../providers/notes_providers.dart';
 import '../widgets/note_dialog.dart';
 import '../widgets/notes_widgets.dart';
@@ -36,7 +37,10 @@ class NotesHomeScreen extends ConsumerWidget {
       ),
       body: notesAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (error, stack) => const Center(child: Text('Failed to load notes')),
+        error: (error, stack) => AsyncErrorView(
+          error: error,
+          onRetry: () => ref.invalidate(activeNotesProvider),
+        ),
         data: (notes) {
           if (notes.isEmpty) {
             return const Center(child: Text('No notes yet. Tap + to add one.'));
@@ -95,7 +99,7 @@ class NotesHomeScreen extends ConsumerWidget {
     final service = ref.read(notesServiceProvider);
     final deleteResult = await service.softDelete(note.id);
     if (!context.mounted) return;
-    if (deleteResult.isFailure) _showFailureSnackBar(context);
+    if (deleteResult.isFailure) AppFeedback.showError(context, deleteResult.error!);
     ref.invalidate(activeNotesProvider);
   }
 
@@ -110,13 +114,7 @@ class NotesHomeScreen extends ConsumerWidget {
     ];
     final updateResult = await service.updateBulk(updated);
     if (!context.mounted) return;
-    if (updateResult.isFailure) _showFailureSnackBar(context);
+    if (updateResult.isFailure) AppFeedback.showError(context, updateResult.error!);
     ref.invalidate(activeNotesProvider);
-  }
-
-  void _showFailureSnackBar(BuildContext context) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text(UserErrorMessages.generic), backgroundColor: Colors.red),
-    );
   }
 }

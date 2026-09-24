@@ -2,10 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
-import '../../../core/constants/user_error_messages.dart';
 import '../../../data/models/planning/goal.dart';
 import '../../../data/models/planning/plan_topic.dart';
 import '../../../data/models/planning/planning_task.dart';
+import '../../../shared/widgets/app_feedback.dart';
+import '../../../shared/widgets/async_error_view.dart';
 import '../providers/planning_providers.dart';
 import '../widgets/goal_editor_dialog.dart';
 import '../widgets/planning_task_dialog.dart';
@@ -36,7 +37,10 @@ class LifePlanningTopicsScreen extends ConsumerWidget {
       ),
       body: rootTopicsAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (error, stack) => const Center(child: Text('Failed to load topics')),
+        error: (error, stack) => AsyncErrorView(
+          error: error,
+          onRetry: () => ref.invalidate(rootTopicsProvider),
+        ),
         data: (topics) {
           if (topics.isEmpty) {
             return const Center(child: Text('No topics yet. Tap + to add one.'));
@@ -67,29 +71,31 @@ Future<void> _showTopicDialog(
   final service = ref.read(planTopicServiceProvider);
   final now = DateTime.now();
 
-  final bool isSuccess;
-  if (existing == null) {
-    final createResult = await service.create(
-      PlanTopic(
-        id: _uuid.v4(),
-        createdAt: now,
-        updatedAt: now,
-        userId: planningUserId,
-        title: result.title,
-        description: result.description.isEmpty ? null : result.description,
-        parentTopicId: parentTopicId,
-      ),
-    );
-    isSuccess = createResult.isSuccess;
-  } else {
-    final updateResult = await service.update(
-      existing.copyWith(title: result.title, description: result.description.isEmpty ? null : result.description, updatedAt: now),
-    );
-    isSuccess = updateResult.isSuccess;
-  }
+  final saveResult = existing == null
+      ? await service.create(
+          PlanTopic(
+            id: _uuid.v4(),
+            createdAt: now,
+            updatedAt: now,
+            userId: planningUserId,
+            title: result.title,
+            description: result.description.isEmpty ? null : result.description,
+            parentTopicId: parentTopicId,
+          ),
+        )
+      : await service.update(
+          existing.copyWith(
+            title: result.title,
+            description: result.description.isEmpty ? null : result.description,
+            updatedAt: now,
+          ),
+        );
 
   if (!context.mounted) return;
-  if (!isSuccess) _showFailureSnackBar(context);
+  if (saveResult.isFailure) {
+    AppFeedback.showError(context, saveResult.error!);
+    return;
+  }
   if (parentTopicId == null) {
     ref.invalidate(rootTopicsProvider);
   } else {
@@ -178,7 +184,10 @@ Future<void> _deleteTopic(BuildContext context, WidgetRef ref, PlanTopic topic) 
   final service = ref.read(planTopicServiceProvider);
   final deleteResult = await service.softDelete(topic.id);
   if (!context.mounted) return;
-  if (deleteResult.isFailure) _showFailureSnackBar(context);
+  if (deleteResult.isFailure) {
+    AppFeedback.showError(context, deleteResult.error!);
+    return;
+  }
   if (topic.parentTopicId == null) {
     ref.invalidate(rootTopicsProvider);
   } else {
@@ -222,7 +231,16 @@ class _TopicTile extends ConsumerWidget {
         ),
         children: subTopicsAsync.when(
           loading: () => const [Padding(padding: EdgeInsets.all(12), child: LinearProgressIndicator())],
-          error: (error, stack) => const [Padding(padding: EdgeInsets.all(12), child: Text('Failed to load sub-topics'))],
+          error: (error, stack) => [
+            Padding(
+              padding: const EdgeInsets.all(12),
+              child: AsyncErrorView(
+                error: error,
+                isCompact: true,
+                onRetry: () => ref.invalidate(subTopicsProvider(topic.id)),
+              ),
+            ),
+          ],
           data: (subTopics) => [for (final subTopic in subTopics) _SubTopicTile(subTopic: subTopic)],
         ),
       ),
@@ -266,7 +284,16 @@ class _SubTopicTile extends ConsumerWidget {
         ),
         children: goalsAsync.when(
           loading: () => const [Padding(padding: EdgeInsets.all(12), child: LinearProgressIndicator())],
-          error: (error, stack) => const [Padding(padding: EdgeInsets.all(12), child: Text('Failed to load goals'))],
+          error: (error, stack) => [
+            Padding(
+              padding: const EdgeInsets.all(12),
+              child: AsyncErrorView(
+                error: error,
+                isCompact: true,
+                onRetry: () => ref.invalidate(goalsForTopicProvider(subTopic.id)),
+              ),
+            ),
+          ],
           data: (goals) => [for (final goal in goals) _GoalTile(goal: goal)],
         ),
       ),
@@ -309,7 +336,14 @@ class _GoalTile extends ConsumerWidget {
         children: [
           tasksAsync.when(
             loading: () => const Padding(padding: EdgeInsets.all(12), child: LinearProgressIndicator()),
-            error: (error, stack) => const Padding(padding: EdgeInsets.all(12), child: Text('Failed to load tasks')),
+            error: (error, stack) => Padding(
+              padding: const EdgeInsets.all(12),
+              child: AsyncErrorView(
+                error: error,
+                isCompact: true,
+                onRetry: () => ref.invalidate(tasksForGoalProvider(goal.id)),
+              ),
+            ),
             data: (tasks) => ReorderableTaskList(
               tasks: tasks,
               onToggle: (task, completed) => _toggleTask(context, ref, task, completed),
@@ -339,7 +373,10 @@ class _GoalTile extends ConsumerWidget {
     final service = ref.read(planningTaskServiceProvider);
     final updateResult = await service.update(task.copyWith(isCompleted: completed, updatedAt: DateTime.now()));
     if (!context.mounted) return;
-    if (updateResult.isFailure) _showFailureSnackBar(context);
+    if (updateResult.isFailure) {
+      AppFeedback.showError(context, updateResult.error!);
+      return;
+    }
     ref.invalidate(tasksForGoalProvider(goal.id));
   }
 
@@ -347,7 +384,10 @@ class _GoalTile extends ConsumerWidget {
     final service = ref.read(planningTaskServiceProvider);
     final deleteResult = await service.softDelete(task.id);
     if (!context.mounted) return;
-    if (deleteResult.isFailure) _showFailureSnackBar(context);
+    if (deleteResult.isFailure) {
+      AppFeedback.showError(context, deleteResult.error!);
+      return;
+    }
     ref.invalidate(tasksForGoalProvider(goal.id));
   }
 
@@ -358,13 +398,10 @@ class _GoalTile extends ConsumerWidget {
     ];
     final updateResult = await service.updateBulk(updated);
     if (!context.mounted) return;
-    if (updateResult.isFailure) _showFailureSnackBar(context);
+    if (updateResult.isFailure) {
+      AppFeedback.showError(context, updateResult.error!);
+      return;
+    }
     ref.invalidate(tasksForGoalProvider(goal.id));
   }
-}
-
-void _showFailureSnackBar(BuildContext context) {
-  ScaffoldMessenger.of(context).showSnackBar(
-    const SnackBar(content: Text(UserErrorMessages.generic), backgroundColor: Colors.red),
-  );
 }

@@ -21,6 +21,23 @@ import '../support/validation_expectations.dart';
 
 class _FailingHabitsRepository = HabitsRepositoryImpl with FailingWrites<Habit>;
 
+class _CapturingReminderService extends ReminderService {
+  ReminderPayload? lastPayload;
+
+  _CapturingReminderService(LoggerService logger)
+      : super(
+          storage: StorageGateway.instance,
+          logger: logger,
+          notifications: NotificationService(plugin: FlutterLocalNotificationsPlugin(), logger: logger),
+          settings: SettingsService(StorageGateway.instance),
+        );
+
+  @override
+  Future<void> schedule(ReminderPayload payload) async {
+    lastPayload = payload;
+  }
+}
+
 Habit buildHabit({
   required bool isGoodHabit,
   HabitFrequency frequency = HabitFrequency.daily,
@@ -155,6 +172,53 @@ void main() {
 
       expect(result.isFailure, isTrue);
       expect(result.error, isA<ServiceError>());
+    });
+
+    test('scheduleHabitReminder schedules at the habit reminderTime, not now', () async {
+      final capturingReminders = _CapturingReminderService(logger);
+      final serviceWithCapture = HabitsService(
+        HabitsRepositoryImpl(StorageGateway.instance, logger),
+        logger,
+        reminders: capturingReminders,
+      );
+      final habit = buildHabit(isGoodHabit: true, reminderTime: '07:30');
+
+      final result = await serviceWithCapture.scheduleHabitReminder(habit);
+
+      expect(result.isSuccess, isTrue);
+      final scheduled = capturingReminders.lastPayload;
+      expect(scheduled, isNotNull);
+      expect(scheduled!.scheduledAt.hour, 7);
+      expect(scheduled.scheduledAt.minute, 30);
+    });
+
+    test('scheduleHabitReminder does nothing when the habit has no reminderTime', () async {
+      final capturingReminders = _CapturingReminderService(logger);
+      final serviceWithCapture = HabitsService(
+        HabitsRepositoryImpl(StorageGateway.instance, logger),
+        logger,
+        reminders: capturingReminders,
+      );
+
+      final result = await serviceWithCapture.scheduleHabitReminder(buildHabit(isGoodHabit: true));
+
+      expect(result.isSuccess, isTrue);
+      expect(capturingReminders.lastPayload, isNull);
+    });
+
+    test('scheduleHabitReminder tolerates a corrupt stored reminderTime', () async {
+      final capturingReminders = _CapturingReminderService(logger);
+      final serviceWithCapture = HabitsService(
+        HabitsRepositoryImpl(StorageGateway.instance, logger),
+        logger,
+        reminders: capturingReminders,
+      );
+      final habit = buildHabit(isGoodHabit: true, reminderTime: 'not-a-time');
+
+      final result = await serviceWithCapture.scheduleHabitReminder(habit);
+
+      expect(result.isSuccess, isTrue);
+      expect(capturingReminders.lastPayload, isNull);
     });
 
     test('handleReminderTap should return a failure instead of throwing', () async {

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../providers/app_providers.dart';
+import '../../../shared/widgets/app_feedback.dart';
 
 class RestoreScreen extends ConsumerStatefulWidget {
   static const routeName = '/settings/restore';
@@ -15,8 +16,14 @@ class RestoreScreen extends ConsumerStatefulWidget {
 }
 
 class _RestoreScreenState extends ConsumerState<RestoreScreen> {
+  static const String _initialStatus = 'Paste backup JSON to restore';
+  static const String _restoringStatus = 'Restoring...';
+  static const String _restoredStatus = 'Restore completed';
+  static const String _restoreFailedStatus = 'Restore failed';
+  static const String _invalidJsonStatus = 'The pasted text is not valid backup data';
+
   final _controller = TextEditingController();
-  String _status = 'Paste backup JSON to restore';
+  String _status = _initialStatus;
 
   @override
   void dispose() {
@@ -47,22 +54,39 @@ class _RestoreScreenState extends ConsumerState<RestoreScreen> {
             Align(alignment: Alignment.centerLeft, child: Text(_status)),
             const SizedBox(height: 10),
             FilledButton(
-              onPressed: () async {
-                try {
-                  final json = jsonDecode(_controller.text) as Map<String, dynamic>;
-                  final result = await ref.read(backupServiceProvider).restore(backup: json);
-                  setState(() {
-                    _status = result.isSuccess ? 'Restore completed' : result.error.toString();
-                  });
-                } catch (e) {
-                  setState(() => _status = 'Invalid JSON: $e');
-                }
-              },
+              onPressed: _restore,
               child: const Text('Restore Backup'),
             ),
           ],
         ),
       ),
     );
+  }
+
+  Future<void> _restore() async {
+    final Map<String, dynamic> json;
+    try {
+      json = jsonDecode(_controller.text) as Map<String, dynamic>;
+    } catch (error, stackTrace) {
+      final mapped = ref.read(errorHandlerProvider).mapException(
+            error,
+            context: 'RestoreScreen.restore',
+            stackTrace: stackTrace,
+          );
+      if (!mounted) return;
+      setState(() => _status = _invalidJsonStatus);
+      AppFeedback.showError(context, mapped);
+      return;
+    }
+
+    setState(() => _status = _restoringStatus);
+    final result = await ref.read(backupServiceProvider).restore(backup: json);
+    if (!mounted) return;
+    if (result.isFailure) {
+      setState(() => _status = _restoreFailedStatus);
+      AppFeedback.showError(context, result.error!);
+      return;
+    }
+    setState(() => _status = _restoredStatus);
   }
 }

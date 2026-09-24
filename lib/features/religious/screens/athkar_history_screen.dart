@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../../../data/models/religious/athkar_content.dart';
+import '../../../shared/widgets/async_error_view.dart';
 import '../../../shared/widgets/chart_widgets.dart';
 import '../../../shared/widgets/empty_state.dart';
 import '../../../shared/widgets/section_header.dart';
@@ -100,7 +101,10 @@ class AthkarHistoryView extends ConsumerWidget {
         );
       },
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (err, _) => Center(child: Text('Error: $err')),
+      error: (err, _) => AsyncErrorView(
+        error: err,
+        onRetry: () => ref.invalidate(athkarLogsControllerProvider),
+      ),
     );
   }
 }

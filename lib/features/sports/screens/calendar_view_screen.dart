@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../data/models/sports/exercise.dart';
 import '../../../data/models/sports/exercise_log.dart';
 import '../../../data/models/sports/weekly_schedule_entry.dart';
+import '../../../shared/widgets/async_error_view.dart';
 import '../providers/sports_providers.dart';
 
 class CalendarViewScreen extends ConsumerStatefulWidget {
@@ -56,7 +57,10 @@ class _CalendarViewScreenState extends ConsumerState<CalendarViewScreen> {
           const SizedBox(height: 8),
           logsAsync.when(
             loading: () => const Center(child: CircularProgressIndicator()),
-            error: (error, stack) => const Center(child: Text('Failed to load month')),
+            error: (error, stack) => AsyncErrorView(
+              error: error,
+              onRetry: () => ref.invalidate(logsInRangeProvider((start: monthStart, end: monthEnd))),
+            ),
             data: (logs) {
               final daysWithLogs = logs.map((log) => dateOnly(log.date)).toSet();
               return _MonthGrid(
@@ -154,7 +158,10 @@ class _DayDetailSheet extends ConsumerWidget {
       padding: const EdgeInsets.all(24),
       child: exercisesAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (error, stack) => const Center(child: Text('Failed to load')),
+        error: (error, stack) => AsyncErrorView(
+          error: error,
+          onRetry: () => ref.invalidate(allActiveExercisesProvider),
+        ),
         data: (allExercises) {
           final exerciseById = {for (final exercise in allExercises) exercise.id: exercise};
           return ListView(
@@ -169,7 +176,11 @@ class _DayDetailSheet extends ConsumerWidget {
               const SizedBox(height: 8),
               scheduleAsync.when(
                 loading: () => const CircularProgressIndicator(),
-                error: (error, stack) => const Text('Failed to load schedule'),
+                error: (error, stack) => AsyncErrorView(
+                  error: error,
+                  isCompact: true,
+                  onRetry: () => ref.invalidate(scheduleForDayProvider(day.weekday)),
+                ),
                 data: (entries) => _buildScheduleList(entries, exerciseById),
               ),
               const Divider(height: 32),
@@ -177,7 +188,11 @@ class _DayDetailSheet extends ConsumerWidget {
               const SizedBox(height: 8),
               logsAsync.when(
                 loading: () => const CircularProgressIndicator(),
-                error: (error, stack) => const Text('Failed to load logs'),
+                error: (error, stack) => AsyncErrorView(
+                  error: error,
+                  isCompact: true,
+                  onRetry: () => ref.invalidate(logsForDateProvider(day)),
+                ),
                 data: (logs) => _buildLoggedList(logs, exerciseById),
               ),
             ],

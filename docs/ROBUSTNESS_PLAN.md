@@ -175,6 +175,21 @@ Totals: errStr 70 · unlogged catch 10 · provider masking 63 · ignored writes 
 - `mounted` guards: backup/restore, medication list, planning, food/sleep/health lists.
 - Forms: `Form` + `ValidationUtils` validators for religious raw `TextField`s, `log_habit_sheet`, `reviews_screen`, `sleep_log_form_screen`; `fieldErrors` shown inline; remove silent `?? 0` coercions.
 - Work fanned out to subagents, one module each.
+- **Done.**
+  - Every primary `.when(error:)` uses `AsyncErrorView` with Retry. Every SnackBar goes through `AppFeedback`, and success SnackBars are no longer red.
+  - Writes check their `Result` and are guarded by `mounted`. Add, edit and delete dialogs save before closing and stay open on failure.
+  - Optimistic updates on the medication list are rolled back when the save fails.
+  - Forms validate input: Quran surah/ayah ranges, positive numbers, coordinates, and sleep end after start. Silent `?? 0` coercions of user input were removed.
+  - Weather shows an offline/stale hint. The 12 settings screens report save failures instead of failing silently.
+  - Other fixes: `habitColorFromHex` is tolerant of bad values; habit reminders fire at `reminderTime`, not `now`; the sports dashboard no longer rebuilds its providers every frame (its date-range keys used `DateTime.now()`).
+  - `flutter analyze`: 0 issues.
+- **Kept on purpose.** Small decorative badges (streaks, weekly page count, category labels) still hide their errors behind a placeholder.
+- **Follow-ups found in Phase 7.**
+  - An "estimated rate" UI needs `FinancialService` summaries to carry the fallback flag.
+  - The 12 settings screens duplicate the same `_load`/`_update` code, which could become a shared helper.
+  - `settings_service` still throws instead of returning `Result`.
+  - The habit model and the feature layer each define the same default colour and icon constants.
+  - `medication_list_screen` has no widget test yet (Phase 10).
 
 ### Phase 8 — Backup / restore / import / sync queue
 - Fix `.b64` save vs raw-JSON restore (restore decodes base64, accepts both).

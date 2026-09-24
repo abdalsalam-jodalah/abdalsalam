@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../providers/app_providers.dart';
+import '../../../shared/widgets/app_feedback.dart';
 import '../widgets/settings_section_header.dart';
 
 const _dashboardModules = <String>[
@@ -35,14 +36,36 @@ class _DashboardSettingsScreenState extends ConsumerState<DashboardSettingsScree
   }
 
   Future<void> _load() async {
-    final values = await ref.read(settingsServiceProvider).getSettings();
-    if (mounted) {
+    try {
+      final values = await ref.read(settingsServiceProvider).getSettings();
+      if (!mounted) return;
       setState(() => _settings = values);
+    } catch (error, stackTrace) {
+      final mapped = ref.read(errorHandlerProvider).mapException(
+        error,
+        context: '${widget.runtimeType}._load',
+        stackTrace: stackTrace,
+      );
+      if (!mounted) return;
+      AppFeedback.showError(context, mapped);
     }
   }
 
   Future<void> _update(String key, dynamic value) async {
-    await ref.read(settingsServiceProvider).updateSetting(key, value);
+    if (!mounted) return;
+    try {
+      await ref.read(settingsServiceProvider).updateSetting(key, value);
+    } catch (error, stackTrace) {
+      final mapped = ref.read(errorHandlerProvider).mapException(
+        error,
+        context: '${widget.runtimeType}._update',
+        stackTrace: stackTrace,
+      );
+      if (!mounted) return;
+      AppFeedback.showError(context, mapped);
+      return;
+    }
+    if (!mounted) return;
     setState(() => _settings[key] = value);
   }
 

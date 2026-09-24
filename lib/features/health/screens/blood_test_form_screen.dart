@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../../data/models/health/blood_test.dart';
+import '../../../shared/widgets/app_feedback.dart';
 import '../providers/health_providers.dart';
 import '../services/blood_test_service.dart';
 
@@ -87,22 +88,12 @@ class _BloodTestFormScreenState extends ConsumerState<BloodTestFormScreen> {
 
     final result = widget.test == null ? await _service.create(test) : await _service.update(test);
 
+    if (!mounted) return;
     if (result.isSuccess) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Blood test ${widget.test == null ? 'added' : 'updated'}')),
-        );
-        Navigator.of(context).pop(true);
-      }
+      AppFeedback.showSuccess(context, 'Blood test ${widget.test == null ? 'added' : 'updated'}');
+      Navigator.of(context).pop(true);
     } else {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error: ${result.error?.message ?? 'Unknown error'}'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
+      AppFeedback.showError(context, result.error!);
     }
   }
 

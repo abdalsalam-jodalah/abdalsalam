@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../data/models/health/blood_test.dart';
+import '../../../shared/widgets/app_feedback.dart';
+import '../../../shared/widgets/async_error_view.dart';
 import '../providers/health_providers.dart';
 import 'blood_test_form_screen.dart';
 
@@ -21,7 +23,12 @@ class BloodTestsScreen extends ConsumerStatefulWidget {
 class _BloodTestsScreenState extends ConsumerState<BloodTestsScreen> {
   Future<void> _delete(BloodTest test) async {
     final service = ref.read(bloodTestServiceProvider);
-    await service.softDelete(test.id);
+    final result = await service.softDelete(test.id);
+    if (!mounted) return;
+    if (result.isFailure) {
+      AppFeedback.showError(context, result.error!);
+      return;
+    }
     ref.invalidate(bloodTestsProvider);
     ref.invalidate(bloodTestStatisticsProvider);
   }
@@ -31,6 +38,7 @@ class _BloodTestsScreenState extends ConsumerState<BloodTestsScreen> {
       context,
       MaterialPageRoute(builder: (context) => BloodTestFormScreen(test: test)),
     );
+    if (!mounted) return;
     if (saved == true) {
       ref.invalidate(bloodTestsProvider);
       ref.invalidate(bloodTestStatisticsProvider);
@@ -47,7 +55,10 @@ class _BloodTestsScreenState extends ConsumerState<BloodTestsScreen> {
 
     final content = testsAsync.when(
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (error, _) => Center(child: Text('Failed to load blood tests: $error')),
+      error: (error, _) => AsyncErrorView(
+        error: error,
+        onRetry: () => ref.invalidate(bloodTestsProvider),
+      ),
       data: (tests) {
         if (tests.isEmpty) {
           return const Center(child: Text('No blood tests logged yet. Tap + to add one.'));

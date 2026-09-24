@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../../data/models/planning/review.dart';
+import '../../../shared/widgets/app_feedback.dart';
+import '../../../shared/widgets/async_error_view.dart';
 import '../providers/planning_providers.dart';
 
 class ReviewsScreen extends ConsumerStatefulWidget {
@@ -15,6 +17,8 @@ class ReviewsScreen extends ConsumerStatefulWidget {
 }
 
 class _ReviewsScreenState extends ConsumerState<ReviewsScreen> {
+  static const String _reviewSavedMessage = 'Review saved';
+
   final _uuid = const Uuid();
   ReviewPeriod _selectedPeriod = ReviewPeriod.daily;
 
@@ -77,7 +81,10 @@ class _ReviewsScreenState extends ConsumerState<ReviewsScreen> {
           Expanded(
             child: reviewsAsync.when(
               loading: () => const Center(child: CircularProgressIndicator()),
-              error: (error, stack) => const Center(child: Text('Failed to load reviews')),
+              error: (error, stack) => AsyncErrorView(
+                error: error,
+                onRetry: () => ref.invalidate(reviewsByPeriodProvider(_selectedPeriod)),
+              ),
               data: (reviews) {
                 if (reviews.isEmpty) {
                   return Center(child: Text('No ${_selectedPeriod.name} reviews yet. Tap + to add one.'));
@@ -170,12 +177,11 @@ class _ReviewsScreenState extends ConsumerState<ReviewsScreen> {
     );
 
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(saveResult.isSuccess ? 'Review saved' : 'Something went wrong'),
-        backgroundColor: saveResult.isSuccess ? Colors.green : Colors.red,
-      ),
-    );
+    if (saveResult.isFailure) {
+      AppFeedback.showError(context, saveResult.error!);
+      return;
+    }
+    AppFeedback.showSuccess(context, _reviewSavedMessage);
     ref.invalidate(reviewsByPeriodProvider(result.period));
   }
 }
@@ -209,6 +215,8 @@ class _ReviewDialogContent extends StatefulWidget {
 }
 
 class _ReviewDialogContentState extends State<_ReviewDialogContent> {
+  static const String _atLeastOneFieldRequiredMessage = 'Fill in at least one field below before saving';
+
   final formKey = GlobalKey<FormState>();
   final winsController = TextEditingController();
   final challengesController = TextEditingController();
@@ -230,6 +238,14 @@ class _ReviewDialogContentState extends State<_ReviewDialogContent> {
     lessonsController.dispose();
     nextFocusController.dispose();
     super.dispose();
+  }
+
+  String? _validateReflectionField(String? value) {
+    final allFieldsEmpty = winsController.text.trim().isEmpty &&
+        challengesController.text.trim().isEmpty &&
+        lessonsController.text.trim().isEmpty &&
+        nextFocusController.text.trim().isEmpty;
+    return allFieldsEmpty ? _atLeastOneFieldRequiredMessage : null;
   }
 
   @override
@@ -255,24 +271,28 @@ class _ReviewDialogContentState extends State<_ReviewDialogContent> {
                 controller: winsController,
                 maxLines: 2,
                 decoration: const InputDecoration(labelText: 'Wins', border: OutlineInputBorder()),
+                validator: _validateReflectionField,
               ),
               const SizedBox(height: 12),
               TextFormField(
                 controller: challengesController,
                 maxLines: 2,
                 decoration: const InputDecoration(labelText: 'Challenges', border: OutlineInputBorder()),
+                validator: _validateReflectionField,
               ),
               const SizedBox(height: 12),
               TextFormField(
                 controller: lessonsController,
                 maxLines: 2,
                 decoration: const InputDecoration(labelText: 'Lessons learned', border: OutlineInputBorder()),
+                validator: _validateReflectionField,
               ),
               const SizedBox(height: 12),
               TextFormField(
                 controller: nextFocusController,
                 maxLines: 2,
                 decoration: const InputDecoration(labelText: 'Next focus', border: OutlineInputBorder()),
+                validator: _validateReflectionField,
               ),
               const SizedBox(height: 12),
               DropdownButtonFormField<int>(

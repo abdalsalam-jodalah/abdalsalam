@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../providers/app_providers.dart';
 import '../../../shared/services/reminder_service.dart';
+import '../../../shared/widgets/app_feedback.dart';
 
 class ModuleReminderToggleList extends ConsumerStatefulWidget {
   final ReminderModule module;
@@ -28,14 +29,36 @@ class _ModuleReminderToggleListState extends ConsumerState<ModuleReminderToggleL
   }
 
   Future<void> _load() async {
-    final settings = await ref.read(reminderServiceProvider).getModuleSettings();
-    if (mounted) {
+    try {
+      final settings = await ref.read(reminderServiceProvider).getModuleSettings();
+      if (!mounted) return;
       setState(() => _enabled = settings[widget.module.name] ?? true);
+    } catch (error, stackTrace) {
+      final mapped = ref.read(errorHandlerProvider).mapException(
+        error,
+        context: '${widget.runtimeType}._load',
+        stackTrace: stackTrace,
+      );
+      if (!mounted) return;
+      AppFeedback.showError(context, mapped);
     }
   }
 
   Future<void> _update(bool value) async {
-    await ref.read(reminderServiceProvider).setModuleEnabled(widget.module, value);
+    if (!mounted) return;
+    try {
+      await ref.read(reminderServiceProvider).setModuleEnabled(widget.module, value);
+    } catch (error, stackTrace) {
+      final mapped = ref.read(errorHandlerProvider).mapException(
+        error,
+        context: '${widget.runtimeType}._update',
+        stackTrace: stackTrace,
+      );
+      if (!mounted) return;
+      AppFeedback.showError(context, mapped);
+      return;
+    }
+    if (!mounted) return;
     setState(() => _enabled = value);
   }
 

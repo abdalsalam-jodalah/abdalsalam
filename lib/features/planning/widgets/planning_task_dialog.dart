@@ -4,9 +4,12 @@ import 'package:uuid/uuid.dart';
 
 import '../../../data/models/planning/goal.dart';
 import '../../../data/models/planning/planning_task.dart';
+import '../../../shared/widgets/app_feedback.dart';
 import '../providers/planning_providers.dart';
 
 const _uuid = Uuid();
+const String _taskCreatedMessage = 'Task created';
+const String _taskUpdatedMessage = 'Task updated';
 
 /// Shows the add/edit form for a [PlanningTask] and persists the result.
 ///
@@ -62,17 +65,13 @@ Future<bool> showPlanningTaskDialog(
           ),
         );
 
-  if (context.mounted) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          saveResult.isSuccess ? (existing == null ? 'Task created' : 'Task updated') : 'Something went wrong',
-        ),
-        backgroundColor: saveResult.isSuccess ? Colors.green : Colors.red,
-      ),
-    );
+  if (!context.mounted) return false;
+  if (saveResult.isFailure) {
+    AppFeedback.showError(context, saveResult.error!);
+    return false;
   }
 
+  AppFeedback.showSuccess(context, existing == null ? _taskCreatedMessage : _taskUpdatedMessage);
   if (date != null) {
     ref.invalidate(tasksForDateProvider(date));
   }
@@ -81,7 +80,7 @@ Future<bool> showPlanningTaskDialog(
     ref.invalidate(tasksForGoalProvider(goalIdForInvalidate));
   }
 
-  return saveResult.isSuccess;
+  return true;
 }
 
 class _PlanningTaskResult {

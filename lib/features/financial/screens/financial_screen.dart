@@ -84,7 +84,7 @@ class _FinancialScreenState extends ConsumerState<FinancialScreen> {
 
   Future<void> _addTransaction() async {
     final result = await Navigator.pushNamed(context, TransactionFormScreen.routeName);
-    if (result != null) {
+    if (result != null && mounted) {
       ref.invalidate(allTransactionsProvider);
       ref.invalidate(recentTransactionsProvider);
       ref.invalidate(financialSummaryProvider);

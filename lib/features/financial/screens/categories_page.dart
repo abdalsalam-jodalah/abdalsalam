@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 import '../../../data/models/financial/category_model.dart';
 import '../../../data/models/financial/transaction_model.dart';
+import '../../../shared/widgets/async_error_view.dart';
+import '../../../shared/widgets/app_feedback.dart';
 import '../providers/financial_providers.dart';
 
 class CategoriesPage extends ConsumerStatefulWidget {
@@ -20,6 +22,12 @@ class CategoriesPage extends ConsumerStatefulWidget {
 
 class _CategoriesPageState extends ConsumerState<CategoriesPage> {
   static const _defaultUserId = 'user1';
+  static const String _categoryCreatedMessage = 'Category created successfully';
+  static const String _categoryUpdatedMessage = 'Category updated';
+  static const String _categoryDeletedMessage = 'Category deleted';
+  static const String _deleteCategoryTitle = 'Delete Category';
+  static const String _cancelLabel = 'Cancel';
+  static const String _deleteLabel = 'Delete';
   static const _iconOptions = <IconData>[
     Icons.shopping_cart,
     Icons.restaurant,
@@ -142,7 +150,10 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage> {
 
     return categoriesAsync.when(
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (error, stack) => const Center(child: Text('Failed to load categories')),
+      error: (error, stack) => AsyncErrorView(
+        error: error,
+        onRetry: () => ref.invalidate(allCategoriesProvider),
+      ),
       data: (allCategories) {
         final categories = allCategories
             .where((category) => category.type == _selectedType)
@@ -175,19 +186,31 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage> {
           orElse: () => const <String, double>{},
         );
 
-        return GridView.builder(
-          padding: const EdgeInsets.all(16),
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 2,
-            crossAxisSpacing: 16,
-            mainAxisSpacing: 16,
-            childAspectRatio: 1.2,
-          ),
-          itemCount: categories.length,
-          itemBuilder: (context, index) {
-            final category = categories[index];
-            return _buildCategoryCard(category, totals[category.id] ?? 0.0);
-          },
+        return Column(
+          children: [
+            if (totalsAsync.hasError)
+              AsyncErrorView(
+                error: totalsAsync.error!,
+                isCompact: true,
+                onRetry: () => ref.invalidate(categoryTotalsProvider(_currentMonthRange)),
+              ),
+            Expanded(
+              child: GridView.builder(
+                padding: const EdgeInsets.all(16),
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 2,
+                  crossAxisSpacing: 16,
+                  mainAxisSpacing: 16,
+                  childAspectRatio: 1.2,
+                ),
+                itemCount: categories.length,
+                itemBuilder: (context, index) {
+                  final category = categories[index];
+                  return _buildCategoryCard(category, totals[category.id] ?? 0.0);
+                },
+              ),
+            ),
+          ],
         );
       },
     );
@@ -302,6 +325,7 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage> {
               ..sort((a, b) => b.date.compareTo(a.date)),
             orElse: () => const <TransactionModel>[],
           );
+          final transactionsError = transactionsAsync.hasError ? transactionsAsync.error : null;
 
           return Container(
             padding: const EdgeInsets.all(24),
@@ -370,7 +394,12 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage> {
                 ),
                 const SizedBox(height: 16),
                 Expanded(
-                  child: categoryTransactions.isEmpty
+                  child: transactionsError != null
+                      ? AsyncErrorView(
+                          error: transactionsError,
+                          onRetry: () => ref.invalidate(allTransactionsProvider),
+                        )
+                      : categoryTransactions.isEmpty
                       ? const Center(child: Text('No transactions in this category yet'))
                       : ListView.builder(
                           controller: scrollController,
@@ -464,7 +493,7 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage> {
       ),
     );
 
-    if (result == null) return;
+    if (result == null || !mounted) return;
 
     final service = ref.read(financialServiceProvider);
     final now = DateTime.now();
@@ -483,11 +512,12 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage> {
         ),
       );
       if (!mounted) return;
-      _showResultSnackBar(
-        isSuccess: saveResult.isSuccess,
-        successMessage: 'Category created successfully',
-        successColor: Colors.green,
-      );
+      if (saveResult.isSuccess) {
+        AppFeedback.showSuccess(context, _categoryCreatedMessage);
+      } else {
+        AppFeedback.showError(context, saveResult.error!);
+        return;
+      }
     } else {
       final saveResult = await service.updateCategory(
         category.copyWith(
@@ -499,11 +529,12 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage> {
         ),
       );
       if (!mounted) return;
-      _showResultSnackBar(
-        isSuccess: saveResult.isSuccess,
-        successMessage: 'Category updated',
-        successColor: Colors.green,
-      );
+      if (saveResult.isSuccess) {
+        AppFeedback.showSuccess(context, _categoryUpdatedMessage);
+      } else {
+        AppFeedback.showError(context, saveResult.error!);
+        return;
+      }
     }
 
     ref.invalidate(allCategoriesProvider);
@@ -514,49 +545,40 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage> {
     showDialog(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('Delete Category'),
+        title: const Text(_deleteCategoryTitle),
         content: Text('Are you sure you want to delete "${category.name}"?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext),
-            child: const Text('Cancel'),
+            child: const Text(_cancelLabel),
           ),
           FilledButton(
             onPressed: () async {
-              Navigator.pop(dialogContext);
               final result =
                   await ref.read(financialServiceProvider).deleteCategory(category);
-              if (!mounted) return;
-              _showResultSnackBar(
-                isSuccess: result.isSuccess,
-                successMessage: 'Category deleted',
-                successColor: Colors.red,
-              );
-              ref.invalidate(allCategoriesProvider);
-              ref.invalidate(categoryTotalsProvider);
+              if (!dialogContext.mounted) return;
+
+              if (result.isSuccess) {
+                Navigator.pop(dialogContext);
+                if (mounted) {
+                  ref.invalidate(allCategoriesProvider);
+                  ref.invalidate(categoryTotalsProvider);
+                  AppFeedback.showSuccess(context, _categoryDeletedMessage);
+                }
+              } else {
+                AppFeedback.showError(dialogContext, result.error!);
+              }
             },
             style: FilledButton.styleFrom(
               backgroundColor: Colors.red,
             ),
-            child: const Text('Delete'),
+            child: const Text(_deleteLabel),
           ),
         ],
       ),
     );
   }
 
-  void _showResultSnackBar({
-    required bool isSuccess,
-    required String successMessage,
-    required Color successColor,
-  }) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(isSuccess ? successMessage : 'Something went wrong'),
-        backgroundColor: isSuccess ? successColor : Colors.red,
-      ),
-    );
-  }
 }
 
 class _CategoryDialogResult {

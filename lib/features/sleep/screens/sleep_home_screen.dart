@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../data/models/sleep/sleep_log.dart';
+import '../../../shared/widgets/async_error_view.dart';
 import '../../../shared/widgets/chart_widgets.dart';
 import '../providers/sleep_providers.dart';
 import 'sleep_log_form_screen.dart';
@@ -45,7 +46,11 @@ class SleepHomeScreen extends ConsumerWidget {
         const SizedBox(height: 8),
         logs.when(
           loading: () => const Center(child: CircularProgressIndicator()),
-          error: (error, _) => Text('Failed to load sleep logs: $error'),
+          error: (error, _) => AsyncErrorView(
+            error: error,
+            isCompact: true,
+            onRetry: () => ref.invalidate(sleepLogsProvider),
+          ),
           data: (allLogs) {
             if (allLogs.isEmpty) {
               return const Text('No sleep logs yet.');
@@ -66,7 +71,11 @@ class SleepHomeScreen extends ConsumerWidget {
         const SizedBox(height: 8),
         logs.when(
           loading: () => const Center(child: CircularProgressIndicator()),
-          error: (error, _) => Text('Failed to load trend: $error'),
+          error: (error, _) => AsyncErrorView(
+            error: error,
+            isCompact: true,
+            onRetry: () => ref.invalidate(sleepLogsProvider),
+          ),
           data: (allLogs) {
             if (allLogs.isEmpty) {
               return const Text('No sleep data yet.');
@@ -82,7 +91,11 @@ class SleepHomeScreen extends ConsumerWidget {
         const SizedBox(height: 8),
         insights.when(
           loading: () => const Center(child: CircularProgressIndicator()),
-          error: (error, _) => Text('Failed to load insights: $error'),
+          error: (error, _) => AsyncErrorView(
+            error: error,
+            isCompact: true,
+            onRetry: () => ref.invalidate(sleepInsightsProvider),
+          ),
           data: (data) {
             final avgThisWeek = data['avgHoursThisWeek'] as double?;
             final deltaHours = data['weeklyDeltaHours'] as double?;
@@ -120,11 +133,19 @@ class SleepHomeScreen extends ConsumerWidget {
         const SizedBox(height: 8),
         goalHours.when(
           loading: () => const Center(child: CircularProgressIndicator()),
-          error: (error, _) => Text('Failed to load goal: $error'),
+          error: (error, _) => AsyncErrorView(
+            error: error,
+            isCompact: true,
+            onRetry: () => ref.invalidate(sleepGoalHoursProvider),
+          ),
           data: (goal) {
             return logs.when(
               loading: () => const Center(child: CircularProgressIndicator()),
-              error: (error, _) => Text('Failed to load logs: $error'),
+              error: (error, _) => AsyncErrorView(
+                error: error,
+                isCompact: true,
+                onRetry: () => ref.invalidate(sleepLogsProvider),
+              ),
               data: (allLogs) {
                 final startOfWeek = DateTime.now().subtract(Duration(days: DateTime.now().weekday - DateTime.monday));
                 final startOfWeekDay = DateTime(startOfWeek.year, startOfWeek.month, startOfWeek.day);
@@ -158,7 +179,11 @@ class SleepHomeScreen extends ConsumerWidget {
         const SizedBox(height: 8),
         stats.when(
           loading: () => const Center(child: CircularProgressIndicator()),
-          error: (error, _) => Text('Failed to load stats: $error'),
+          error: (error, _) => AsyncErrorView(
+            error: error,
+            isCompact: true,
+            onRetry: () => ref.invalidate(sleepLogStatisticsProvider),
+          ),
           data: (data) {
             return Card(
               child: Padding(

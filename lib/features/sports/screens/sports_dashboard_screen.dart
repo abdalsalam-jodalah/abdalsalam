@@ -3,9 +3,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
-import '../../../core/constants/user_error_messages.dart';
+import '../../../core/validation/validation_utils.dart';
 import '../../../data/models/sports/body_measurement.dart';
 import '../../../data/models/sports/exercise.dart';
+import '../../../shared/widgets/app_feedback.dart';
+import '../../../shared/widgets/async_error_view.dart';
 import '../providers/sports_providers.dart';
 
 const _uuid = Uuid();
@@ -101,7 +103,11 @@ class _SportsDashboardScreenState extends ConsumerState<SportsDashboardScreen> {
               height: 200,
               child: logsAsync.when(
                 loading: () => const Center(child: CircularProgressIndicator()),
-                error: (error, stack) => const Center(child: Text('Failed to load activity')),
+                error: (error, stack) => AsyncErrorView(
+                  error: error,
+                  isCompact: true,
+                  onRetry: () => ref.invalidate(logsInRangeProvider(range)),
+                ),
                 data: (logs) {
                   if (logs.isEmpty) {
                     return const Center(child: Text('No activity for this period'));
@@ -162,7 +168,11 @@ class _SportsDashboardScreenState extends ConsumerState<SportsDashboardScreen> {
             const SizedBox(height: 12),
             categoriesAsync.when(
               loading: () => const Center(child: CircularProgressIndicator()),
-              error: (error, stack) => const Text('Failed to load categories'),
+              error: (error, stack) => AsyncErrorView(
+                error: error,
+                isCompact: true,
+                onRetry: () => ref.invalidate(exerciseCategoriesProvider),
+              ),
               data: (categories) {
                 if (categories.isEmpty) {
                   return const Text('No categories yet — add some in the Library tab.');
@@ -202,11 +212,19 @@ class _SportsDashboardScreenState extends ConsumerState<SportsDashboardScreen> {
 
     return exercisesAsync.when(
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (error, stack) => const Text('Failed to load exercises'),
+      error: (error, stack) => AsyncErrorView(
+        error: error,
+        isCompact: true,
+        onRetry: () => ref.invalidate(exercisesByCategoryProvider(categoryId)),
+      ),
       data: (exercises) {
         return logsAsync.when(
           loading: () => const Center(child: CircularProgressIndicator()),
-          error: (error, stack) => const Text('Failed to load logs'),
+          error: (error, stack) => AsyncErrorView(
+            error: error,
+            isCompact: true,
+            onRetry: () => ref.invalidate(logsInRangeProvider(range)),
+          ),
           data: (logs) {
             final exerciseIds = exercises.map((exercise) => exercise.id).toSet();
             final countByExercise = <String, int>{};
@@ -255,10 +273,8 @@ class _SportsDashboardScreenState extends ConsumerState<SportsDashboardScreen> {
       return const SizedBox.shrink();
     }
     final resolvedExercise = exercise;
-    final range = (
-      start: DateTime.now().subtract(const Duration(days: 90)),
-      end: DateTime.now(),
-    );
+    final today = dateOnly(DateTime.now());
+    final range = (start: today.subtract(const Duration(days: 90)), end: today);
 
     if (exercise.trackingType == ExerciseTrackingType.cardio) {
       final logsAsync = ref.watch(
@@ -266,7 +282,13 @@ class _SportsDashboardScreenState extends ConsumerState<SportsDashboardScreen> {
       );
       return logsAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (error, stack) => const Text('Failed to load progression'),
+        error: (error, stack) => AsyncErrorView(
+          error: error,
+          isCompact: true,
+          onRetry: () => ref.invalidate(
+            logsForExerciseInRangeProvider((exerciseId: exerciseId, start: range.start, end: range.end)),
+          ),
+        ),
         data: (logs) {
           final spots = [
             for (final log in logs)
@@ -283,7 +305,13 @@ class _SportsDashboardScreenState extends ConsumerState<SportsDashboardScreen> {
     );
     return setsAsync.when(
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (error, stack) => const Text('Failed to load progression'),
+      error: (error, stack) => AsyncErrorView(
+        error: error,
+        isCompact: true,
+        onRetry: () => ref.invalidate(
+          setsForExerciseInRangeProvider((exerciseId: exerciseId, start: range.start, end: range.end)),
+        ),
+      ),
       data: (sets) {
         final spots = [
           for (final set in sets)
@@ -320,7 +348,8 @@ class _SportsDashboardScreenState extends ConsumerState<SportsDashboardScreen> {
   }
 
   Widget _buildBodyWeightSection() {
-    final range = (start: DateTime.now().subtract(const Duration(days: 90)), end: DateTime.now());
+    final today = dateOnly(DateTime.now());
+    final range = (start: today.subtract(const Duration(days: 90)), end: today);
     final measurementsAsync = ref.watch(bodyMeasurementsInRangeProvider(range));
 
     return Card(
@@ -343,7 +372,11 @@ class _SportsDashboardScreenState extends ConsumerState<SportsDashboardScreen> {
             const SizedBox(height: 12),
             measurementsAsync.when(
               loading: () => const Center(child: CircularProgressIndicator()),
-              error: (error, stack) => const Text('Failed to load measurements'),
+              error: (error, stack) => AsyncErrorView(
+                error: error,
+                isCompact: true,
+                onRetry: () => ref.invalidate(bodyMeasurementsInRangeProvider(range)),
+              ),
               data: (measurements) {
                 if (measurements.isEmpty) {
                   return const Text('No body-weight entries yet.');
@@ -419,9 +452,7 @@ class _SportsDashboardScreenState extends ConsumerState<SportsDashboardScreen> {
       return;
     }
     if (createResult.isFailure) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text(UserErrorMessages.generic), backgroundColor: Colors.red),
-      );
+      AppFeedback.showError(context, createResult.error!);
     }
     ref.invalidate(bodyMeasurementsInRangeProvider);
   }
@@ -461,6 +492,8 @@ class _MeasurementDialogContent extends StatefulWidget {
 }
 
 class _MeasurementDialogContentState extends State<_MeasurementDialogContent> {
+  static const String _mustBeNumberMessage = 'Must be a number';
+
   final formKey = GlobalKey<FormState>();
   final weightController = TextEditingController();
   late final TextEditingController heightController;
@@ -492,6 +525,28 @@ class _MeasurementDialogContentState extends State<_MeasurementDialogContent> {
     super.dispose();
   }
 
+  String? _validateOptionalPositiveNumber(String? value, String fieldName) {
+    if (value == null || value.trim().isEmpty) {
+      return null;
+    }
+    final parsed = double.tryParse(value);
+    if (parsed == null) {
+      return _mustBeNumberMessage;
+    }
+    return ValidationUtils.positiveNumber(value: parsed, fieldName: fieldName);
+  }
+
+  String? _validateBodyFatPercent(String? value) {
+    if (value == null || value.trim().isEmpty) {
+      return null;
+    }
+    final parsed = double.tryParse(value);
+    if (parsed == null) {
+      return _mustBeNumberMessage;
+    }
+    return ValidationUtils.numericRange(value: parsed, fieldName: 'Body fat %', min: 0, max: 100);
+  }
+
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
@@ -513,12 +568,14 @@ class _MeasurementDialogContentState extends State<_MeasurementDialogContent> {
                 controller: heightController,
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
                 decoration: const InputDecoration(labelText: 'Height (cm, one-time)', border: OutlineInputBorder()),
+                validator: (value) => _validateOptionalPositiveNumber(value, 'Height'),
               ),
               const SizedBox(height: 12),
               TextFormField(
                 controller: bodyFatController,
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
                 decoration: const InputDecoration(labelText: 'Body fat % (optional)', border: OutlineInputBorder()),
+                validator: _validateBodyFatPercent,
               ),
               const Divider(height: 32),
               const Align(
@@ -533,6 +590,7 @@ class _MeasurementDialogContentState extends State<_MeasurementDialogContent> {
                       controller: chestController,
                       keyboardType: const TextInputType.numberWithOptions(decimal: true),
                       decoration: const InputDecoration(labelText: 'Chest', border: OutlineInputBorder()),
+                      validator: (value) => _validateOptionalPositiveNumber(value, 'Chest'),
                     ),
                   ),
                   const SizedBox(width: 8),
@@ -541,6 +599,7 @@ class _MeasurementDialogContentState extends State<_MeasurementDialogContent> {
                       controller: waistController,
                       keyboardType: const TextInputType.numberWithOptions(decimal: true),
                       decoration: const InputDecoration(labelText: 'Waist', border: OutlineInputBorder()),
+                      validator: (value) => _validateOptionalPositiveNumber(value, 'Waist'),
                     ),
                   ),
                 ],
@@ -553,6 +612,7 @@ class _MeasurementDialogContentState extends State<_MeasurementDialogContent> {
                       controller: abdominalController,
                       keyboardType: const TextInputType.numberWithOptions(decimal: true),
                       decoration: const InputDecoration(labelText: 'Abdominal', border: OutlineInputBorder()),
+                      validator: (value) => _validateOptionalPositiveNumber(value, 'Abdominal'),
                     ),
                   ),
                   const SizedBox(width: 8),
@@ -561,6 +621,7 @@ class _MeasurementDialogContentState extends State<_MeasurementDialogContent> {
                       controller: hipsController,
                       keyboardType: const TextInputType.numberWithOptions(decimal: true),
                       decoration: const InputDecoration(labelText: 'Hips', border: OutlineInputBorder()),
+                      validator: (value) => _validateOptionalPositiveNumber(value, 'Hips'),
                     ),
                   ),
                 ],
@@ -573,6 +634,7 @@ class _MeasurementDialogContentState extends State<_MeasurementDialogContent> {
                       controller: thighController,
                       keyboardType: const TextInputType.numberWithOptions(decimal: true),
                       decoration: const InputDecoration(labelText: 'Leg (thigh)', border: OutlineInputBorder()),
+                      validator: (value) => _validateOptionalPositiveNumber(value, 'Thigh'),
                     ),
                   ),
                   const SizedBox(width: 8),
@@ -581,6 +643,7 @@ class _MeasurementDialogContentState extends State<_MeasurementDialogContent> {
                       controller: armController,
                       keyboardType: const TextInputType.numberWithOptions(decimal: true),
                       decoration: const InputDecoration(labelText: 'Arm', border: OutlineInputBorder()),
+                      validator: (value) => _validateOptionalPositiveNumber(value, 'Arm'),
                     ),
                   ),
                 ],

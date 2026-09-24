@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../data/models/habits/habit.dart';
 import '../../../data/models/habits/habit_log.dart';
+import '../../../shared/widgets/async_error_view.dart';
 import '../../../shared/widgets/chart_widgets.dart';
 import '../providers/habits_providers.dart';
 import '../widgets/habit_style_picker.dart';
@@ -25,7 +26,10 @@ class HabitDetailScreen extends ConsumerWidget {
       appBar: AppBar(title: const Text('Habit Detail')),
       body: habitAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (error, _) => Center(child: Text('Failed to load habit: $error')),
+        error: (error, _) => AsyncErrorView(
+          error: error,
+          onRetry: () => ref.invalidate(habitByIdProvider(habitId)),
+        ),
         data: (habit) {
           if (habit == null) {
             return const Center(child: Text('Habit not found'));
@@ -81,6 +85,9 @@ class _HabitDetailBody extends ConsumerWidget {
                   HabitFormScreen.routeName,
                   arguments: HabitFormArgs(existing: habit),
                 );
+                if (!context.mounted) {
+                  return;
+                }
                 ref.invalidate(habitByIdProvider(habit.id));
                 ref.invalidate(activeHabitsProvider);
               },
@@ -94,7 +101,11 @@ class _HabitDetailBody extends ConsumerWidget {
         const SizedBox(height: 16),
         statsAsync.when(
           loading: () => const Center(child: CircularProgressIndicator()),
-          error: (error, _) => Text('Failed to load stats: $error'),
+          error: (error, _) => AsyncErrorView(
+            error: error,
+            isCompact: true,
+            onRetry: () => ref.invalidate(habitStatisticsProvider(habit.id)),
+          ),
           data: (stats) => _StatsRow(stats: stats),
         ),
         const SizedBox(height: 16),
@@ -102,7 +113,11 @@ class _HabitDetailBody extends ConsumerWidget {
         const SizedBox(height: 8),
         logsAsync.when(
           loading: () => const Center(child: CircularProgressIndicator()),
-          error: (error, _) => Text('Failed to load logs: $error'),
+          error: (error, _) => AsyncErrorView(
+            error: error,
+            isCompact: true,
+            onRetry: () => ref.invalidate(logsForHabitProvider(habit.id)),
+          ),
           data: (logs) {
             final now = DateTime.now();
             final entries = <DateTime, bool>{
@@ -117,7 +132,11 @@ class _HabitDetailBody extends ConsumerWidget {
         const SizedBox(height: 8),
         logsAsync.when(
           loading: () => const SizedBox.shrink(),
-          error: (error, _) => Text('Failed to load chart: $error'),
+          error: (error, _) => AsyncErrorView(
+            error: error,
+            isCompact: true,
+            onRetry: () => ref.invalidate(logsForHabitProvider(habit.id)),
+          ),
           data: (logs) {
             final sorted = [...logs]..sort((a, b) => a.completedAt.compareTo(b.completedAt));
             if (habit.isGoodHabit) {
@@ -147,7 +166,11 @@ class _HabitDetailBody extends ConsumerWidget {
         const SizedBox(height: 8),
         logsAsync.when(
           loading: () => const Center(child: CircularProgressIndicator()),
-          error: (error, _) => Text('Failed to load logs: $error'),
+          error: (error, _) => AsyncErrorView(
+            error: error,
+            isCompact: true,
+            onRetry: () => ref.invalidate(logsForHabitProvider(habit.id)),
+          ),
           data: (logs) => logs.isEmpty
               ? const Padding(padding: EdgeInsets.symmetric(vertical: 8), child: Text('No logs yet'))
               : Column(children: logs.map((log) => _LogTile(habit: habit, log: log)).toList(growable: false)),

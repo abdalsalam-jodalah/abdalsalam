@@ -12,10 +12,12 @@ class FakeNotesCrudRepository<T extends BaseModel> {
   final List<T> items;
   bool shouldFailGetActive = false;
   bool shouldFailQuery = false;
+  int getActiveCallCount = 0;
 
   FakeNotesCrudRepository([List<T>? seed]) : items = seed ?? <T>[];
 
   Future<Result<List<T>, AppError>> getActive() async {
+    getActiveCallCount++;
     if (shouldFailGetActive) {
       return Failure(fakeNotesStorageFailure());
     }

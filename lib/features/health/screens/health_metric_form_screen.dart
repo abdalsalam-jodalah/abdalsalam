@@ -2,9 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../../core/errors/app_error.dart';
 import '../../../data/models/health/health_metric.dart';
+import '../../../shared/widgets/app_feedback.dart';
 import '../providers/health_providers.dart';
 import '../services/health_metric_service.dart';
+
+const _invalidValueMessage = 'Enter a valid number';
 
 const _commonMetricTypes = <String, String>{
   'Weight': 'kg',
@@ -74,6 +78,14 @@ class _HealthMetricFormScreenState extends ConsumerState<HealthMetricFormScreen>
     }
 
     final metricType = _selectedType == 'Custom' ? _customTypeController.text.trim() : _selectedType;
+    final value = double.tryParse(_valueController.text.trim());
+    if (value == null) {
+      AppFeedback.showError(
+        context,
+        ValidationError(_invalidValueMessage, fieldErrors: {'value': _invalidValueMessage}),
+      );
+      return;
+    }
 
     final metric = HealthMetric(
       id: widget.metric?.id ?? _uuid.v4(),
@@ -81,7 +93,7 @@ class _HealthMetricFormScreenState extends ConsumerState<HealthMetricFormScreen>
       updatedAt: DateTime.now(),
       userId: 'current_user_id',
       metricType: metricType,
-      value: double.parse(_valueController.text.trim()),
+      value: value,
       unit: _unitController.text.trim(),
       measuredAt: _measuredAt,
       notes: _notesController.text.trim().isEmpty ? null : _notesController.text.trim(),
@@ -89,22 +101,12 @@ class _HealthMetricFormScreenState extends ConsumerState<HealthMetricFormScreen>
 
     final result = widget.metric == null ? await _service.create(metric) : await _service.update(metric);
 
+    if (!mounted) return;
     if (result.isSuccess) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Metric ${widget.metric == null ? 'added' : 'updated'}')),
-        );
-        Navigator.of(context).pop(true);
-      }
+      AppFeedback.showSuccess(context, 'Metric ${widget.metric == null ? 'added' : 'updated'}');
+      Navigator.of(context).pop(true);
     } else {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error: ${result.error?.message ?? 'Unknown error'}'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
+      AppFeedback.showError(context, result.error!);
     }
   }
 
@@ -163,7 +165,7 @@ class _HealthMetricFormScreenState extends ConsumerState<HealthMetricFormScreen>
                 ),
                 validator: (value) {
                   if (value == null || value.trim().isEmpty) return 'Required';
-                  return double.tryParse(value.trim()) == null ? 'Enter a valid number' : null;
+                  return double.tryParse(value.trim()) == null ? _invalidValueMessage : null;
                 },
               ),
               const SizedBox(height: 12),
@@ -195,7 +197,7 @@ class _HealthMetricFormScreenState extends ConsumerState<HealthMetricFormScreen>
                     firstDate: DateTime(2020),
                     lastDate: DateTime(2100),
                   );
-                  if (picked != null) {
+                  if (picked != null && mounted) {
                     setState(() => _measuredAt = picked);
                   }
                 },

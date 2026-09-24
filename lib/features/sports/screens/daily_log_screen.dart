@@ -2,21 +2,17 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
-import '../../../core/constants/user_error_messages.dart';
+import '../../../core/errors/app_error.dart';
 import '../../../data/models/sports/exercise.dart';
 import '../../../data/models/sports/exercise_log.dart';
 import '../../../data/models/sports/exercise_set_log.dart';
+import '../../../shared/widgets/app_feedback.dart';
+import '../../../shared/widgets/async_error_view.dart';
 import '../providers/sports_providers.dart';
 import '../widgets/reorderable_sport_list.dart';
 import '../widgets/sports_widgets.dart';
 
 const _uuid = Uuid();
-
-void _showFailureSnackBar(BuildContext context) {
-  ScaffoldMessenger.of(context).showSnackBar(
-    const SnackBar(content: Text(UserErrorMessages.generic), backgroundColor: Colors.red),
-  );
-}
 
 class DailyLogScreen extends ConsumerStatefulWidget {
   static const routeName = '/sports/daily-log';
@@ -48,6 +44,9 @@ class _DailyLogScreenState extends ConsumerState<DailyLogScreen> {
       firstDate: DateTime(2020),
       lastDate: DateTime(2100),
     );
+    if (!mounted) {
+      return;
+    }
     if (picked != null) {
       setState(() => _selectedDate = dateOnly(picked));
     }
@@ -135,11 +134,18 @@ class _DailyLogBodyState extends ConsumerState<_DailyLogBody> {
 
     return logsAsync.when(
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (error, stack) => const Center(child: Text('Failed to load logs')),
+      error: (error, stack) => AsyncErrorView(
+        error: error,
+        onRetry: () => ref.invalidate(logsForDateProvider(date)),
+      ),
       data: (logs) {
         return exercisesAsync.when(
           loading: () => const Center(child: CircularProgressIndicator()),
-          error: (error, stack) => const Center(child: Text('Failed to load exercises')),
+          error: (error, stack) => AsyncErrorView(
+            error: error,
+            isCompact: true,
+            onRetry: () => ref.invalidate(allActiveExercisesProvider),
+          ),
           data: (allExercises) {
             final exerciseById = {for (final exercise in allExercises) exercise.id: exercise};
 
@@ -203,7 +209,9 @@ class _DailyLogBodyState extends ConsumerState<_DailyLogBody> {
     if (!mounted) {
       return;
     }
-    if (updateResult.isFailure) _showFailureSnackBar(context);
+    if (updateResult.isFailure) {
+      AppFeedback.showError(context, updateResult.error!);
+    }
     ref.invalidate(logsForDateProvider(date));
   }
 
@@ -213,7 +221,9 @@ class _DailyLogBodyState extends ConsumerState<_DailyLogBody> {
     if (!mounted) {
       return;
     }
-    if (deleteResult.isFailure) _showFailureSnackBar(context);
+    if (deleteResult.isFailure) {
+      AppFeedback.showError(context, deleteResult.error!);
+    }
     ref.invalidate(logsForDateProvider(date));
   }
 
@@ -225,7 +235,7 @@ class _DailyLogBodyState extends ConsumerState<_DailyLogBody> {
     final service = ref.read(exerciseLogServiceProvider);
     final now = DateTime.now();
     var order = currentLogs.length;
-    var hasFailure = false;
+    AppError? failure;
     for (final entry in toAdd) {
       final createResult = await service.create(
         ExerciseLog(
@@ -239,13 +249,17 @@ class _DailyLogBodyState extends ConsumerState<_DailyLogBody> {
           scheduleEntryId: entry.id,
         ),
       );
-      if (createResult.isFailure) hasFailure = true;
+      if (createResult.isFailure) {
+        failure ??= createResult.error;
+      }
       order++;
     }
     if (!mounted) {
       return;
     }
-    if (hasFailure) _showFailureSnackBar(context);
+    if (failure != null) {
+      AppFeedback.showError(context, failure);
+    }
     ref.invalidate(logsForDateProvider(date));
   }
 
@@ -295,7 +309,9 @@ class _DailyLogBodyState extends ConsumerState<_DailyLogBody> {
     if (!mounted) {
       return;
     }
-    if (createResult.isFailure) _showFailureSnackBar(context);
+    if (createResult.isFailure) {
+      AppFeedback.showError(context, createResult.error!);
+    }
     ref.invalidate(logsForDateProvider(date));
   }
 }
@@ -348,6 +364,10 @@ class _CardioForm extends ConsumerStatefulWidget {
 }
 
 class _CardioFormState extends ConsumerState<_CardioForm> {
+  static const String _mustBeWholeNumberMessage = 'Must be a whole number';
+  static const String _mustBeNumberMessage = 'Must be a number';
+
+  final _formKey = GlobalKey<FormState>();
   late final TextEditingController _stepsController;
   late final TextEditingController _durationController;
   late final TextEditingController _distanceController;
@@ -368,7 +388,24 @@ class _CardioFormState extends ConsumerState<_CardioForm> {
     super.dispose();
   }
 
+  String? _validateOptionalWholeNumber(String? value) {
+    if (value == null || value.trim().isEmpty) {
+      return null;
+    }
+    return int.tryParse(value) == null ? _mustBeWholeNumberMessage : null;
+  }
+
+  String? _validateOptionalDecimal(String? value) {
+    if (value == null || value.trim().isEmpty) {
+      return null;
+    }
+    return double.tryParse(value) == null ? _mustBeNumberMessage : null;
+  }
+
   Future<void> _save() async {
+    if (!(_formKey.currentState?.validate() ?? false)) {
+      return;
+    }
     final service = ref.read(exerciseLogServiceProvider);
     final updateResult = await service.update(
       widget.log.copyWith(
@@ -381,7 +418,9 @@ class _CardioFormState extends ConsumerState<_CardioForm> {
     if (!mounted) {
       return;
     }
-    if (updateResult.isFailure) _showFailureSnackBar(context);
+    if (updateResult.isFailure) {
+      AppFeedback.showError(context, updateResult.error!);
+    }
     ref.invalidate(logsForDateProvider(dateOnly(widget.log.date)));
   }
 
@@ -389,38 +428,44 @@ class _CardioFormState extends ConsumerState<_CardioForm> {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-      child: Row(
-        children: [
-          Expanded(
-            child: TextField(
-              controller: _stepsController,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(labelText: 'Steps'),
-              onSubmitted: (_) => _save(),
-              onEditingComplete: _save,
+      child: Form(
+        key: _formKey,
+        child: Row(
+          children: [
+            Expanded(
+              child: TextFormField(
+                controller: _stepsController,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(labelText: 'Steps'),
+                validator: _validateOptionalWholeNumber,
+                onFieldSubmitted: (_) => _save(),
+                onEditingComplete: _save,
+              ),
             ),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: TextField(
-              controller: _durationController,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(labelText: 'Duration (sec)'),
-              onSubmitted: (_) => _save(),
-              onEditingComplete: _save,
+            const SizedBox(width: 8),
+            Expanded(
+              child: TextFormField(
+                controller: _durationController,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(labelText: 'Duration (sec)'),
+                validator: _validateOptionalWholeNumber,
+                onFieldSubmitted: (_) => _save(),
+                onEditingComplete: _save,
+              ),
             ),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: TextField(
-              controller: _distanceController,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              decoration: const InputDecoration(labelText: 'Distance (km)'),
-              onSubmitted: (_) => _save(),
-              onEditingComplete: _save,
+            const SizedBox(width: 8),
+            Expanded(
+              child: TextFormField(
+                controller: _distanceController,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                decoration: const InputDecoration(labelText: 'Distance (km)'),
+                validator: _validateOptionalDecimal,
+                onFieldSubmitted: (_) => _save(),
+                onEditingComplete: _save,
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -453,7 +498,11 @@ class _StrengthSetsState extends ConsumerState<_StrengthSets> {
         children: [
           setsAsync.when(
             loading: () => const LinearProgressIndicator(),
-            error: (error, stack) => const Text('Failed to load sets'),
+            error: (error, stack) => AsyncErrorView(
+              error: error,
+              isCompact: true,
+              onRetry: () => ref.invalidate(setsForLogProvider(widget.log.id)),
+            ),
             data: (sets) {
               if (sets.isEmpty) {
                 return const Text('No sets logged yet.');
@@ -525,7 +574,9 @@ class _StrengthSetsState extends ConsumerState<_StrengthSets> {
     if (!mounted) {
       return;
     }
-    if (createResult.isFailure) _showFailureSnackBar(context);
+    if (createResult.isFailure) {
+      AppFeedback.showError(context, createResult.error!);
+    }
     ref.invalidate(setsForLogProvider(widget.log.id));
     ref.invalidate(personalRecordProvider(widget.exerciseId));
   }
@@ -546,6 +597,8 @@ class _AddSetDialogContent extends StatefulWidget {
 }
 
 class _AddSetDialogContentState extends State<_AddSetDialogContent> {
+  static const String _mustBeNumberMessage = 'Must be a number';
+
   final formKey = GlobalKey<FormState>();
   final repsController = TextEditingController();
   final weightController = TextEditingController();
@@ -555,6 +608,13 @@ class _AddSetDialogContentState extends State<_AddSetDialogContent> {
     repsController.dispose();
     weightController.dispose();
     super.dispose();
+  }
+
+  String? _validateOptionalWeight(String? value) {
+    if (value == null || value.trim().isEmpty) {
+      return null;
+    }
+    return double.tryParse(value) == null ? _mustBeNumberMessage : null;
   }
 
   @override
@@ -577,6 +637,7 @@ class _AddSetDialogContentState extends State<_AddSetDialogContent> {
               controller: weightController,
               keyboardType: const TextInputType.numberWithOptions(decimal: true),
               decoration: const InputDecoration(labelText: 'Weight (kg, optional)', border: OutlineInputBorder()),
+              validator: _validateOptionalWeight,
             ),
           ],
         ),

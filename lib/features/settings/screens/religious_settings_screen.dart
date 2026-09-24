@@ -2,9 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
+import '../../../core/errors/app_error.dart';
+import '../../../core/validation/validation_utils.dart';
 import '../../../features/religious/providers/religious_tracking_providers.dart';
 import '../../../providers/app_providers.dart';
 import '../../../shared/services/reminder_service.dart';
+import '../../../shared/widgets/app_feedback.dart';
+import '../../../shared/widgets/async_error_view.dart';
 import '../widgets/module_reminder_toggle_list.dart';
 import '../widgets/picker_list_tile.dart';
 import '../widgets/settings_section_header.dart';
@@ -19,6 +23,11 @@ class ReligiousSettingsScreen extends ConsumerStatefulWidget {
 }
 
 class _ReligiousSettingsScreenState extends ConsumerState<ReligiousSettingsScreen> {
+  static const double _defaultLatitude = 32.2211;
+  static const double _defaultLongitude = 35.2544;
+  static const String _prayerTimeSourceUpdatedMessage = 'Prayer time source updated';
+
+  final _locationFormKey = GlobalKey<FormState>();
   Map<String, dynamic> _settings = const {};
   String _pendingPrayerSource = 'scraped';
   final _latController = TextEditingController();
@@ -43,30 +52,91 @@ class _ReligiousSettingsScreenState extends ConsumerState<ReligiousSettingsScree
       setState(() {
         _settings = values;
         _pendingPrayerSource = (values['prayerTimeSource'] as String?) ?? 'scraped';
-        _latController.text = ((values['prayerLocationLatitude'] as num?) ?? 32.2211).toString();
-        _longController.text = ((values['prayerLocationLongitude'] as num?) ?? 35.2544).toString();
+        _latController.text = ((values['prayerLocationLatitude'] as num?) ?? _defaultLatitude).toString();
+        _longController.text = ((values['prayerLocationLongitude'] as num?) ?? _defaultLongitude).toString();
       });
     }
   }
 
-  Future<void> _update(String key, dynamic value) async {
-    await ref.read(settingsServiceProvider).updateSetting(key, value);
-    setState(() => _settings[key] = value);
+  Future<AppError?> _update(String key, dynamic value) async {
+    try {
+      await ref.read(settingsServiceProvider).updateSetting(key, value);
+    } catch (error, stackTrace) {
+      return ref.read(errorHandlerProvider).mapException(
+            error,
+            context: 'ReligiousSettingsScreen._update($key)',
+            stackTrace: stackTrace,
+          );
+    }
+    if (mounted) {
+      setState(() => _settings[key] = value);
+    }
+    return null;
+  }
+
+  Future<void> _updateAndReport(String key, dynamic value) async {
+    final error = await _update(key, value);
+    if (error != null && mounted) {
+      AppFeedback.showError(context, error);
+    }
+  }
+
+  String? _validateLatitude(String? value) {
+    final requiredError = ValidationUtils.requiredField(value, 'Latitude');
+    if (requiredError != null) return requiredError;
+    final parsed = double.tryParse(value!.trim());
+    if (parsed == null) return 'Latitude must be a number';
+    return ValidationUtils.numericRange(value: parsed, fieldName: 'Latitude', min: -90, max: 90);
+  }
+
+  String? _validateLongitude(String? value) {
+    final requiredError = ValidationUtils.requiredField(value, 'Longitude');
+    if (requiredError != null) return requiredError;
+    final parsed = double.tryParse(value!.trim());
+    if (parsed == null) return 'Longitude must be a number';
+    return ValidationUtils.numericRange(value: parsed, fieldName: 'Longitude', min: -180, max: 180);
   }
 
   Future<void> _confirmPrayerSource() async {
-    await _update('prayerTimeSource', _pendingPrayerSource);
-    if (_pendingPrayerSource == 'adhan') {
-      await _update('prayerLocationLatitude', double.tryParse(_latController.text) ?? 32.2211);
-      await _update('prayerLocationLongitude', double.tryParse(_longController.text) ?? 35.2544);
+    final usingAdhan = _pendingPrayerSource == 'adhan';
+    if (usingAdhan && !(_locationFormKey.currentState?.validate() ?? true)) {
+      return;
     }
-    await ref.read(religiousTrackerServiceProvider).syncPrayerTimesForToday(force: true);
-    ref.invalidate(todayPrayerTimesProvider);
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Prayer time source updated')),
+
+    final sourceError = await _update('prayerTimeSource', _pendingPrayerSource);
+    if (sourceError != null) {
+      if (mounted) AppFeedback.showError(context, sourceError);
+      return;
+    }
+
+    if (usingAdhan) {
+      final latitudeError = await _update(
+        'prayerLocationLatitude',
+        double.parse(_latController.text.trim()),
       );
+      if (latitudeError != null) {
+        if (mounted) AppFeedback.showError(context, latitudeError);
+        return;
+      }
+      final longitudeError = await _update(
+        'prayerLocationLongitude',
+        double.parse(_longController.text.trim()),
+      );
+      if (longitudeError != null) {
+        if (mounted) AppFeedback.showError(context, longitudeError);
+        return;
+      }
     }
+
+    final syncResult =
+        await ref.read(religiousTrackerServiceProvider).syncPrayerTimesForToday(force: true);
+    if (!mounted) return;
+    if (syncResult.isFailure) {
+      AppFeedback.showError(context, syncResult.error!);
+      return;
+    }
+    ref.invalidate(todayPrayerTimesProvider);
+    AppFeedback.showSuccess(context, _prayerTimeSourceUpdatedMessage);
   }
 
   @override
@@ -105,52 +175,57 @@ class _ReligiousSettingsScreenState extends ConsumerState<ReligiousSettingsScree
               PickerOption('qatar', 'Qatar'),
               PickerOption('singapore', 'Singapore'),
             ],
-            onChanged: (value) => _update('prayerMethod', value),
+            onChanged: (value) => _updateAndReport('prayerMethod', value),
           ),
           const SettingsSectionHeader('Prayer Times Source'),
-          RadioListTile<String>(
-            value: 'scraped',
+          RadioGroup<String>(
             groupValue: _pendingPrayerSource,
-            title: const Text('Local source (quran-radio.com)'),
-            subtitle: const Text('Default — localized to your country'),
             onChanged: (value) {
               if (value != null) {
                 setState(() => _pendingPrayerSource = value);
               }
             },
-          ),
-          RadioListTile<String>(
-            value: 'adhan',
-            groupValue: _pendingPrayerSource,
-            title: const Text('Calculated (Adhan)'),
-            subtitle: const Text('Computed locally from latitude/longitude and your chosen method'),
-            onChanged: (value) {
-              if (value != null) {
-                setState(() => _pendingPrayerSource = value);
-              }
-            },
+            child: const Column(
+              children: [
+                RadioListTile<String>(
+                  value: 'scraped',
+                  title: Text('Local source (quran-radio.com)'),
+                  subtitle: Text('Default — localized to your country'),
+                ),
+                RadioListTile<String>(
+                  value: 'adhan',
+                  title: Text('Calculated (Adhan)'),
+                  subtitle: Text('Computed locally from latitude/longitude and your chosen method'),
+                ),
+              ],
+            ),
           ),
           if (_pendingPrayerSource == 'adhan')
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: _latController,
-                      keyboardType: const TextInputType.numberWithOptions(decimal: true, signed: true),
-                      decoration: const InputDecoration(labelText: 'Latitude'),
+              child: Form(
+                key: _locationFormKey,
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: TextFormField(
+                        controller: _latController,
+                        keyboardType: const TextInputType.numberWithOptions(decimal: true, signed: true),
+                        decoration: const InputDecoration(labelText: 'Latitude'),
+                        validator: _validateLatitude,
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: TextField(
-                      controller: _longController,
-                      keyboardType: const TextInputType.numberWithOptions(decimal: true, signed: true),
-                      decoration: const InputDecoration(labelText: 'Longitude'),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: TextFormField(
+                        controller: _longController,
+                        keyboardType: const TextInputType.numberWithOptions(decimal: true, signed: true),
+                        decoration: const InputDecoration(labelText: 'Longitude'),
+                        validator: _validateLongitude,
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           Padding(
@@ -171,7 +246,11 @@ class _ReligiousSettingsScreenState extends ConsumerState<ReligiousSettingsScree
                     padding: EdgeInsets.symmetric(vertical: 8),
                     child: LinearProgressIndicator(),
                   ),
-                  error: (err, _) => Text('Preview unavailable: $err'),
+                  error: (err, _) => AsyncErrorView(
+                    error: err,
+                    isCompact: true,
+                    onRetry: () => ref.invalidate(prayerTimeSourcePreviewProvider(_pendingPrayerSource)),
+                  ),
                 );
               },
             ),
@@ -188,14 +267,14 @@ class _ReligiousSettingsScreenState extends ConsumerState<ReligiousSettingsScree
           SwitchListTile(
             value: religiousRemindersEnabled,
             title: const Text('Detailed reminder types'),
-            onChanged: (value) => _update('religiousRemindersEnabled', value),
+            onChanged: (value) => _updateAndReport('religiousRemindersEnabled', value),
           ),
           SwitchListTile(
             value: religiousPrayerRemindersEnabled,
             title: const Text('Prayer reminders'),
             dense: true,
             onChanged: religiousRemindersEnabled
-                ? (value) => _update('religiousPrayerRemindersEnabled', value)
+                ? (value) => _updateAndReport('religiousPrayerRemindersEnabled', value)
                 : null,
           ),
           SwitchListTile(
@@ -203,7 +282,7 @@ class _ReligiousSettingsScreenState extends ConsumerState<ReligiousSettingsScree
             title: const Text('Quran reminders'),
             dense: true,
             onChanged: religiousRemindersEnabled
-                ? (value) => _update('religiousQuranRemindersEnabled', value)
+                ? (value) => _updateAndReport('religiousQuranRemindersEnabled', value)
                 : null,
           ),
           SwitchListTile(
@@ -211,7 +290,7 @@ class _ReligiousSettingsScreenState extends ConsumerState<ReligiousSettingsScree
             title: const Text('Athkar reminders'),
             dense: true,
             onChanged: religiousRemindersEnabled
-                ? (value) => _update('religiousAthkarRemindersEnabled', value)
+                ? (value) => _updateAndReport('religiousAthkarRemindersEnabled', value)
                 : null,
           ),
           SwitchListTile(
@@ -219,7 +298,7 @@ class _ReligiousSettingsScreenState extends ConsumerState<ReligiousSettingsScree
             title: const Text('Night prayer reminders'),
             dense: true,
             onChanged: religiousRemindersEnabled
-                ? (value) => _update('religiousNightRemindersEnabled', value)
+                ? (value) => _updateAndReport('religiousNightRemindersEnabled', value)
                 : null,
           ),
           SwitchListTile(
@@ -227,7 +306,7 @@ class _ReligiousSettingsScreenState extends ConsumerState<ReligiousSettingsScree
             title: const Text('Bad event reminders'),
             dense: true,
             onChanged: religiousRemindersEnabled
-                ? (value) => _update('religiousBadEventRemindersEnabled', value)
+                ? (value) => _updateAndReport('religiousBadEventRemindersEnabled', value)
                 : null,
           ),
           PickerListTile<int>(
@@ -241,7 +320,7 @@ class _ReligiousSettingsScreenState extends ConsumerState<ReligiousSettingsScree
               PickerOption(20, '20 minutes before'),
               PickerOption(30, '30 minutes before'),
             ],
-            onChanged: (value) => _update('religiousDefaultReminderMinutes', value),
+            onChanged: (value) => _updateAndReport('religiousDefaultReminderMinutes', value),
           ),
           const SettingsSectionHeader('Data & goals'),
           PickerListTile<int>(
@@ -253,7 +332,7 @@ class _ReligiousSettingsScreenState extends ConsumerState<ReligiousSettingsScree
               PickerOption(730, '730 days'),
               PickerOption(1095, '1095 days'),
             ],
-            onChanged: (value) => _update('religiousPrayerTimesRetentionDays', value),
+            onChanged: (value) => _updateAndReport('religiousPrayerTimesRetentionDays', value),
           ),
           PickerListTile<int>(
             title: 'Quran daily reading goal',
@@ -265,7 +344,7 @@ class _ReligiousSettingsScreenState extends ConsumerState<ReligiousSettingsScree
               PickerOption(5, '5 pages a day'),
               PickerOption(10, '10 pages a day'),
             ],
-            onChanged: (value) => _update('religiousQuranDailyGoalPages', value),
+            onChanged: (value) => _updateAndReport('religiousQuranDailyGoalPages', value),
           ),
           PickerListTile<int>(
             title: 'Bad-event streak alert threshold',
@@ -276,7 +355,7 @@ class _ReligiousSettingsScreenState extends ConsumerState<ReligiousSettingsScree
               PickerOption(3, 'After 3 occurrences'),
               PickerOption(5, 'After 5 occurrences'),
             ],
-            onChanged: (value) => _update('religiousBadEventThreshold', value),
+            onChanged: (value) => _updateAndReport('religiousBadEventThreshold', value),
           ),
         ],
       ),

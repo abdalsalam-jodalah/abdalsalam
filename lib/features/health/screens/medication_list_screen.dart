@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/errors/app_error.dart';
 import '../../../data/models/health/medication.dart';
+import '../../../shared/widgets/app_feedback.dart';
+import '../../../shared/widgets/async_error_view.dart';
 import '../providers/health_providers.dart';
 import '../services/health_service.dart';
 import '../services/medication_service.dart';
@@ -27,6 +30,7 @@ class _MedicationListScreenState extends ConsumerState<MedicationListScreen> wit
   DateTime _selectedDate = DateTime.now();
   bool _isLoading = true;
   bool _hasLoadedOnce = false;
+  AppError? _loadError;
   List<Medication> _medications = [];
   List<DailyMedicationCheck> _dailyChecklist = [];
   Map<String, dynamic> _stats = {};
@@ -56,65 +60,95 @@ class _MedicationListScreenState extends ConsumerState<MedicationListScreen> wit
   }
 
   Future<void> _loadData() async {
-    setState(() => _isLoading = true);
-    
-    // Generate logs for today if needed
-    await _service.generateDailyLogs(_selectedDate, 'current_user_id');
-    
-    // Load medications
-    final medsResult = await _service.getMedicationsSorted();
-    if (medsResult.isSuccess) {
-      _medications = medsResult.data!;
-    }
-    
-    // Load daily checklist
-    final checklistResult = await _service.getDailyChecklist(_selectedDate);
-    if (checklistResult.isSuccess) {
-      _dailyChecklist = checklistResult.data!;
-    }
-    
-    // Load statistics
-    final statsResult = await _service.getStatistics();
-    if (statsResult.isSuccess) {
-      _stats = statsResult.data!;
-    }
-    
     setState(() {
+      _isLoading = true;
+      _loadError = null;
+    });
+
+    final generateResult = await _service.generateDailyLogs(_selectedDate, 'current_user_id');
+    if (!mounted) return;
+    if (generateResult.isFailure) {
+      setState(() {
+        _isLoading = false;
+        _loadError = generateResult.error;
+      });
+      return;
+    }
+
+    final medsResult = await _service.getMedicationsSorted();
+    if (!mounted) return;
+    if (medsResult.isFailure) {
+      setState(() {
+        _isLoading = false;
+        _loadError = medsResult.error;
+      });
+      return;
+    }
+
+    final checklistResult = await _service.getDailyChecklist(_selectedDate);
+    if (!mounted) return;
+    if (checklistResult.isFailure) {
+      setState(() {
+        _isLoading = false;
+        _loadError = checklistResult.error;
+      });
+      return;
+    }
+
+    final statsResult = await _service.getStatistics();
+    if (!mounted) return;
+    if (statsResult.isFailure) {
+      setState(() {
+        _isLoading = false;
+        _loadError = statsResult.error;
+      });
+      return;
+    }
+
+    setState(() {
+      _medications = medsResult.data!;
+      _dailyChecklist = checklistResult.data!;
+      _stats = statsResult.data!;
       _isLoading = false;
       _hasLoadedOnce = true;
     });
   }
 
+  int _compareChecklistEntries(DailyMedicationCheck a, DailyMedicationCheck b) {
+    if (a.isChecked != b.isChecked) {
+      return a.isChecked ? 1 : -1;
+    }
+    final orderCompare = a.medication.displayOrder.compareTo(b.medication.displayOrder);
+    if (orderCompare != 0) return orderCompare;
+    return a.log.scheduledTime.compareTo(b.log.scheduledTime);
+  }
+
   Future<void> _toggleCheck(DailyMedicationCheck check) async {
     final index = _dailyChecklist.indexOf(check);
-    
+
     if (check.isChecked) {
       // Uncheck by resetting
       final updated = check.log.copyWith(
         takenAtIsNull: true,
         updatedAt: DateTime.now(),
       );
-      await _service.logRepository.update(updated);
-      
-      // Update UI smoothly
+      final updateResult = await _service.logRepository.update(updated);
+      if (!mounted) return;
+      if (updateResult.isFailure) {
+        AppFeedback.showError(context, updateResult.error!);
+        return;
+      }
+
       setState(() {
         _dailyChecklist[index] = DailyMedicationCheck(
           log: updated,
           medication: check.medication,
         );
-        // Re-sort to move unchecked items to top
-        _dailyChecklist.sort((a, b) {
-          if (a.isChecked != b.isChecked) {
-            return a.isChecked ? 1 : -1;
-          }
-          final orderCompare = a.medication.displayOrder.compareTo(b.medication.displayOrder);
-          if (orderCompare != 0) return orderCompare;
-          return a.log.scheduledTime.compareTo(b.log.scheduledTime);
-        });
+        _dailyChecklist.sort(_compareChecklistEntries);
       });
-      
-      // Update stats in background
+
       final statsResult = await _service.getStatistics();
+      if (!mounted) return;
       if (statsResult.isSuccess) {
         setState(() {
           _stats = statsResult.data!;
@@ -127,32 +161,26 @@ class _MedicationListScreenState extends ConsumerState<MedicationListScreen> wit
         _selectedDate,
         check.log.scheduledTime,
       );
-      
-      if (result.isSuccess) {
-        // Update UI smoothly
+      if (!mounted) return;
+      if (result.isFailure) {
+        AppFeedback.showError(context, result.error!);
+        return;
+      }
+
+      setState(() {
+        _dailyChecklist[index] = DailyMedicationCheck(
+          log: result.data!,
+          medication: check.medication,
+        );
+        _dailyChecklist.sort(_compareChecklistEntries);
+      });
+
+      final statsResult = await _service.getStatistics();
+      if (!mounted) return;
+      if (statsResult.isSuccess) {
         setState(() {
-          _dailyChecklist[index] = DailyMedicationCheck(
-            log: result.data!,
-            medication: check.medication,
-          );
-          // Re-sort to move checked items to bottom
-          _dailyChecklist.sort((a, b) {
-            if (a.isChecked != b.isChecked) {
-              return a.isChecked ? 1 : -1;
-            }
-            final orderCompare = a.medication.displayOrder.compareTo(b.medication.displayOrder);
-            if (orderCompare != 0) return orderCompare;
-            return a.log.scheduledTime.compareTo(b.log.scheduledTime);
-          });
+          _stats = statsResult.data!;
         });
-        
-        // Update stats in background
-        final statsResult = await _service.getStatistics();
-        if (statsResult.isSuccess) {
-          setState(() {
-            _stats = statsResult.data!;
-          });
-        }
       }
     }
   }
@@ -160,43 +188,49 @@ class _MedicationListScreenState extends ConsumerState<MedicationListScreen> wit
   Future<void> _resetAll() async {
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         title: const Text('Reset All Checks'),
         content: const Text('Are you sure you want to uncheck all medications for today?'),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context, false),
+            onPressed: () => Navigator.pop(dialogContext, false),
             child: const Text('Cancel'),
           ),
           FilledButton(
-            onPressed: () => Navigator.pop(context, true),
+            onPressed: () => Navigator.pop(dialogContext, true),
             child: const Text('Reset'),
           ),
         ],
       ),
     );
 
-    if (confirmed == true) {
-      await _service.resetDailyLogs(_selectedDate);
-      _loadData();
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('All checks reset')),
-        );
-      }
+    if (confirmed != true) {
+      return;
     }
+    final result = await _service.resetDailyLogs(_selectedDate);
+    if (!mounted) return;
+    if (result.isFailure) {
+      AppFeedback.showError(context, result.error!);
+      return;
+    }
+    await _loadData();
+    if (!mounted) return;
+    AppFeedback.showSuccess(context, 'All checks reset');
   }
 
   Future<void> _reorderMedications(int oldIndex, int newIndex) async {
-    if (newIndex > oldIndex) newIndex--;
-    
+    final previousOrder = List<Medication>.of(_medications);
     final item = _medications.removeAt(oldIndex);
     _medications.insert(newIndex, item);
-    
-    final ids = _medications.map((m) => m.id).toList();
-    await _service.reorderMedications(ids);
-    
     setState(() {});
+
+    final ids = _medications.map((m) => m.id).toList();
+    final result = await _service.reorderMedications(ids);
+    if (!mounted) return;
+    if (result.isFailure) {
+      setState(() => _medications = previousOrder);
+      AppFeedback.showError(context, result.error!);
+    }
   }
 
   @override
@@ -210,17 +244,20 @@ class _MedicationListScreenState extends ConsumerState<MedicationListScreen> wit
     );
     final tabContent = _isLoading
         ? const Center(child: CircularProgressIndicator())
-        : TabBarView(
-            controller: _tabController,
-            children: [
-              _buildDailyChecklistTab(),
-              _buildManageTab(),
-            ],
-          );
+        : _loadError != null
+            ? AsyncErrorView(error: _loadError!, onRetry: _loadData)
+            : TabBarView(
+                controller: _tabController,
+                children: [
+                  _buildDailyChecklistTab(),
+                  _buildManageTab(),
+                ],
+              );
     final fab = FloatingActionButton.extended(
       onPressed: () async {
         await Navigator.pushNamed(context, MedicationFormScreen.routeName);
-        _loadData();
+        if (!mounted) return;
+        await _loadData();
       },
       icon: const Icon(Icons.add),
       label: const Text('Add Medication'),
@@ -451,8 +488,8 @@ class _MedicationListScreenState extends ConsumerState<MedicationListScreen> wit
               
               SliverReorderableList(
                 itemCount: _medications.length,
-                onReorder: _reorderMedications,
-                itemBuilder: (context, index) {
+                onReorderItem: _reorderMedications,
+                itemBuilder: (itemContext, index) {
                   final med = _medications[index];
                   return Padding(
                     key: ValueKey(med.id),
@@ -461,10 +498,17 @@ class _MedicationListScreenState extends ConsumerState<MedicationListScreen> wit
                       medication: med,
                       onToggleActive: () async {
                         final result = await _service.toggleActive(med.id);
-                        if (result.isSuccess && result.data != null) {
-                          await _healthService.refreshReminders(result.data!);
+                        if (!mounted) return;
+                        if (result.isFailure) {
+                          AppFeedback.showError(context, result.error!);
+                          return;
                         }
-                        _loadData();
+                        final reminderResult = await _healthService.refreshReminders(result.data!);
+                        if (!mounted) return;
+                        if (reminderResult.isFailure) {
+                          AppFeedback.showError(context, reminderResult.error!);
+                        }
+                        await _loadData();
                       },
                       onEdit: () async {
                         await Navigator.push(
@@ -473,12 +517,22 @@ class _MedicationListScreenState extends ConsumerState<MedicationListScreen> wit
                             builder: (context) => MedicationFormScreen(medication: med),
                           ),
                         );
-                        _loadData();
+                        if (!mounted) return;
+                        await _loadData();
                       },
                       onDelete: () async {
-                        await _service.softDelete(med.id);
-                        await _healthService.cancelReminders(med.id);
-                        _loadData();
+                        final deleteResult = await _service.softDelete(med.id);
+                        if (!mounted) return;
+                        if (deleteResult.isFailure) {
+                          AppFeedback.showError(context, deleteResult.error!);
+                          return;
+                        }
+                        final cancelResult = await _healthService.cancelReminders(med.id);
+                        if (!mounted) return;
+                        if (cancelResult.isFailure) {
+                          AppFeedback.showError(context, cancelResult.error!);
+                        }
+                        await _loadData();
                       },
                     ),
                   );

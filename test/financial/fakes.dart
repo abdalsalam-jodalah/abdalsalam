@@ -364,6 +364,7 @@ class FakeAccountRepository implements AccountRepository {
 class FailingTransactionRepository extends FakeTransactionRepository {
   final bool isCreateFailing;
   final bool isUpdateFailing;
+  final bool isDeleteFailing;
   final bool isCategoryDateLookupFailing;
   final bool isDateRangeLookupFailing;
   final bool isGetAllFailing;
@@ -374,6 +375,7 @@ class FailingTransactionRepository extends FakeTransactionRepository {
     super.seed, {
     this.isCreateFailing = false,
     this.isUpdateFailing = false,
+    this.isDeleteFailing = false,
     this.isCategoryDateLookupFailing = false,
     this.isDateRangeLookupFailing = false,
     this.isGetAllFailing = false,
@@ -391,6 +393,12 @@ class FailingTransactionRepository extends FakeTransactionRepository {
   Future<Result<void, AppError>> update(TransactionModel transaction) async {
     if (isUpdateFailing) return Failure(DatabaseError('update failed'));
     return super.update(transaction);
+  }
+
+  @override
+  Future<Result<void, AppError>> delete(String id) async {
+    if (isDeleteFailing) return Failure(DatabaseError('delete failed'));
+    return super.delete(id);
   }
 
   @override

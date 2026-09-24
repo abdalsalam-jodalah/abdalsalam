@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import '../infrastructure/logger_service.dart';
 import '../infrastructure/storage_gateway.dart';
+import '../services/error_handler.dart';
+import 'app_feedback.dart';
 
 /// Database Viewer Screen for inspecting SQLite data
 class DatabaseViewerScreen extends StatefulWidget {
@@ -10,6 +13,9 @@ class DatabaseViewerScreen extends StatefulWidget {
 }
 
 class _DatabaseViewerScreenState extends State<DatabaseViewerScreen> {
+  static final LoggerService _logger = LoggerService.forModule('DatabaseViewerScreen');
+  static final ErrorHandler _errorHandler = ErrorHandler(_logger);
+
   // Known tables in the app
   static const List<String> _knownTables = [
     'prayers',
@@ -57,23 +63,26 @@ class _DatabaseViewerScreenState extends State<DatabaseViewerScreen> {
       final existingTables = <String>[];
       for (final table in _knownTables) {
         try {
-          final data = await StorageGateway.instance.query(table: table);
+          await StorageGateway.instance.query(table: table);
           // Show table even if empty (removed the isNotEmpty check)
           existingTables.add(table);
-        } catch (e) {
-          // Table doesn't exist, skip it
+        } catch (error) {
+          _logger.debug('Table $table is not available: $error');
         }
       }
-      
+
       setState(() {
         _tables = existingTables;
         _tables.sort();
       });
-    } catch (e) {
+    } catch (error, stackTrace) {
+      final mapped = _errorHandler.mapException(
+        error,
+        context: 'DatabaseViewerScreen.loadTables',
+        stackTrace: stackTrace,
+      );
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error loading tables: $e')),
-        );
+        AppFeedback.showError(context, mapped);
       }
     } finally {
       setState(() => _isLoading = false);
@@ -88,11 +97,14 @@ class _DatabaseViewerScreenState extends State<DatabaseViewerScreen> {
         _selectedTable = tableName;
         _tableData = data;
       });
-    } catch (e) {
+    } catch (error, stackTrace) {
+      final mapped = _errorHandler.mapException(
+        error,
+        context: 'DatabaseViewerScreen.loadTableData',
+        stackTrace: stackTrace,
+      );
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error loading table data: $e')),
-        );
+        AppFeedback.showError(context, mapped);
       }
     } finally {
       setState(() => _isLoading = false);

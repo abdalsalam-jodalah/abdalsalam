@@ -2,7 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
-import '../../../providers/app_providers.dart';
+import '../../../core/errors/app_error.dart';
+import '../../../core/validation/validation_utils.dart';
+import '../../../shared/widgets/app_feedback.dart';
+import '../../../shared/widgets/async_error_view.dart';
 import '../../../shared/widgets/empty_state.dart';
 import '../providers/quran_providers.dart';
 
@@ -80,7 +83,10 @@ class QuranProgressScreen extends ConsumerWidget {
           );
         },
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (err, _) => Center(child: Text('Error: $err')),
+        error: (err, _) => AsyncErrorView(
+          error: err,
+          onRetry: () => ref.invalidate(quranProgressControllerProvider),
+        ),
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _showAddDialog(context, ref),
@@ -91,45 +97,31 @@ class QuranProgressScreen extends ConsumerWidget {
   }
 
   Future<void> _showAddDialog(BuildContext context, WidgetRef ref) async {
-    final result = await showDialog<_QuranProgressResult>(
+    await showDialog<void>(
       context: context,
-      builder: (_) => const _QuranProgressDialogContent(),
+      builder: (_) => _QuranProgressDialogContent(ref: ref),
     );
-
-    if (result == null) return;
-
-    final error = await ref.read(quranProgressControllerProvider.notifier).addProgress(
-          pagesRead: result.pages,
-          minutesSpent: result.minutes,
-        );
-
-    if (error != null && context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(ref.read(userErrorMessageMapperProvider).toUserMessage(error))),
-      );
-    }
   }
 }
 
-class _QuranProgressResult {
-  _QuranProgressResult(this.pages, this.minutes);
-
-  final int pages;
-  final int minutes;
-}
-
 class _QuranProgressDialogContent extends StatefulWidget {
-  const _QuranProgressDialogContent();
+  const _QuranProgressDialogContent({required this.ref});
+
+  final WidgetRef ref;
 
   @override
   State<_QuranProgressDialogContent> createState() => _QuranProgressDialogContentState();
 }
 
 class _QuranProgressDialogContentState extends State<_QuranProgressDialogContent> {
+  static const String _pagesFieldKey = 'pagesRead';
+  static const String _minutesFieldKey = 'minutesSpent';
+
+  final _formKey = GlobalKey<FormState>();
   final pagesController = TextEditingController();
   final minutesController = TextEditingController();
-  String? pagesError;
-  String? minutesError;
+  var isSaving = false;
+  Map<String, String> fieldErrors = const <String, String>{};
 
   @override
   void dispose() {
@@ -138,50 +130,93 @@ class _QuranProgressDialogContentState extends State<_QuranProgressDialogContent
     super.dispose();
   }
 
+  String? _validatePages(String? value) {
+    final requiredError = ValidationUtils.requiredField(value, 'Pages read');
+    if (requiredError != null) return requiredError;
+    final parsed = int.tryParse(value!.trim());
+    if (parsed == null) return 'Pages read must be a whole number';
+    final positiveError = ValidationUtils.positiveNumber(value: parsed, fieldName: 'Pages read');
+    return positiveError ?? fieldErrors[_pagesFieldKey];
+  }
+
+  String? _validateMinutes(String? value) {
+    final requiredError = ValidationUtils.requiredField(value, 'Minutes spent');
+    if (requiredError != null) return requiredError;
+    final parsed = int.tryParse(value!.trim());
+    if (parsed == null) return 'Minutes spent must be a whole number';
+    final positiveError = ValidationUtils.positiveNumber(value: parsed, fieldName: 'Minutes spent');
+    return positiveError ?? fieldErrors[_minutesFieldKey];
+  }
+
+  Future<void> _save() async {
+    if (!_formKey.currentState!.validate()) {
+      return;
+    }
+
+    setState(() {
+      isSaving = true;
+      fieldErrors = const <String, String>{};
+    });
+
+    final error = await widget.ref.read(quranProgressControllerProvider.notifier).addProgress(
+          pagesRead: int.parse(pagesController.text.trim()),
+          minutesSpent: int.parse(minutesController.text.trim()),
+        );
+
+    if (!mounted) return;
+
+    if (error != null) {
+      setState(() {
+        isSaving = false;
+        fieldErrors = error is ValidationError ? error.fieldErrors : const <String, String>{};
+      });
+      _formKey.currentState!.validate();
+      AppFeedback.showError(context, error);
+      return;
+    }
+
+    Navigator.of(context).pop();
+  }
+
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
       title: const Text('Add Quran Progress'),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          TextField(
-            controller: pagesController,
-            keyboardType: TextInputType.number,
-            decoration: InputDecoration(
-              labelText: 'Pages read',
-              errorText: pagesError,
+      content: Form(
+        key: _formKey,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextFormField(
+              controller: pagesController,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(labelText: 'Pages read'),
+              validator: _validatePages,
             ),
-          ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: minutesController,
-            keyboardType: TextInputType.number,
-            decoration: InputDecoration(
-              labelText: 'Minutes spent',
-              errorText: minutesError,
+            const SizedBox(height: 12),
+            TextFormField(
+              controller: minutesController,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(labelText: 'Minutes spent'),
+              validator: _validateMinutes,
             ),
-          ),
-        ],
+          ],
+        ),
       ),
       actions: [
         TextButton(
-          onPressed: () => Navigator.of(context).pop(),
+          onPressed: isSaving ? null : () => Navigator.of(context).pop(),
           child: const Text('Cancel'),
         ),
         FilledButton(
-          onPressed: () {
-            final pages = int.tryParse(pagesController.text.trim()) ?? 0;
-            final minutes = int.tryParse(minutesController.text.trim()) ?? 0;
-            setState(() {
-              pagesError = pages <= 0 ? 'Pages must be greater than 0' : null;
-              minutesError = minutes <= 0 ? 'Minutes must be greater than 0' : null;
-            });
-            if (pagesError == null && minutesError == null) {
-              Navigator.of(context).pop(_QuranProgressResult(pages, minutes));
-            }
-          },
-          child: const Text('Save'),
+          onPressed: isSaving ? null : _save,
+          child: isSaving
+              ? const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Text('Save'),
         ),
       ],
     );
