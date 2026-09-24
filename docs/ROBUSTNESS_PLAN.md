@@ -14,30 +14,30 @@
 | 7 | UI — shared error/feedback widgets, mounted guards, form validation | ✅ Done | `0aefc58` |
 | 8 | Backup / restore / import / sync queue | ✅ Done | `b7951b7` |
 | 9 | Strict analysis — lints on, `flutter analyze` = 0 | ✅ Done | `c17b300` |
-| 10 | Tests & final scorecard — all ✓ | ⬜ Todo | |
+| 10 | Tests & final scorecard — all ✓ | ✅ Done | `51fb746` |
 
 Legend: ⬜ Todo · 🔄 In progress · ✅ Done. Each phase is marked Done only after `flutter analyze`, `flutter test`, and `./tool/robustness_audit.sh` pass for its scope, and it's committed.
 
 ## Scorecard History
 
-| Metric | Baseline (P0) | P1 | P2 | P3 | P4 | P5 | P6 | P7 | P8 | P9 |
-|---|---|---|---|---|---|---|---|---|---|---|
-| Raw exception text used as error message | 70 | 68 | 68 | 68 | 24 | 7 | 7 | 7 | 5 | 5 |
-| Unlogged catch blocks | 10 | 10 | 10 | 10 | 10 | 9 | 8 | 1 | 2 | 3 |
-| Providers masking failures (`?? []`) | 63 | 63 | 63 | 63 | 63 | 63 | 0 | 0 | 0 | 0 |
-| Ignored write results (heuristic) | 126 | 126 | 127 | 127 | 121 | 67 | 67 | 60 | 62 | 62 |
-| `DateTime.parse` in models | 186 | 186 | 186 | 186 | 0 | 0 | 0 | 0 | 0 | 0 |
-| `byName` without fallback | 23 | 23 | 23 | 23 | 0 | 0 | 0 | 0 | 0 | 0 |
-| Hard casts in models | 413 | 413 | 413 | 413 | 0 | 0 | 0 | 0 | 0 | 0 |
-| Error branches without shared view | 93 | 93 | 93 | 93 | 93 | 93 | 93 | 3 | 3 | 3 |
-| Raw error text in UI | 90 | 90 | 90 | 89 | 66 | 68 | 68 | 4 | 5 | 6 |
-| Unguarded UI after `await` (heuristic) | 114 | 114 | 114 | 114 | 114 | 92 | 92 | 2 | 2 | 6 |
-| Raw `TextField` | 40 | 40 | 40 | 40 | 40 | 40 | 40 | 22 | 22 | 22 |
-| Silent `?? 0` coercion | 9 | 9 | 9 | 9 | 9 | 9 | 9 | 2 | 2 | 2 |
-| `TextFormField` without validator | 27 | 27 | 27 | 27 | 27 | 27 | 27 | 19 | 19 | 19 |
-| App-wide checks passing | 0 / 15 | 1 / 15 | 1 / 15 | 8 / 15 | 8 / 15 | 8 / 15 | 8 / 15 | 8 / 15 | 9 / 15 | 15 / 15 |
-| `flutter analyze` issues | 8 | 8 | 8 | 8 | 8 | 8 | 8 | 0 | 0 | 0 |
-| `flutter test` | 70 total · 8 fail in parallel, all pass with `-j 1` | 113 · all pass in parallel | 129 · all pass | 137 · all pass | 461 · all pass | 792 · all pass | 959 · all pass | 1007 · all pass | 1018 · all pass | 1018 · all pass |
+| Metric | Baseline (P0) | P1 | P2 | P3 | P4 | P5 | P6 | P7 | P8 | P9 | P10 |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| Raw exception text used as error message | 70 | 68 | 68 | 68 | 24 | 7 | 7 | 7 | 5 | 5 | 0 |
+| Unlogged catch blocks | 10 | 10 | 10 | 10 | 10 | 9 | 8 | 1 | 2 | 3 | 0 |
+| Providers masking failures (`?? []`) | 63 | 63 | 63 | 63 | 63 | 63 | 0 | 0 | 0 | 0 | 0 |
+| Ignored write results (heuristic) | 126 | 126 | 127 | 127 | 121 | 67 | 67 | 60 | 62 | 62 | 0 |
+| `DateTime.parse` in models | 186 | 186 | 186 | 186 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+| `byName` without fallback | 23 | 23 | 23 | 23 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+| Hard casts in models | 413 | 413 | 413 | 413 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+| Error branches without shared view | 93 | 93 | 93 | 93 | 93 | 93 | 93 | 3 | 3 | 3 | 0 |
+| Raw error text in UI | 90 | 90 | 90 | 89 | 66 | 68 | 68 | 4 | 5 | 6 | 0 |
+| Unguarded UI after `await` (heuristic) | 114 | 114 | 114 | 114 | 114 | 92 | 92 | 2 | 2 | 6 | 0 |
+| Raw `TextField` | 40 | 40 | 40 | 40 | 40 | 40 | 40 | 22 | 22 | 22 | 22 |
+| Silent `?? 0` coercion | 9 | 9 | 9 | 9 | 9 | 9 | 9 | 2 | 2 | 2 | 0 |
+| `TextFormField` without validator | 27 | 27 | 27 | 27 | 27 | 27 | 27 | 19 | 19 | 19 | 18 |
+| App-wide checks passing | 0 / 15 | 1 / 15 | 1 / 15 | 8 / 15 | 8 / 15 | 8 / 15 | 8 / 15 | 8 / 15 | 9 / 15 | 15 / 15 | 15 / 15 |
+| `flutter analyze` issues | 8 | 8 | 8 | 8 | 8 | 8 | 8 | 0 | 0 | 0 | 0 |
+| `flutter test` | 70 total · 8 fail in parallel, all pass with `-j 1` | 113 · all pass in parallel | 129 · all pass | 137 · all pass | 461 · all pass | 792 · all pass | 959 · all pass | 1007 · all pass | 1018 · all pass | 1018 · all pass | 1019 · all pass |
 
 ## Final Scorecard (after Phase 10)
 
