@@ -7,7 +7,7 @@ import '../../../core/validation/validation_utils.dart';
 import '../../../data/models/religious/quran_reading.dart';
 import '../../../shared/widgets/app_feedback.dart';
 import '../../../shared/widgets/async_error_view.dart';
-import '../../../shared/widgets/chart_widgets.dart';
+import '../../../shared/widgets/charts/app_line_chart.dart';
 import '../../../shared/widgets/empty_state.dart';
 import '../../../shared/widgets/section_header.dart';
 import '../providers/quran_reading_providers.dart';
@@ -183,7 +183,7 @@ class QuranReadingScreen extends ConsumerWidget {
                 data: (points) => Card(
                   child: Padding(
                     padding: const EdgeInsets.all(12),
-                    child: TrendLineChart(points: points),
+                    child: AppLineChart(points: points),
                   ),
                 ),
                 loading: () => const Center(child: CircularProgressIndicator()),

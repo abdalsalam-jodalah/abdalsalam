@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../data/models/sleep/sleep_log.dart';
 import '../../../shared/widgets/async_error_view.dart';
-import '../../../shared/widgets/chart_widgets.dart';
+import '../../../shared/widgets/charts/app_line_chart.dart';
 import '../providers/sleep_providers.dart';
 import 'sleep_log_form_screen.dart';
 
@@ -83,7 +83,7 @@ class SleepHomeScreen extends ConsumerWidget {
             final sorted = List<SleepLog>.of(allLogs)
               ..sort((a, b) => a.sleepStart.compareTo(b.sleepStart));
             final points = sorted.map((log) => log.duration.inMinutes / 60).toList();
-            return TrendLineChart(points: points);
+            return AppLineChart(points: points);
           },
         ),
         const SizedBox(height: 16),

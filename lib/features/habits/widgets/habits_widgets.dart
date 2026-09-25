@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../data/models/habits/habit.dart';
-import '../../../shared/widgets/chart_widgets.dart';
+import '../../../shared/widgets/charts/app_line_chart.dart';
 import 'habit_style_picker.dart';
 
 class HabitCard extends StatelessWidget {
@@ -112,7 +112,7 @@ class MoodTrendChart extends StatelessWidget {
         child: Padding(padding: EdgeInsets.all(12), child: Text('No mood data logged yet')),
       );
     }
-    return TrendLineChart(points: values);
+    return AppLineChart(points: values);
   }
 }
 

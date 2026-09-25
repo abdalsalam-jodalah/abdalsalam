@@ -4,7 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../data/models/health/health_metric.dart';
 import '../../../shared/widgets/app_feedback.dart';
 import '../../../shared/widgets/async_error_view.dart';
-import '../../../shared/widgets/chart_widgets.dart';
+import '../../../shared/widgets/charts/app_line_chart.dart';
 import '../../food/screens/food_home_screen.dart';
 import '../../food/screens/food_log_form_screen.dart';
 import '../../sleep/screens/sleep_home_screen.dart';
@@ -140,7 +140,7 @@ class HealthHomeScreen extends ConsumerWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(primaryType, style: Theme.of(context).textTheme.bodySmall),
-                TrendLineChart(points: points),
+                AppLineChart(points: points),
               ],
             );
           },

@@ -6,7 +6,7 @@ import '../../../core/errors/app_error.dart';
 import '../../../core/validation/validation_utils.dart';
 import '../../../shared/widgets/app_feedback.dart';
 import '../../../shared/widgets/async_error_view.dart';
-import '../../../shared/widgets/chart_widgets.dart';
+import '../../../shared/widgets/charts/app_line_chart.dart';
 import '../../../shared/widgets/empty_state.dart';
 import '../../../shared/widgets/section_header.dart';
 import '../providers/bad_practice_providers.dart';
@@ -82,7 +82,7 @@ class BadPracticeScreen extends ConsumerWidget {
               Card(
                 child: Padding(
                   padding: const EdgeInsets.all(12),
-                  child: TrendLineChart(points: weeklyTrend),
+                  child: AppLineChart(points: weeklyTrend),
                 ),
               ),
               const SizedBox(height: 20),

@@ -1,35 +1,52 @@
 import 'package:flutter/material.dart';
 
+import '../../core/theme/app_theme_tokens.dart';
+import 'ui/icon_badge.dart';
+
 class EmptyState extends StatelessWidget {
+  static const String _defaultActionLabel = 'Add Item';
+  static const double _iconSize = 64;
+  static const double _compactIconSize = 44;
+
   final String title;
   final String subtitle;
   final String actionLabel;
   final VoidCallback? onAction;
+  final IconData icon;
+  final bool isCompact;
 
   const EmptyState({
     super.key,
     required this.title,
     required this.subtitle,
-    this.actionLabel = 'Add Item',
+    this.actionLabel = _defaultActionLabel,
     this.onAction,
+    this.icon = Icons.inbox_rounded,
+    this.isCompact = false,
   });
 
   @override
   Widget build(BuildContext context) {
+    final spacing = AppThemeTokens.of(context).spacing;
+    final theme = Theme.of(context);
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(24),
+        padding: EdgeInsets.all(isCompact ? spacing.lg : spacing.xl),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.inbox_outlined, size: 56),
-            const SizedBox(height: 12),
-            Text(title, style: Theme.of(context).textTheme.titleMedium),
-            const SizedBox(height: 6),
-            Text(subtitle, textAlign: TextAlign.center),
+            IconBadge(icon: icon, size: isCompact ? _compactIconSize : _iconSize),
+            SizedBox(height: spacing.md),
+            Text(title, style: theme.textTheme.titleMedium, textAlign: TextAlign.center),
+            SizedBox(height: spacing.xs),
+            Text(
+              subtitle,
+              textAlign: TextAlign.center,
+              style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+            ),
             if (onAction != null) ...[
-              const SizedBox(height: 12),
-              FilledButton(onPressed: onAction, child: Text(actionLabel)),
+              SizedBox(height: spacing.lg),
+              FilledButton.icon(onPressed: onAction, icon: const Icon(Icons.add_rounded), label: Text(actionLabel)),
             ],
           ],
         ),

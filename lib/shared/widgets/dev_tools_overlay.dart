@@ -4,6 +4,7 @@ import 'package:abdalsalam_logic_flutter/abdalsalam_logic_flutter.dart' as logic
 import '../../providers/app_providers.dart';
 import '../../features/financial/providers/financial_providers.dart';
 import 'app_feedback.dart';
+import 'ui/component_gallery_screen.dart';
 
 /// Dev Tools Overlay for monitoring app state and diagnostics
 /// Only visible in debug mode
@@ -186,6 +187,14 @@ class _DevToolsOverlayState extends ConsumerState<DevToolsOverlay> {
       children: [
         _buildSectionTitle('Actions'),
         const SizedBox(height: 8),
+        _buildActionButton(
+          'Component Gallery',
+          Icons.palette_outlined,
+          () async {
+            await Navigator.of(context).pushNamed(ComponentGalleryScreen.routeName);
+          },
+        ),
+        const SizedBox(height: 4),
         _buildActionButton(
           'View Logs',
           Icons.article_outlined,

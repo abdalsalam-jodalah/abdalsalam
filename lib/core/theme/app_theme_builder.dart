@@ -1,10 +1,6 @@
 import 'package:flutter/material.dart';
 
-import 'app_glass_style.dart';
 import 'app_page_transitions_builder.dart';
-import 'app_radius.dart';
-import 'app_semantic_colors.dart';
-import 'app_spacing.dart';
 import 'app_theme_tokens.dart';
 import 'appearance.dart';
 import 'appearance_options.dart';
@@ -25,16 +21,16 @@ const double _darkGradientTint = 0.18;
 
 ThemeData buildAppTheme(Appearance appearance, Brightness brightness) {
   final scheme = ColorScheme.fromSeed(seedColor: appearance.accent.color, brightness: brightness);
-  final spacing = AppSpacing.forDensity(appearance.density);
-  final radius = AppRadius.forCornerStyle(appearance.cornerStyle);
-  final glass = AppGlassStyle.forScheme(scheme, appearance.surfaceStyle);
-  final tokens = AppThemeTokens(
-    spacing: spacing,
-    radius: radius,
-    colors: AppSemanticColors.forScheme(scheme),
-    glass: glass,
+  final tokens = AppThemeTokens.fromScheme(
+    scheme,
+    density: appearance.density,
+    cornerStyle: appearance.cornerStyle,
+    surfaceStyle: appearance.surfaceStyle,
     backgroundGradient: _backgroundGradient(scheme),
   );
+  final spacing = tokens.spacing;
+  final radius = tokens.radius;
+  final glass = tokens.glass;
   final isCompact = appearance.density == DensityOption.compact;
   final buttonSize = Size(_buttonMinWidth, isCompact ? _compactButtonHeight : _buttonHeight);
   final buttonShape = RoundedRectangleBorder(borderRadius: radius.mediumBorder);

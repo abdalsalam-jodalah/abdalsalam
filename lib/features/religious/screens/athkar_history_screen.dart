@@ -4,7 +4,7 @@ import 'package:intl/intl.dart';
 
 import '../../../data/models/religious/athkar_content.dart';
 import '../../../shared/widgets/async_error_view.dart';
-import '../../../shared/widgets/chart_widgets.dart';
+import '../../../shared/widgets/charts/app_bar_chart.dart';
 import '../../../shared/widgets/empty_state.dart';
 import '../../../shared/widgets/section_header.dart';
 import '../providers/athkar_providers.dart';
@@ -49,7 +49,7 @@ class AthkarHistoryView extends ConsumerWidget {
                 padding: const EdgeInsets.all(12),
                 child: Column(
                   children: [
-                    ComparisonBarChart(values: weeklyByCategory),
+                    AppBarChart(values: weeklyByCategory),
                     const SizedBox(height: 8),
                     Wrap(
                       spacing: 12,

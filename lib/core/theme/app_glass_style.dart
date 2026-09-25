@@ -10,9 +10,9 @@ class AppGlassStyle {
   static const double _lightBorderOpacity = 0.7;
   static const double _darkBorderOpacity = 0.12;
   static const double _blurSigma = 18;
-  static const double _shadowBlur = 24;
-  static const double _shadowOffsetY = 8;
-  static const double _lightShadowOpacity = 0.08;
+  static const double _shadowBlur = 18;
+  static const double _shadowOffsetY = 6;
+  static const double _lightShadowOpacity = 0.05;
   static const double _darkShadowOpacity = 0.3;
 
   final bool isGlass;

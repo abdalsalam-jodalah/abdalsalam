@@ -4,7 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../data/models/habits/habit.dart';
 import '../../../data/models/habits/habit_log.dart';
 import '../../../shared/widgets/async_error_view.dart';
-import '../../../shared/widgets/chart_widgets.dart';
+import '../../../shared/widgets/charts/app_bar_chart.dart';
 import '../providers/habits_providers.dart';
 import '../widgets/habit_style_picker.dart';
 import '../widgets/habits_widgets.dart';
@@ -152,7 +152,7 @@ class _HabitDetailBody extends ConsumerWidget {
                 .toList(growable: false);
             return intensityValues.isEmpty
                 ? const Card(child: Padding(padding: EdgeInsets.all(12), child: Text('No incidents logged yet')))
-                : ComparisonBarChart(values: intensityValues);
+                : AppBarChart(values: intensityValues);
           },
         ),
         const SizedBox(height: 20),

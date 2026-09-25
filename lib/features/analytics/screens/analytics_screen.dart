@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../providers/app_providers.dart';
-import '../../../shared/widgets/chart_widgets.dart';
+import '../../../shared/widgets/charts/app_line_chart.dart';
+import '../../../shared/widgets/charts/app_bar_chart.dart';
+import '../../../shared/widgets/charts/app_pie_chart.dart';
 
 class AnalyticsScreen extends ConsumerWidget {
   static const routeName = '/analytics';
@@ -43,14 +45,14 @@ class AnalyticsScreen extends ConsumerWidget {
           const Card(
             child: Padding(
               padding: EdgeInsets.all(12),
-              child: TrendLineChart(points: [62, 64, 68, 66, 72, 74, 75]),
+              child: AppLineChart(points: [62, 64, 68, 66, 72, 74, 75]),
             ),
           ),
           const SizedBox(height: 8),
           const Card(
             child: Padding(
               padding: EdgeInsets.all(12),
-              child: DistributionPieChart(values: {
+              child: AppPieChart(values: {
                 'Needs': 58,
                 'Learning': 19,
                 'Leisure': 13,
@@ -62,7 +64,7 @@ class AnalyticsScreen extends ConsumerWidget {
           const Card(
             child: Padding(
               padding: EdgeInsets.all(12),
-              child: ComparisonBarChart(values: [42, 50, 46, 58, 62]),
+              child: AppBarChart(values: [42, 50, 46, 58, 62]),
             ),
           ),
           const SizedBox(height: 8),

@@ -4,6 +4,7 @@ import 'app_glass_style.dart';
 import 'app_radius.dart';
 import 'app_semantic_colors.dart';
 import 'app_spacing.dart';
+import 'appearance_options.dart';
 
 class AppThemeTokens extends ThemeExtension<AppThemeTokens> {
   final AppSpacing spacing;
@@ -20,10 +21,30 @@ class AppThemeTokens extends ThemeExtension<AppThemeTokens> {
     required this.backgroundGradient,
   });
 
+  factory AppThemeTokens.fromScheme(
+    ColorScheme scheme, {
+    DensityOption density = DensityOption.comfortable,
+    CornerStyle cornerStyle = CornerStyle.round,
+    SurfaceStyle surfaceStyle = SurfaceStyle.glass,
+    required List<Color> backgroundGradient,
+  }) {
+    return AppThemeTokens(
+      spacing: AppSpacing.forDensity(density),
+      radius: AppRadius.forCornerStyle(cornerStyle),
+      colors: AppSemanticColors.forScheme(scheme),
+      glass: AppGlassStyle.forScheme(scheme, surfaceStyle),
+      backgroundGradient: backgroundGradient,
+    );
+  }
+
   static AppThemeTokens of(BuildContext context) {
-    final tokens = Theme.of(context).extension<AppThemeTokens>();
-    assert(tokens != null, 'AppThemeTokens missing: build the theme with buildAppTheme');
-    return tokens!;
+    final theme = Theme.of(context);
+    return theme.extension<AppThemeTokens>() ??
+        AppThemeTokens.fromScheme(
+          theme.colorScheme,
+          surfaceStyle: SurfaceStyle.solid,
+          backgroundGradient: <Color>[theme.colorScheme.surface, theme.colorScheme.surface, theme.colorScheme.surface],
+        );
   }
 
   @override

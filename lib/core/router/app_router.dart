@@ -90,6 +90,7 @@ import '../../features/settings/screens/security_settings_screen.dart';
 import '../../features/settings/screens/settings_hub_screen.dart';
 import '../../features/settings/screens/sleep_settings_screen.dart';
 import '../../features/settings/screens/sports_settings_screen.dart';
+import '../../shared/widgets/ui/component_gallery_screen.dart';
 import '../../shared/widgets/log_viewer_screen.dart';
 import '../../shared/widgets/database_viewer_screen.dart';
 
@@ -541,6 +542,11 @@ class AppRouter {
       case RestoreScreen.routeName:
         return MaterialPageRoute<void>(
           builder: (_) => const RestoreScreen(),
+          settings: settings,
+        );
+      case ComponentGalleryScreen.routeName:
+        return MaterialPageRoute<void>(
+          builder: (_) => const ComponentGalleryScreen(),
           settings: settings,
         );
       case LogViewerScreen.routeName:
