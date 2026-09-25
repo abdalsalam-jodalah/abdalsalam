@@ -3,21 +3,11 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/constants/dashboard_card_catalog.dart';
 import '../../../providers/app_providers.dart';
 import '../../../shared/widgets/app_feedback.dart';
 import '../widgets/settings_section_header.dart';
 
-const _dashboardModules = <String>[
-  'religious',
-  'financial',
-  'habits',
-  'sports',
-  'health',
-  'notes',
-  'calendar',
-  'security',
-  'analytics',
-];
 
 class DashboardSettingsScreen extends ConsumerStatefulWidget {
   static const routeName = '/settings/dashboard';
@@ -57,6 +47,7 @@ class _DashboardSettingsScreenState extends ConsumerState<DashboardSettingsScree
     if (!mounted) return;
     try {
       await ref.read(settingsServiceProvider).updateSetting(key, value);
+      ref.invalidate(appSettingsProvider);
     } catch (error, stackTrace) {
       final mapped = ref.read(errorHandlerProvider).mapException(
         error,
@@ -71,14 +62,15 @@ class _DashboardSettingsScreenState extends ConsumerState<DashboardSettingsScree
     setState(() => _settings[key] = value);
   }
 
+  String _readableKey(String key) {
+    final words = key.split('-');
+    return words.map((word) => word.isEmpty ? word : '${word[0].toUpperCase()}${word.substring(1)}').join(' ');
+  }
+
   @override
   Widget build(BuildContext context) {
-    final dashboardHidden = (_settings['dashboardHiddenCards'] as List<dynamic>? ?? const <dynamic>[])
-        .map((item) => item.toString())
-        .toSet();
-    final cardOrder = (_settings['dashboardCardOrder'] as List<dynamic>? ?? const <dynamic>[])
-        .map((item) => item.toString())
-        .toList(growable: false);
+    final dashboardHidden = DashboardCardCatalog.resolveHidden(_settings[DashboardCardCatalog.hiddenCardsSetting]);
+    final cardOrder = DashboardCardCatalog.resolveOrder(_settings[DashboardCardCatalog.cardOrderSetting]);
     final sidebarOrder = (_settings['sidebarOrder'] as List<dynamic>? ?? const <dynamic>[])
         .map((item) => item.toString())
         .toList(growable: false);
@@ -88,18 +80,18 @@ class _DashboardSettingsScreenState extends ConsumerState<DashboardSettingsScree
       body: ListView(
         children: [
           const SettingsSectionHeader('Card visibility'),
-          for (final moduleId in _dashboardModules)
-            CheckboxListTile(
-              title: Text('Show $moduleId card'),
-              value: !dashboardHidden.contains(moduleId),
+          for (final cardId in DashboardCardCatalog.defaultOrder)
+            SwitchListTile(
+              title: Text(DashboardCardCatalog.labels[cardId]!),
+              value: !dashboardHidden.contains(cardId),
               onChanged: (value) async {
                 final next = {...dashboardHidden};
-                if (value == true) {
-                  next.remove(moduleId);
+                if (value) {
+                  next.remove(cardId);
                 } else {
-                  next.add(moduleId);
+                  next.add(cardId);
                 }
-                await _update('dashboardHiddenCards', next.toList(growable: false));
+                await _update(DashboardCardCatalog.hiddenCardsSetting, next.toList(growable: false));
               },
             ),
           const SettingsSectionHeader('Card order'),
@@ -113,14 +105,14 @@ class _DashboardSettingsScreenState extends ConsumerState<DashboardSettingsScree
             itemCount: cardOrder.length,
             itemBuilder: (context, index) => ListTile(
               key: ValueKey('card-${cardOrder[index]}'),
-              title: Text(cardOrder[index]),
+              title: Text(DashboardCardCatalog.labels[cardOrder[index]]!),
               trailing: const Icon(Icons.drag_handle),
             ),
             onReorderItem: (oldIndex, newIndex) async {
               final reordered = [...cardOrder];
               final moved = reordered.removeAt(oldIndex);
               reordered.insert(newIndex, moved);
-              await _update('dashboardCardOrder', reordered);
+              await _update(DashboardCardCatalog.cardOrderSetting, reordered);
             },
           ),
           const SettingsSectionHeader('Sidebar order'),
@@ -134,7 +126,7 @@ class _DashboardSettingsScreenState extends ConsumerState<DashboardSettingsScree
             itemCount: sidebarOrder.length,
             itemBuilder: (context, index) => ListTile(
               key: ValueKey('sidebar-${sidebarOrder[index]}'),
-              title: Text(sidebarOrder[index]),
+              title: Text(_readableKey(sidebarOrder[index])),
               trailing: const Icon(Icons.drag_handle),
             ),
             onReorderItem: (oldIndex, newIndex) async {

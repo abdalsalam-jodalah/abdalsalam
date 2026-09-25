@@ -1,3 +1,4 @@
+import '../../core/constants/dashboard_card_catalog.dart';
 import '../../core/errors/app_error.dart';
 import '../../core/theme/appearance.dart';
 import '../infrastructure/storage_gateway.dart';
@@ -84,17 +85,7 @@ class SettingsService {
         'notesDefaultPinned': false,
         'calendarGoogleSyncEnabled': false,
         'calendarReminderType': 'notification',
-        'dashboardCardOrder': <String>[
-          'religious',
-          'financial',
-          'habits',
-          'sports',
-          'health',
-          'notes',
-          'calendar',
-          'security',
-          'analytics',
-        ],
+        DashboardCardCatalog.cardOrderSetting: DashboardCardCatalog.defaultOrder,
         'dashboardHiddenCards': <String>[],
         'sidebarOrder': <String>[
           'dashboard',

@@ -30,7 +30,9 @@ void main() {
       await tester.pumpWidget(ProviderScope(
         child: goldenHost(appearance: appearance, brightness: brightness, child: const ComponentGalleryScreen()),
       ));
-      await tester.pump(const Duration(seconds: 1));
+      for (var frame = 0; frame < 10; frame++) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
 
       await expectLater(find.byType(MaterialApp), matchesGoldenFile('images/component_gallery_${entry.key}.png'));
     });

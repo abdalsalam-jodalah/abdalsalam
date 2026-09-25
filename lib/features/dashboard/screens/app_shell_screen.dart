@@ -1,11 +1,13 @@
 import 'dart:async';
 import 'dart:math' as math;
 
-import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/theme/app_motion.dart';
+import '../../../core/theme/app_theme_tokens.dart';
 import '../../../providers/app_providers.dart';
+import '../../../shared/widgets/ui/glass_surface.dart';
 import '../../analytics/screens/analytics_screen.dart';
 import '../../calendar/screens/calendar_screen.dart';
 import '../../dashboard/screens/dashboard_screen.dart';
@@ -15,14 +17,20 @@ import '../../habits/screens/habits_screen.dart';
 import '../../health/screens/health_screen.dart';
 import '../../health/screens/medication_list_screen.dart';
 import '../../notes/screens/notes_screen.dart';
-import '../../sleep/screens/sleep_screen.dart';
 import '../../planning/screens/day_planning_screen.dart';
 import '../../planning/screens/goals_screen.dart';
 import '../../planning/screens/planning_home_screen.dart';
 import '../../religious/screens/religious_screen.dart';
 import '../../security/screens/security_screen.dart';
 import '../../settings/screens/settings_hub_screen.dart';
+import '../../sleep/screens/sleep_screen.dart';
 import '../../sports/screens/sports_screen.dart';
+import '../widgets/quick_log_action.dart';
+import '../widgets/quick_log_fab.dart';
+import '../widgets/shell_destination.dart';
+import '../widgets/shell_open_handle.dart';
+import '../widgets/shell_sidebar.dart';
+import '../widgets/shell_sidebar_mode.dart';
 
 class AppShellScreen extends ConsumerStatefulWidget {
   const AppShellScreen({super.key});
@@ -31,78 +39,90 @@ class AppShellScreen extends ConsumerStatefulWidget {
   ConsumerState<AppShellScreen> createState() => _AppShellScreenState();
 }
 
-enum _SidebarMode { closed, icons, expanded }
-
 class _AppShellScreenState extends ConsumerState<AppShellScreen> {
+  static const String _sidebarOrderSetting = 'sidebarOrder';
+  static const double _closedWidth = 0;
+  static const double _iconsWidth = 88;
+  static const double _expandedWidth = 264;
+  static const double _dragThreshold = 56;
+  static const double _dragVelocityThreshold = 420;
+  static const double _edgeSwipeZone = 28;
+  static const double _largeScreenBreakpoint = 900;
+  static const double _initialHandleTop = 140;
+  static const double _handleBottomClearance = 76;
+  static const double _scrimOpacity = 0.3;
+
+  static const _defaultDestinations = <ShellDestination>[
+    ShellDestination('dashboard', 'Dashboard', Icons.space_dashboard_rounded, DashboardScreen()),
+    ShellDestination('religious', 'Religious', Icons.mosque_rounded, ReligiousScreen()),
+    ShellDestination('financial', 'Financial', Icons.account_balance_wallet_rounded, FinancialScreen()),
+    ShellDestination('habits', 'Habits', Icons.repeat_rounded, HabitsScreen()),
+    ShellDestination('planning', 'Life Planning', Icons.flag_rounded, PlanningHomeScreen()),
+    ShellDestination('day-planning', 'Day Planning', Icons.today_rounded, DayPlanningScreen()),
+    ShellDestination('sports', 'Sports', Icons.fitness_center_rounded, SportsScreen()),
+    ShellDestination('health', 'Health', Icons.health_and_safety_rounded, HealthScreen()),
+    ShellDestination('sleep', 'Sleep', Icons.bedtime_rounded, SleepScreen()),
+    ShellDestination('food', 'Food', Icons.restaurant_rounded, FoodScreen()),
+    ShellDestination('medications', 'Medications', Icons.medication_rounded, MedicationListScreen()),
+    ShellDestination('notes', 'Notes', Icons.sticky_note_2_rounded, NotesScreen()),
+    ShellDestination('calendar', 'Calendar', Icons.calendar_month_rounded, CalendarScreen()),
+    ShellDestination('security', 'Security', Icons.lock_rounded, SecurityScreen()),
+    ShellDestination('analytics', 'Analytics', Icons.insights_rounded, AnalyticsScreen()),
+    ShellDestination('settings', 'Settings', Icons.settings_rounded, SettingsHubScreen()),
+  ];
+
+  static const _logActions = <QuickLogAction>[
+    QuickLogAction(label: 'Prayer', icon: Icons.mosque_rounded, routeName: '/religious/prayer-log', moduleKey: 'religious'),
+    QuickLogAction(label: 'Quran', icon: Icons.menu_book_rounded, routeName: '/religious/quran-reading', moduleKey: 'religious'),
+    QuickLogAction(label: 'Finance', icon: Icons.receipt_long_rounded, routeName: '/financial/transaction-form', moduleKey: 'financial'),
+    QuickLogAction(label: 'Habit', icon: Icons.repeat_rounded, routeName: '/habits/form', moduleKey: 'habits'),
+    QuickLogAction(label: 'Goal', icon: Icons.flag_rounded, routeName: GoalsScreen.routeName, moduleKey: 'planning'),
+    QuickLogAction(label: 'Medication', icon: Icons.medication_rounded, routeName: '/health/medication-form', moduleKey: 'medications'),
+    QuickLogAction(label: 'Event', icon: Icons.event_note_rounded, routeName: '/calendar/new-event', moduleKey: 'calendar'),
+  ];
+
   int _index = 0;
-  late List<_ShellDestination> _destinations;
-  _SidebarMode _sidebarMode = _SidebarMode.icons;
+  late List<ShellDestination> _destinations;
+  ShellSidebarMode _sidebarMode = ShellSidebarMode.icons;
   double _dragDelta = 0;
-  double _openHandleTop = 140;
-  bool _logWheelOpen = false;
+  double _openHandleTop = _initialHandleTop;
+  bool _isLogWheelOpen = false;
   int _logWheelIndex = 0;
   double _logWheelTurnCarry = 0;
-
-  static const double _closedWidth = 0;
-  static const double _iconsWidth = 84;
-  static const double _expandedWidth = 260;
-  static const double _dragThreshold = 56;
-  static const double _edgeSwipeZone = 28;
-
-  static const _defaultDestinations = <_ShellDestination>[
-    _ShellDestination('dashboard', 'Dashboard', Icons.dashboard_outlined, DashboardScreen()),
-    _ShellDestination('religious', 'Religious', Icons.mosque_outlined, ReligiousScreen()),
-    _ShellDestination('financial', 'Financial', Icons.account_balance_wallet_outlined, FinancialScreen()),
-    _ShellDestination('habits', 'Habits', Icons.repeat_rounded, HabitsScreen()),
-    _ShellDestination('planning', 'Life Planning', Icons.flag_outlined, PlanningHomeScreen()),
-    _ShellDestination('day-planning', 'Day Planning', Icons.today_outlined, DayPlanningScreen()),
-    _ShellDestination('sports', 'Sports', Icons.fitness_center, SportsScreen()),
-    _ShellDestination('health', 'Health', Icons.health_and_safety_outlined, HealthScreen()),
-    _ShellDestination('sleep', 'Sleep', Icons.bedtime_outlined, SleepScreen()),
-    _ShellDestination('food', 'Food', Icons.restaurant_outlined, FoodScreen()),
-    _ShellDestination('medications', 'Medications', Icons.medication_outlined, MedicationListScreen()),
-    _ShellDestination('notes', 'Notes', Icons.sticky_note_2_outlined, NotesScreen()),
-    _ShellDestination('calendar', 'Calendar', Icons.calendar_month_outlined, CalendarScreen()),
-    _ShellDestination('security', 'Security', Icons.lock_outline, SecurityScreen()),
-    _ShellDestination('analytics', 'Analytics', Icons.insights_outlined, AnalyticsScreen()),
-    _ShellDestination('settings', 'Settings', Icons.settings_outlined, SettingsHubScreen()),
-  ];
-
-  static const _logActions = <_LogAction>[
-    _LogAction(label: 'Prayer', icon: Icons.mosque_outlined, routeName: '/religious/prayer-log'),
-    _LogAction(label: 'Quran', icon: Icons.menu_book_outlined, routeName: '/religious/quran-reading'),
-    _LogAction(label: 'Finance', icon: Icons.receipt_long_outlined, routeName: '/financial/transaction-form'),
-    _LogAction(label: 'Habit', icon: Icons.repeat_rounded, routeName: '/habits/form'),
-    _LogAction(label: 'Goal', icon: Icons.flag_outlined, routeName: GoalsScreen.routeName),
-    _LogAction(label: 'Medication', icon: Icons.medication_outlined, routeName: '/health/medication-form'),
-    _LogAction(label: 'Event', icon: Icons.event_note_outlined, routeName: '/calendar/new-event'),
-  ];
 
   @override
   void initState() {
     super.initState();
-    // Resolved synchronously from the value preloaded during app bootstrap
-    // (see main.dart / initialSidebarOrderProvider) — no async gap here, so
-    // there's no frame where the default order flashes before the saved one.
     _destinations = _resolveOrder(ref.read(initialSidebarOrderProvider));
   }
 
-  List<_ShellDestination> _resolveOrder(List<String>? savedOrder) {
+  List<ShellDestination> _resolveOrder(List<String>? savedOrder) {
     if (savedOrder == null || savedOrder.isEmpty) {
       return List.of(_defaultDestinations);
     }
-
-    final destinationsByKey = {for (final d in _defaultDestinations) d.key: d};
-    final ordered = <_ShellDestination>[
+    final destinationsByKey = {for (final destination in _defaultDestinations) destination.key: destination};
+    return <ShellDestination>[
       for (final key in savedOrder)
         if (destinationsByKey.containsKey(key)) destinationsByKey[key]!,
+      for (final destination in _defaultDestinations)
+        if (!savedOrder.contains(destination.key)) destination,
     ];
-    for (final destination in _defaultDestinations) {
-      if (!savedOrder.contains(destination.key)) {
-        ordered.add(destination);
-      }
+  }
+
+  void _applySavedOrder(Object? savedOrder) {
+    if (savedOrder is! List) {
+      return;
     }
-    return ordered;
+    final order = savedOrder.whereType<String>().toList(growable: false);
+    final currentOrder = _destinations.map((destination) => destination.key).toList(growable: false);
+    if (order.join(',') == currentOrder.join(',')) {
+      return;
+    }
+    final selectedKey = _destinations[_index].key;
+    setState(() {
+      _destinations = _resolveOrder(order);
+      _index = math.max(0, _destinations.indexWhere((destination) => destination.key == selectedKey));
+    });
   }
 
   void _reorderDestinations(int oldIndex, int newIndex) {
@@ -110,64 +130,51 @@ class _AppShellScreenState extends ConsumerState<AppShellScreen> {
     setState(() {
       final destination = _destinations.removeAt(oldIndex);
       _destinations.insert(newIndex, destination);
-      _index = _destinations.indexWhere((d) => d.key == selectedKey);
+      _index = _destinations.indexWhere((item) => item.key == selectedKey);
     });
-
-    final newOrder = _destinations.map((d) => d.key).toList();
-    unawaited(ref.read(settingsServiceProvider).updateSetting('sidebarOrder', newOrder).then(
-      (_) {
-        ref.read(loggerProvider).info('Sidebar order saved: $newOrder');
-      },
-      onError: (Object error, StackTrace stackTrace) {
-        ref.read(loggerProvider).error(
-              'Failed to save sidebar order',
-              error: error,
-              stackTrace: stackTrace,
-            );
-      },
+    final newOrder = _destinations.map((destination) => destination.key).toList();
+    unawaited(ref.read(settingsServiceProvider).updateSetting(_sidebarOrderSetting, newOrder).then(
+      (_) => ref.read(loggerProvider).info('Sidebar order saved: $newOrder'),
+      onError: (Object error, StackTrace stackTrace) => ref.read(loggerProvider).error(
+            'Failed to save sidebar order',
+            error: error,
+            stackTrace: stackTrace,
+          ),
     ));
   }
 
-  double get _sidebarWidth {
-    switch (_sidebarMode) {
-      case _SidebarMode.closed:
-        return _closedWidth;
-      case _SidebarMode.icons:
-        return _iconsWidth;
-      case _SidebarMode.expanded:
-        return _expandedWidth;
-    }
-  }
+  double get _sidebarWidth => switch (_sidebarMode) {
+        ShellSidebarMode.closed => _closedWidth,
+        ShellSidebarMode.icons => _iconsWidth,
+        ShellSidebarMode.expanded => _expandedWidth,
+      };
 
-  void _setMode(_SidebarMode mode) {
-    setState(() => _sidebarMode = mode);
+  void _setMode(ShellSidebarMode mode) => setState(() => _sidebarMode = mode);
+
+  void _resetLogWheel() {
+    _isLogWheelOpen = false;
+    _logWheelIndex = 0;
+    _logWheelTurnCarry = 0;
   }
 
   void _toggleLogWheel() {
     setState(() {
-      _logWheelOpen = !_logWheelOpen;
-      if (!_logWheelOpen) {
-        _logWheelIndex = 0;
-        _logWheelTurnCarry = 0;
+      if (_isLogWheelOpen) {
+        _resetLogWheel();
+      } else {
+        _isLogWheelOpen = true;
       }
     });
   }
 
   Future<void> _openLogRoute(String routeName) async {
-    setState(() {
-      _logWheelOpen = false;
-      _logWheelIndex = 0;
-      _logWheelTurnCarry = 0;
-    });
+    setState(_resetLogWheel);
     await Navigator.of(context).pushNamed(routeName);
   }
 
   void _stepLogWheel(int step) {
-    const visibleSlots = 4;
-    final maxIndex = math.max(0, _logActions.length - visibleSlots);
-    setState(() {
-      _logWheelIndex = (_logWheelIndex + step).clamp(0, maxIndex);
-    });
+    final maxIndex = math.max(0, _logActions.length - QuickLogFab.visibleSlots);
+    setState(() => _logWheelIndex = (_logWheelIndex + step).clamp(0, maxIndex));
   }
 
   void _turnLogWheel(double rawTurnDelta) {
@@ -183,100 +190,89 @@ class _AppShellScreenState extends ConsumerState<AppShellScreen> {
   }
 
   void _stepOpen() {
-    if (_sidebarMode != _SidebarMode.expanded) {
-      _setMode(_SidebarMode.expanded);
+    if (_sidebarMode != ShellSidebarMode.expanded) {
+      _setMode(ShellSidebarMode.expanded);
     }
   }
 
   void _openIconsOnly() {
-    if (_sidebarMode != _SidebarMode.icons) {
-      _setMode(_SidebarMode.icons);
+    if (_sidebarMode != ShellSidebarMode.icons) {
+      _setMode(ShellSidebarMode.icons);
     }
   }
 
   void _stepClose() {
-    if (_sidebarMode == _SidebarMode.expanded) {
-      _setMode(_SidebarMode.icons);
-    } else if (_sidebarMode == _SidebarMode.icons) {
-      _setMode(_SidebarMode.closed);
+    if (_sidebarMode == ShellSidebarMode.expanded) {
+      _setMode(ShellSidebarMode.icons);
+    } else if (_sidebarMode == ShellSidebarMode.icons) {
+      _setMode(ShellSidebarMode.closed);
     }
   }
 
   void _handleHorizontalDragStart(DragStartDetails details) {
     _dragDelta = 0;
-    if (_sidebarMode == _SidebarMode.closed && details.localPosition.dx > _edgeSwipeZone) {
+    if (_sidebarMode == ShellSidebarMode.closed && details.localPosition.dx > _edgeSwipeZone) {
       _dragDelta = double.nan;
     }
   }
 
   void _handleHorizontalDragUpdate(DragUpdateDetails details) {
-    if (_dragDelta.isNaN) {
-      return;
+    if (!_dragDelta.isNaN) {
+      _dragDelta += details.delta.dx;
     }
-    _dragDelta += details.delta.dx;
   }
 
   void _handleHorizontalDragEnd(DragEndDetails details) {
     if (_dragDelta.isNaN) {
       return;
     }
-
     final velocity = details.primaryVelocity ?? 0;
-    final openIntent = _dragDelta >= _dragThreshold || velocity > 420;
-    final closeIntent = _dragDelta <= -_dragThreshold || velocity < -420;
-
-    if (openIntent) {
+    if (_dragDelta >= _dragThreshold || velocity > _dragVelocityThreshold) {
       _stepOpen();
-    } else if (closeIntent) {
+    } else if (_dragDelta <= -_dragThreshold || velocity < -_dragVelocityThreshold) {
       _stepClose();
     }
-
     _dragDelta = 0;
   }
 
-  static const double _largeScreenBreakpoint = 900;
-
   Widget _buildOpenHandle(double minTop, double maxTop) {
-    final handleTop = _openHandleTop.clamp(minTop, maxTop);
     return Positioned(
-      top: handleTop,
+      top: _openHandleTop.clamp(minTop, maxTop),
       left: 0,
-      child: Semantics(
-        button: true,
-        label: 'Open sidebar',
-        child: GestureDetector(
-          onTap: _openIconsOnly,
-          onDoubleTap: _stepOpen,
-          onVerticalDragUpdate: (details) {
-            setState(() {
-              _openHandleTop = (_openHandleTop + details.delta.dy).clamp(minTop, maxTop);
-            });
-          },
-          child: Builder(
-            builder: (context) => Container(
-              width: 20,
-              height: 64,
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                borderRadius: const BorderRadius.horizontal(right: Radius.circular(12)),
-                border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
-              ),
-              child: const Center(
-                child: Icon(Icons.chevron_right_rounded, size: 18),
-              ),
-            ),
-          ),
-        ),
+      child: ShellOpenHandle(
+        onTap: _openIconsOnly,
+        onDoubleTap: _stepOpen,
+        onVerticalDrag: (delta) => setState(() => _openHandleTop = (_openHandleTop + delta).clamp(minTop, maxTop)),
+      ),
+    );
+  }
+
+  Widget _buildSidebarPanel(AppThemeTokens tokens) {
+    return GlassSurface(
+      isBlurred: true,
+      borderRadius: tokens.radius.extraLargeBorder,
+      child: ShellSidebar(
+        mode: _sidebarMode,
+        selectedIndex: _index,
+        destinations: _destinations,
+        onOpenStep: _stepOpen,
+        onCloseStep: _stepClose,
+        onCloseAll: () => _setMode(ShellSidebarMode.closed),
+        onSelect: (value) => setState(() => _index = value),
+        onReorder: _reorderDestinations,
       ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
+    ref.listen(appSettingsProvider, (_, next) => next.whenData((settings) => _applySavedOrder(settings[_sidebarOrderSetting])));
+    final tokens = AppThemeTokens.of(context);
     final selected = _destinations[_index];
     final sidebarWidth = _sidebarWidth;
-    final isClosed = _sidebarMode == _SidebarMode.closed;
-    final isExpanded = _sidebarMode == _SidebarMode.expanded;
+    final isClosed = _sidebarMode == ShellSidebarMode.closed;
+    final isExpanded = _sidebarMode == ShellSidebarMode.expanded;
+    final panelInset = tokens.spacing.sm;
 
     final content = Semantics(
       label: '${selected.label} page',
@@ -286,15 +282,11 @@ class _AppShellScreenState extends ConsumerState<AppShellScreen> {
       ),
     );
 
-    final logWheelScrim = _logWheelOpen
+    final logWheelScrim = _isLogWheelOpen
         ? Positioned.fill(
             child: GestureDetector(
               behavior: HitTestBehavior.translucent,
-              onTap: () => setState(() {
-                _logWheelOpen = false;
-                _logWheelIndex = 0;
-                _logWheelTurnCarry = 0;
-              }),
+              onTap: () => setState(_resetLogWheel),
               child: const SizedBox.expand(),
             ),
           )
@@ -302,10 +294,10 @@ class _AppShellScreenState extends ConsumerState<AppShellScreen> {
 
     final logFab = selected.key == 'dashboard'
         ? Positioned(
-            right: 16,
-            bottom: 16,
-            child: _QuarterLogFab(
-              isOpen: _logWheelOpen,
+            right: tokens.spacing.lg,
+            bottom: tokens.spacing.lg,
+            child: QuickLogFab(
+              isOpen: _isLogWheelOpen,
               actions: _logActions,
               startIndex: _logWheelIndex,
               onTurnDelta: _turnLogWheel,
@@ -324,44 +316,17 @@ class _AppShellScreenState extends ConsumerState<AppShellScreen> {
           onHorizontalDragEnd: _handleHorizontalDragEnd,
           child: LayoutBuilder(
             builder: (context, constraints) {
-              final minTop = 12.0;
-              final maxTop = (constraints.maxHeight - 76).clamp(minTop, double.infinity);
-              final isLargeScreen = constraints.maxWidth >= _largeScreenBreakpoint;
-
-              if (isLargeScreen) {
-                // On large screens (web/macOS/tablet landscape) the sidebar
-                // is part of the layout, like before — it reserves real
-                // space next to the content instead of overlaying it.
+              final minTop = tokens.spacing.md;
+              final maxTop = (constraints.maxHeight - _handleBottomClearance).clamp(minTop, double.infinity);
+              if (constraints.maxWidth >= _largeScreenBreakpoint) {
                 return Row(
                   children: [
                     AnimatedContainer(
-                      duration: const Duration(milliseconds: 150),
-                      curve: Curves.easeOutQuart,
+                      duration: AppMotion.fast,
+                      curve: AppMotion.standard,
                       width: sidebarWidth,
-                      decoration: BoxDecoration(
-                        color: sidebarWidth == 0
-                            ? Colors.transparent
-                            : Theme.of(context).colorScheme.surfaceContainerHighest,
-                        border: Border(
-                          right: BorderSide(
-                            color: sidebarWidth == 0
-                                ? Colors.transparent
-                                : Theme.of(context).colorScheme.outlineVariant,
-                          ),
-                        ),
-                      ),
-                      child: sidebarWidth == 0
-                          ? const SizedBox.shrink()
-                          : _Sidebar(
-                              mode: _sidebarMode,
-                              selectedIndex: _index,
-                              destinations: _destinations,
-                              onOpenStep: _stepOpen,
-                              onCloseStep: _stepClose,
-                              onCloseAll: () => _setMode(_SidebarMode.closed),
-                              onSelect: (value) => setState(() => _index = value),
-                              onReorder: _reorderDestinations,
-                            ),
+                      padding: sidebarWidth == 0 ? EdgeInsets.zero : EdgeInsets.all(panelInset),
+                      child: sidebarWidth == 0 ? const SizedBox.shrink() : _buildSidebarPanel(tokens),
                     ),
                     Expanded(
                       child: Stack(
@@ -376,53 +341,26 @@ class _AppShellScreenState extends ConsumerState<AppShellScreen> {
                   ],
                 );
               }
-
-              // On small screens the sidebar overlays the content instead of
-              // pushing it, so child screens always get stable, full-width
-              // layout constraints regardless of sidebar state — that
-              // width-push was the source of overflow exceptions on phones.
               return Stack(
                 children: [
                   Positioned.fill(child: content),
                   if (isExpanded)
                     Positioned.fill(
                       child: GestureDetector(
-                        onTap: () => _setMode(_SidebarMode.icons),
-                        child: Container(color: Colors.black.withValues(alpha: 0.25)),
+                        onTap: () => _setMode(ShellSidebarMode.icons),
+                        child: ColoredBox(color: Theme.of(context).colorScheme.scrim.withValues(alpha: _scrimOpacity)),
                       ),
                     ),
                   AnimatedPositioned(
-                    duration: const Duration(milliseconds: 150),
-                    curve: Curves.easeOutQuart,
+                    duration: AppMotion.fast,
+                    curve: AppMotion.standard,
                     left: 0,
                     top: 0,
                     bottom: 0,
                     width: sidebarWidth,
-                    child: Material(
-                      elevation: sidebarWidth == 0 ? 0 : 4,
-                      color: sidebarWidth == 0
-                          ? Colors.transparent
-                          : Theme.of(context).colorScheme.surfaceContainerHighest,
-                      shape: Border(
-                        right: BorderSide(
-                          color: sidebarWidth == 0
-                              ? Colors.transparent
-                              : Theme.of(context).colorScheme.outlineVariant,
-                        ),
-                      ),
-                      child: sidebarWidth == 0
-                          ? const SizedBox.shrink()
-                          : _Sidebar(
-                              mode: _sidebarMode,
-                              selectedIndex: _index,
-                              destinations: _destinations,
-                              onOpenStep: _stepOpen,
-                              onCloseStep: _stepClose,
-                              onCloseAll: () => _setMode(_SidebarMode.closed),
-                              onSelect: (value) => setState(() => _index = value),
-                              onReorder: _reorderDestinations,
-                            ),
-                    ),
+                    child: sidebarWidth == 0
+                        ? const SizedBox.shrink()
+                        : Padding(padding: EdgeInsets.all(panelInset), child: _buildSidebarPanel(tokens)),
                   ),
                   if (isClosed) _buildOpenHandle(minTop, maxTop),
                   ?logWheelScrim,
@@ -430,334 +368,6 @@ class _AppShellScreenState extends ConsumerState<AppShellScreen> {
                 ],
               );
             },
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _Sidebar extends StatelessWidget {
-  final _SidebarMode mode;
-  final int selectedIndex;
-  final List<_ShellDestination> destinations;
-  final VoidCallback onOpenStep;
-  final VoidCallback onCloseStep;
-  final VoidCallback onCloseAll;
-  final ValueChanged<int> onSelect;
-  final ReorderCallback onReorder;
-
-  const _Sidebar({
-    required this.mode,
-    required this.selectedIndex,
-    required this.destinations,
-    required this.onOpenStep,
-    required this.onCloseStep,
-    required this.onCloseAll,
-    required this.onSelect,
-    required this.onReorder,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final expanded = mode == _SidebarMode.expanded;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        const SizedBox(height: 8),
-        Row(
-          children: [
-            Expanded(
-              child: Align(
-                alignment: expanded ? Alignment.centerRight : Alignment.center,
-                child: Padding(
-                  padding: EdgeInsets.only(right: expanded ? 6 : 0),
-                  child: Semantics(
-                    button: true,
-                    label: expanded ? 'Collapse to icons' : 'Expand sidebar',
-                    child: IconButton(
-                      onPressed: expanded ? onCloseStep : onOpenStep,
-                      tooltip: expanded ? 'Collapse to icons' : 'Expand sidebar',
-                      icon: Icon(expanded ? Icons.menu_open_rounded : Icons.menu_rounded),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            if (expanded)
-              Semantics(
-                button: true,
-                label: 'Close sidebar completely',
-                child: IconButton(
-                  onPressed: onCloseAll,
-                  tooltip: 'Close sidebar',
-                  icon: const Icon(Icons.keyboard_double_arrow_left_rounded),
-                ),
-              ),
-          ],
-        ),
-        if (expanded)
-          const Padding(
-            padding: EdgeInsets.fromLTRB(16, 4, 16, 10),
-            child: Text(
-              'Pages',
-              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
-            ),
-          ),
-        Expanded(
-          child: ReorderableListView.builder(
-            buildDefaultDragHandles: false,
-            itemCount: destinations.length,
-            onReorderItem: onReorder,
-            itemBuilder: (context, index) {
-              final destination = destinations[index];
-              final selected = index == selectedIndex;
-              return ReorderableDelayedDragStartListener(
-                key: ValueKey(destination.key),
-                index: index,
-                child: _SidebarItem(
-                  expanded: expanded,
-                  selected: selected,
-                  destination: destination,
-                  onTap: () => onSelect(index),
-                ),
-              );
-            },
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _SidebarItem extends StatelessWidget {
-  final bool expanded;
-  final bool selected;
-  final _ShellDestination destination;
-  final VoidCallback onTap;
-
-  const _SidebarItem({
-    required this.expanded,
-    required this.selected,
-    required this.destination,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-
-    return Padding(
-      padding: EdgeInsets.symmetric(horizontal: expanded ? 10 : 8, vertical: 4),
-      child: Semantics(
-        button: true,
-        selected: selected,
-        label: 'Open ${destination.label}',
-        child: Tooltip(
-          message: destination.label,
-          waitDuration: const Duration(milliseconds: 400),
-          triggerMode: TooltipTriggerMode.manual,
-          child: InkWell(
-            onTap: onTap,
-            borderRadius: BorderRadius.circular(14),
-            child: Container(
-              constraints: const BoxConstraints(minHeight: 48),
-              decoration: BoxDecoration(
-                color: selected ? colorScheme.primaryContainer : Colors.transparent,
-                borderRadius: BorderRadius.circular(14),
-              ),
-              padding: EdgeInsets.symmetric(horizontal: expanded ? 12 : 0, vertical: 10),
-              child: expanded
-                  ? Row(
-                      children: [
-                        Icon(
-                          destination.icon,
-                          color: selected ? colorScheme.onPrimaryContainer : null,
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Text(
-                            destination.label,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-                              color: selected ? colorScheme.onPrimaryContainer : null,
-                            ),
-                          ),
-                        ),
-                      ],
-                    )
-                  : Center(
-                      child: Icon(
-                        destination.icon,
-                        color: selected ? colorScheme.onPrimaryContainer : null,
-                      ),
-                    ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _ShellDestination {
-  final String key;
-  final String label;
-  final IconData icon;
-  final Widget page;
-
-  const _ShellDestination(this.key, this.label, this.icon, this.page);
-}
-
-class _LogAction {
-  final String label;
-  final IconData icon;
-  final String routeName;
-
-  const _LogAction({
-    required this.label,
-    required this.icon,
-    required this.routeName,
-  });
-}
-
-class _QuarterLogFab extends StatelessWidget {
-  final bool isOpen;
-  final List<_LogAction> actions;
-  final int startIndex;
-  final ValueChanged<double> onTurnDelta;
-  final VoidCallback onToggle;
-  final ValueChanged<String> onActionTap;
-
-  const _QuarterLogFab({
-    required this.isOpen,
-    required this.actions,
-    required this.startIndex,
-    required this.onTurnDelta,
-    required this.onToggle,
-    required this.onActionTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    const radius = 106.0;
-    const visibleSlots = 4;
-    final colorScheme = Theme.of(context).colorScheme;
-
-    return Listener(
-      behavior: HitTestBehavior.translucent,
-      onPointerSignal: (event) {
-        if (!isOpen) {
-          return;
-        }
-        if (event is PointerScrollEvent) {
-          onTurnDelta(event.scrollDelta.dy / 20);
-        }
-      },
-      child: GestureDetector(
-        behavior: isOpen ? HitTestBehavior.opaque : HitTestBehavior.deferToChild,
-        onPanUpdate: (details) {
-          if (isOpen) {
-            final turnDelta = _turnDeltaFromPan(details.delta);
-            onTurnDelta(turnDelta);
-          }
-        },
-        child: SizedBox(
-          width: radius + 56,
-          height: radius + 56,
-          child: Stack(
-            alignment: Alignment.bottomRight,
-            clipBehavior: Clip.none,
-            children: [
-              for (var i = 0; i < actions.length; i++)
-                _buildRadialAction(
-                  context: context,
-                  action: actions[i],
-                  index: i,
-                  radius: radius,
-                  visibleSlots: visibleSlots,
-                ),
-              FloatingActionButton(
-                onPressed: onToggle,
-                backgroundColor: colorScheme.primaryContainer,
-                foregroundColor: colorScheme.onPrimaryContainer,
-                child: GestureDetector(
-                  behavior: HitTestBehavior.translucent,
-                  onPanUpdate: (details) {
-                    if (isOpen) {
-                      onTurnDelta(_turnDeltaFromPan(details.delta));
-                    }
-                  },
-                  child: Icon(isOpen ? Icons.close : Icons.add),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  double _turnDeltaFromPan(Offset delta) {
-    return -(delta.dy + delta.dx) / 16;
-  }
-
-  Widget _buildRadialAction({
-    required BuildContext context,
-    required _LogAction action,
-    required int index,
-    required double radius,
-    required int visibleSlots,
-  }) {
-    final slotPosition = index - startIndex;
-    final isVisible = slotPosition >= 0 && slotPosition < visibleSlots;
-    if (!isVisible) {
-      return const SizedBox.shrink();
-    }
-
-    final t = visibleSlots <= 1 ? 0.0 : slotPosition / (visibleSlots - 1);
-    final angle = math.pi + (math.pi / 2) * t;
-    final distance = isOpen ? radius : 0.0;
-    final dx = math.cos(angle) * distance;
-    final dy = math.sin(angle) * distance;
-    final fade = isOpen ? 1.0 : 0.0;
-
-    return AnimatedPositioned(
-      duration: const Duration(milliseconds: 180),
-      curve: Curves.easeOutCubic,
-      right: 8 + (-dx),
-      bottom: 8 + (-dy),
-      child: IgnorePointer(
-        ignoring: !isOpen,
-        child: AnimatedOpacity(
-          duration: const Duration(milliseconds: 140),
-          opacity: fade,
-          child: Tooltip(
-            message: action.label,
-            child: GestureDetector(
-              behavior: HitTestBehavior.translucent,
-              onPanUpdate: (details) {
-                if (isOpen) {
-                  onTurnDelta(_turnDeltaFromPan(details.delta));
-                }
-              },
-              child: Material(
-                elevation: 6,
-                color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                shape: const CircleBorder(),
-                child: InkWell(
-                  customBorder: const CircleBorder(),
-                  onTap: () => onActionTap(action.routeName),
-                  child: SizedBox(
-                    width: 42,
-                    height: 42,
-                    child: Icon(action.icon),
-                  ),
-                ),
-              ),
-            ),
           ),
         ),
       ),

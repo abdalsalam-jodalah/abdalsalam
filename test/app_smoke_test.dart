@@ -32,8 +32,9 @@ void main() {
     );
     await tester.pump();
 
-    expect(find.text('Abdalsalam Dashboard'), findsOneWidget);
-    expect(find.text('Religious Tracking status'), findsOneWidget);
-    expect(find.text('3 / 5 prayers'), findsOneWidget);
+    expect(find.text('Prayers today'), findsOneWidget);
+    expect(find.text('3 / 5'), findsOneWidget);
+    expect(find.text('Quran pages'), findsOneWidget);
+    expect(find.text('5'), findsOneWidget);
   });
 }
