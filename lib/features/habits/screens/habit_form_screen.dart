@@ -5,9 +5,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../../core/errors/app_error.dart';
+import '../../../core/theme/app_theme_tokens.dart';
 import '../../../data/models/habits/habit.dart';
 import '../../../providers/app_providers.dart';
 import '../../../shared/widgets/app_feedback.dart';
+import '../../../shared/widgets/ui/app_card.dart';
 import '../providers/habits_providers.dart';
 import '../widgets/habit_style_picker.dart';
 
@@ -219,35 +221,32 @@ class _HabitFormScreenState extends ConsumerState<HabitFormScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final tokens = AppThemeTokens.of(context);
     return Scaffold(
       appBar: AppBar(title: Text(_existing == null ? 'New Habit' : 'Edit Habit')),
       body: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: EdgeInsets.all(tokens.spacing.lg),
         child: Form(
           key: _formKey,
           child: ListView(
             children: [
               TextFormField(
                 controller: _nameController,
-                decoration: const InputDecoration(
-                  labelText: 'Habit name',
-                  hintText: 'e.g. Read Quran',
-                  border: OutlineInputBorder(),
-                ),
+                decoration: const InputDecoration(labelText: 'Habit name', hintText: 'e.g. Read Quran'),
                 validator: (value) =>
                     (value == null || value.trim().isEmpty) ? 'Habit name is required' : null,
               ),
-              const SizedBox(height: 12),
+              SizedBox(height: tokens.spacing.md),
               TextFormField(
                 controller: _descriptionController,
                 maxLines: 3,
-                decoration: const InputDecoration(labelText: 'Description', border: OutlineInputBorder()),
+                decoration: const InputDecoration(labelText: 'Description'),
                 validator: (value) =>
                     (value != null && value.trim().length > _maxDescriptionLength) ? _descriptionTooLongMessage : null,
               ),
-              const SizedBox(height: 16),
+              SizedBox(height: tokens.spacing.lg),
               Text('Is this a good or bad habit?', style: Theme.of(context).textTheme.titleSmall),
-              const SizedBox(height: 8),
+              SizedBox(height: tokens.spacing.sm),
               SegmentedButton<bool>(
                 segments: const [
                   ButtonSegment(value: true, label: Text('Good habit'), icon: Icon(Icons.thumb_up_outlined)),
@@ -257,7 +256,7 @@ class _HabitFormScreenState extends ConsumerState<HabitFormScreen> {
                 onSelectionChanged: (selection) => setState(() => _isGoodHabit = selection.first),
               ),
               if (!_isGoodHabit) ...[
-                const SizedBox(height: 12),
+                SizedBox(height: tokens.spacing.md),
                 DropdownButtonFormField<BadHabitCategory?>(
                   initialValue: _badHabitCategory,
                   items: [
@@ -267,37 +266,33 @@ class _HabitFormScreenState extends ConsumerState<HabitFormScreen> {
                     ),
                   ],
                   onChanged: (value) => setState(() => _badHabitCategory = value),
-                  decoration:
-                      const InputDecoration(labelText: 'Bad habit category', border: OutlineInputBorder()),
+                  decoration: const InputDecoration(labelText: 'Bad habit category'),
                 ),
                 if (_badHabitCategory == BadHabitCategory.custom) ...[
-                  const SizedBox(height: 12),
+                  SizedBox(height: tokens.spacing.md),
                   TextFormField(
                     controller: _customBadCategoryController,
-                    decoration: const InputDecoration(
-                      labelText: 'Custom category name',
-                      border: OutlineInputBorder(),
-                    ),
+                    decoration: const InputDecoration(labelText: 'Custom category name'),
                     validator: (value) =>
                         (value == null || value.trim().isEmpty) ? _customCategoryRequiredMessage : null,
                   ),
                 ],
               ],
-              const SizedBox(height: 16),
+              SizedBox(height: tokens.spacing.lg),
               DropdownButtonFormField<HabitFrequency>(
                 initialValue: _frequency,
                 items: HabitFrequency.values
                     .map((freq) => DropdownMenuItem(value: freq, child: Text(freq.name)))
                     .toList(growable: false),
                 onChanged: (value) => setState(() => _frequency = value ?? _frequency),
-                decoration: const InputDecoration(labelText: 'Frequency', border: OutlineInputBorder()),
+                decoration: const InputDecoration(labelText: 'Frequency'),
               ),
               if (_frequency == HabitFrequency.custom) ...[
-                const SizedBox(height: 12),
+                SizedBox(height: tokens.spacing.md),
                 Text('Repeat on', style: Theme.of(context).textTheme.titleSmall),
-                const SizedBox(height: 8),
+                SizedBox(height: tokens.spacing.sm),
                 Wrap(
-                  spacing: 8,
+                  spacing: tokens.spacing.sm,
                   children: _weekdayLabels.entries.map((entry) {
                     final selected = _customWeekdays.contains(entry.key);
                     return FilterChip(
@@ -314,11 +309,11 @@ class _HabitFormScreenState extends ConsumerState<HabitFormScreen> {
                   }).toList(growable: false),
                 ),
               ],
-              const SizedBox(height: 12),
+              SizedBox(height: tokens.spacing.md),
               TextFormField(
                 controller: _targetController,
                 keyboardType: TextInputType.number,
-                decoration: const InputDecoration(labelText: 'Target count', border: OutlineInputBorder()),
+                decoration: const InputDecoration(labelText: 'Target count'),
                 validator: (value) {
                   final parsed = int.tryParse(value ?? '');
                   if (parsed == null || parsed <= 0) {
@@ -327,56 +322,68 @@ class _HabitFormScreenState extends ConsumerState<HabitFormScreen> {
                   return null;
                 },
               ),
-              const SizedBox(height: 12),
+              SizedBox(height: tokens.spacing.md),
               DropdownButtonFormField<String>(
                 initialValue: _category,
                 items: const ['Health', 'Productivity', 'Learning', 'Spiritual', 'Social']
                     .map((item) => DropdownMenuItem(value: item, child: Text(item)))
                     .toList(growable: false),
                 onChanged: (value) => setState(() => _category = value ?? _category),
-                decoration: const InputDecoration(labelText: 'Category', border: OutlineInputBorder()),
+                decoration: const InputDecoration(labelText: 'Category'),
               ),
-              const SizedBox(height: 16),
+              SizedBox(height: tokens.spacing.lg),
               Text('Icon', style: Theme.of(context).textTheme.titleSmall),
-              const SizedBox(height: 8),
+              SizedBox(height: tokens.spacing.sm),
               HabitIconPickerField(selectedIcon: _icon, onChanged: (value) => setState(() => _icon = value)),
-              const SizedBox(height: 16),
+              SizedBox(height: tokens.spacing.lg),
               Text('Color', style: Theme.of(context).textTheme.titleSmall),
-              const SizedBox(height: 8),
+              SizedBox(height: tokens.spacing.sm),
               HabitColorPickerField(
                 selectedColorHex: _color,
                 onChanged: (value) => setState(() => _color = value),
               ),
-              const SizedBox(height: 12),
-              ListTile(
-                contentPadding: const EdgeInsets.symmetric(horizontal: 8),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                  side: BorderSide(color: Theme.of(context).dividerColor),
+              SizedBox(height: tokens.spacing.md),
+              AppCard(
+                onTap: _reminderTime == null
+                    ? null
+                    : () async {
+                        final picked = await showTimePicker(context: context, initialTime: _reminderTime!);
+                        if (picked == null || !mounted) {
+                          return;
+                        }
+                        setState(() => _reminderTime = picked);
+                      },
+                child: Row(
+                  children: [
+                    const Icon(Icons.alarm_outlined),
+                    SizedBox(width: tokens.spacing.md),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Reminder time', style: Theme.of(context).textTheme.titleSmall),
+                          Text(
+                            _reminderTime == null ? 'Disabled' : _reminderTime!.format(context),
+                            style: Theme.of(context)
+                                .textTheme
+                                .bodySmall
+                                ?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Switch(
+                      value: _reminderTime != null,
+                      onChanged: (enabled) {
+                        setState(() {
+                          _reminderTime = enabled ? (_reminderTime ?? _defaultReminderTime) : null;
+                        });
+                      },
+                    ),
+                  ],
                 ),
-                leading: const Icon(Icons.alarm_outlined),
-                title: const Text('Reminder time'),
-                subtitle: Text(_reminderTime == null ? 'Disabled' : _reminderTime!.format(context)),
-                trailing: Switch(
-                  value: _reminderTime != null,
-                  onChanged: (enabled) {
-                    setState(() {
-                      _reminderTime = enabled ? (_reminderTime ?? _defaultReminderTime) : null;
-                    });
-                  },
-                ),
-                onTap: () async {
-                  if (_reminderTime == null) {
-                    return;
-                  }
-                  final picked = await showTimePicker(context: context, initialTime: _reminderTime!);
-                  if (picked == null || !mounted) {
-                    return;
-                  }
-                  setState(() => _reminderTime = picked);
-                },
               ),
-              const SizedBox(height: 20),
+              SizedBox(height: tokens.spacing.xl),
               FilledButton.icon(
                 onPressed: _isSaving ? null : _submit,
                 icon: const Icon(Icons.save_outlined),

@@ -2,18 +2,20 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../../core/theme/app_theme_tokens.dart';
 import '../../../data/models/habits/habit.dart';
 import '../../../data/models/habits/habit_log.dart';
 import '../../../shared/widgets/app_feedback.dart';
+import '../../../shared/widgets/ui/date_time_field.dart';
+import '../../../shared/widgets/ui/show_app_bottom_sheet.dart';
 import '../providers/habits_providers.dart';
 import 'habit_style_picker.dart';
 
 const _uuid = Uuid();
 
 Future<void> showLogHabitSheet(BuildContext context, WidgetRef ref, Habit habit) async {
-  await showModalBottomSheet<void>(
-    context: context,
-    isScrollControlled: true,
+  await showAppBottomSheet<void>(
+    context,
     builder: (sheetContext) => _LogHabitSheet(habit: habit),
   );
   if (!context.mounted) {
@@ -37,6 +39,24 @@ class _LogHabitSheetState extends ConsumerState<_LogHabitSheet> {
   static const String _situationRequiredMessage = 'Situation is required';
   static const String _valueInvalidMessage = 'Value must be a number';
   static const String _loggedMessage = 'Logged';
+  static const String _logOccurrenceTitle = 'Log occurrence';
+  static const String _logIncidentTitle = 'Log incident';
+  static const String _whenLabel = 'When';
+  static const String _moodLabel = 'Mood';
+  static const String _valueLabel = 'Value (optional)';
+  static const String _notesLabel = 'Notes (optional)';
+  static const String _situationLabel = 'Situation';
+  static const String _causeLabel = 'Cause';
+  static const String _triggerLabel = 'Trigger';
+  static const String _locationLabel = 'Location';
+  static const String _thoughtsBeforeLabel = 'Thoughts before';
+  static const String _thoughtsAfterLabel = 'Thoughts after';
+  static const String _recoveryActionLabel = 'Recovery action';
+  static const String _intensityLabelPrefix = 'Intensity: ';
+  static const String _saveLogLabel = 'Save log';
+  static const int _minIntensity = 1;
+  static const int _maxIntensity = 5;
+  static const int _intensityDivisions = 4;
 
   final _formKey = GlobalKey<FormState>();
   DateTime _completedAt = DateTime.now();
@@ -66,25 +86,6 @@ class _LogHabitSheetState extends ConsumerState<_LogHabitSheet> {
     _thoughtsAfterController.dispose();
     _recoveryActionController.dispose();
     super.dispose();
-  }
-
-  Future<void> _pickDateTime() async {
-    final date = await showDatePicker(
-      context: context,
-      initialDate: _completedAt,
-      firstDate: DateTime(2000),
-      lastDate: DateTime.now(),
-    );
-    if (date == null || !mounted) {
-      return;
-    }
-    final time = await showTimePicker(context: context, initialTime: TimeOfDay.fromDateTime(_completedAt));
-    if (time == null || !mounted) {
-      return;
-    }
-    setState(() {
-      _completedAt = DateTime(date.year, date.month, date.day, time.hour, time.minute);
-    });
   }
 
   String? _optionalTextValidator(String? value) {
@@ -157,38 +158,32 @@ class _LogHabitSheetState extends ConsumerState<_LogHabitSheet> {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: EdgeInsets.only(
-        left: 16,
-        right: 16,
-        top: 16,
-        bottom: MediaQuery.of(context).viewInsets.bottom + 16,
-      ),
-      child: SingleChildScrollView(
-        child: Form(
-          key: _formKey,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
+    final tokens = AppThemeTokens.of(context);
+    return SingleChildScrollView(
+      child: Form(
+        key: _formKey,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
             Text(
-              widget.habit.isGoodHabit ? 'Log occurrence' : 'Log incident',
+              widget.habit.isGoodHabit ? _logOccurrenceTitle : _logIncidentTitle,
               style: Theme.of(context).textTheme.titleMedium,
             ),
-            const SizedBox(height: 12),
-            ListTile(
-              contentPadding: EdgeInsets.zero,
-              leading: const Icon(Icons.schedule_outlined),
-              title: const Text('When'),
-              subtitle: Text('${_completedAt.toLocal()}'.split('.').first),
-              onTap: _pickDateTime,
+            SizedBox(height: tokens.spacing.md),
+            DateTimeField(
+              label: _whenLabel,
+              value: _completedAt,
+              mode: DateTimeFieldMode.dateTime,
+              lastDate: DateTime.now(),
+              onChanged: (value) => setState(() => _completedAt = value ?? _completedAt),
             ),
             if (widget.habit.isGoodHabit) ...[
-              const SizedBox(height: 8),
-              Text('Mood', style: Theme.of(context).textTheme.titleSmall),
-              const SizedBox(height: 8),
+              SizedBox(height: tokens.spacing.sm),
+              Text(_moodLabel, style: Theme.of(context).textTheme.titleSmall),
+              SizedBox(height: tokens.spacing.sm),
               Wrap(
-                spacing: 8,
+                spacing: tokens.spacing.sm,
                 children: kHabitMoodLabels.map((label) {
                   return ChoiceChip(
                     label: Text(label),
@@ -197,89 +192,88 @@ class _LogHabitSheetState extends ConsumerState<_LogHabitSheet> {
                   );
                 }).toList(growable: false),
               ),
-              const SizedBox(height: 12),
+              SizedBox(height: tokens.spacing.md),
               TextFormField(
                 controller: _valueController,
                 keyboardType: TextInputType.number,
-                decoration: const InputDecoration(labelText: 'Value (optional)', border: OutlineInputBorder()),
+                decoration: const InputDecoration(labelText: _valueLabel),
                 validator: _valueValidator,
               ),
-              const SizedBox(height: 12),
+              SizedBox(height: tokens.spacing.md),
               TextFormField(
                 controller: _notesController,
                 maxLines: 3,
-                decoration: const InputDecoration(labelText: 'Notes (optional)', border: OutlineInputBorder()),
+                decoration: const InputDecoration(labelText: _notesLabel),
                 validator: _optionalTextValidator,
               ),
             ] else ...[
-              const SizedBox(height: 12),
+              SizedBox(height: tokens.spacing.md),
               TextFormField(
                 controller: _situationController,
-                decoration: const InputDecoration(labelText: 'Situation', border: OutlineInputBorder()),
+                decoration: const InputDecoration(labelText: _situationLabel),
                 validator: _situationValidator,
               ),
-              const SizedBox(height: 12),
+              SizedBox(height: tokens.spacing.md),
               TextFormField(
                 controller: _causeController,
-                decoration: const InputDecoration(labelText: 'Cause', border: OutlineInputBorder()),
+                decoration: const InputDecoration(labelText: _causeLabel),
                 validator: _optionalTextValidator,
               ),
-              const SizedBox(height: 12),
+              SizedBox(height: tokens.spacing.md),
               TextFormField(
                 controller: _triggerController,
-                decoration: const InputDecoration(labelText: 'Trigger', border: OutlineInputBorder()),
+                decoration: const InputDecoration(labelText: _triggerLabel),
                 validator: _optionalTextValidator,
               ),
-              const SizedBox(height: 12),
+              SizedBox(height: tokens.spacing.md),
               TextFormField(
                 controller: _locationController,
-                decoration: const InputDecoration(labelText: 'Location', border: OutlineInputBorder()),
+                decoration: const InputDecoration(labelText: _locationLabel),
                 validator: _optionalTextValidator,
               ),
-              const SizedBox(height: 12),
+              SizedBox(height: tokens.spacing.md),
               TextFormField(
                 controller: _thoughtsBeforeController,
-                decoration: const InputDecoration(labelText: 'Thoughts before', border: OutlineInputBorder()),
+                decoration: const InputDecoration(labelText: _thoughtsBeforeLabel),
                 validator: _optionalTextValidator,
               ),
-              const SizedBox(height: 12),
+              SizedBox(height: tokens.spacing.md),
               TextFormField(
                 controller: _thoughtsAfterController,
-                decoration: const InputDecoration(labelText: 'Thoughts after', border: OutlineInputBorder()),
+                decoration: const InputDecoration(labelText: _thoughtsAfterLabel),
                 validator: _optionalTextValidator,
               ),
-              const SizedBox(height: 12),
-              Text('Intensity: $_intensity', style: Theme.of(context).textTheme.titleSmall),
+              SizedBox(height: tokens.spacing.md),
+              Text('$_intensityLabelPrefix$_intensity', style: Theme.of(context).textTheme.titleSmall),
               Slider(
                 value: _intensity.toDouble(),
-                min: 1,
-                max: 5,
-                divisions: 4,
+                min: _minIntensity.toDouble(),
+                max: _maxIntensity.toDouble(),
+                divisions: _intensityDivisions,
                 label: '$_intensity',
                 onChanged: (value) => setState(() => _intensity = value.round()),
               ),
-              const SizedBox(height: 12),
+              SizedBox(height: tokens.spacing.md),
               TextFormField(
                 controller: _recoveryActionController,
-                decoration: const InputDecoration(labelText: 'Recovery action', border: OutlineInputBorder()),
+                decoration: const InputDecoration(labelText: _recoveryActionLabel),
                 validator: _optionalTextValidator,
               ),
-              const SizedBox(height: 12),
+              SizedBox(height: tokens.spacing.md),
               TextFormField(
                 controller: _notesController,
                 maxLines: 3,
-                decoration: const InputDecoration(labelText: 'Notes (optional)', border: OutlineInputBorder()),
+                decoration: const InputDecoration(labelText: _notesLabel),
                 validator: _optionalTextValidator,
               ),
             ],
-            const SizedBox(height: 20),
+            SizedBox(height: tokens.spacing.lg),
             FilledButton.icon(
               onPressed: _isSaving ? null : _submit,
               icon: const Icon(Icons.save_outlined),
-              label: const Text('Save log'),
+              label: const Text(_saveLogLabel),
             ),
           ],
-          ),
         ),
       ),
     );

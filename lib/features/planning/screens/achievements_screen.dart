@@ -2,10 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../../core/formatting/app_date_formatter.dart';
+import '../../../core/theme/app_module_accents.dart';
+import '../../../core/theme/app_theme_tokens.dart';
 import '../../../data/models/planning/achievement.dart';
 import '../../../data/models/planning/goal.dart';
 import '../../../shared/widgets/app_feedback.dart';
 import '../../../shared/widgets/async_error_view.dart';
+import '../../../shared/widgets/empty_state.dart';
+import '../../../shared/widgets/ui/app_form_dialog.dart';
+import '../../../shared/widgets/ui/entity_tile.dart';
 import '../providers/planning_providers.dart';
 
 class AchievementsScreen extends ConsumerStatefulWidget {
@@ -19,11 +25,15 @@ class AchievementsScreen extends ConsumerStatefulWidget {
 
 class _AchievementsScreenState extends ConsumerState<AchievementsScreen> {
   static const String _achievementLoggedMessage = 'Achievement logged';
+  static const String _emptyTitle = 'No achievements yet';
+  static const String _emptySubtitle = 'Tap + to log one.';
 
   final _uuid = const Uuid();
 
   @override
   Widget build(BuildContext context) {
+    final tokens = AppThemeTokens.of(context);
+    final accent = AppModuleAccents.forModule('planning');
     final achievementsAsync = ref.watch(achievementsProvider);
 
     return Scaffold(
@@ -41,27 +51,30 @@ class _AchievementsScreenState extends ConsumerState<AchievementsScreen> {
         ),
         data: (achievements) {
           if (achievements.isEmpty) {
-            return const Center(child: Text('No achievements yet. Tap + to log one.'));
+            return const EmptyState(
+              title: _emptyTitle,
+              subtitle: _emptySubtitle,
+              icon: Icons.emoji_events_rounded,
+            );
           }
 
           return RefreshIndicator(
             onRefresh: () async => ref.invalidate(achievementsProvider),
             child: ListView.builder(
-              padding: const EdgeInsets.all(16),
+              padding: EdgeInsets.all(tokens.spacing.lg),
               itemCount: achievements.length,
               itemBuilder: (context, index) {
                 final achievement = achievements[index];
-                return Card(
-                  margin: const EdgeInsets.only(bottom: 12),
-                  child: ListTile(
-                    leading: const Icon(Icons.emoji_events_outlined),
-                    title: Text(achievement.title),
-                    subtitle: Text(
-                      achievement.description == null || achievement.description!.isEmpty
-                          ? _formatDate(achievement.achievedAt)
-                          : '${achievement.description}\n${_formatDate(achievement.achievedAt)}',
-                    ),
-                    isThreeLine: achievement.description != null && achievement.description!.isNotEmpty,
+                return Padding(
+                  padding: EdgeInsets.only(bottom: tokens.spacing.md),
+                  child: EntityTile(
+                    icon: Icons.emoji_events_outlined,
+                    accentColor: accent,
+                    title: achievement.title,
+                    subtitleMaxLines: 3,
+                    subtitle: achievement.description == null || achievement.description!.isEmpty
+                        ? _formatDate(achievement.achievedAt)
+                        : '${achievement.description}\n${_formatDate(achievement.achievedAt)}',
                   ),
                 );
               },
@@ -72,8 +85,7 @@ class _AchievementsScreenState extends ConsumerState<AchievementsScreen> {
     );
   }
 
-  String _formatDate(DateTime date) =>
-      '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+  String _formatDate(DateTime date) => AppDateFormatter.date(date);
 
   Future<void> _showAchievementDialog() async {
     final allGoals = ref.read(activeGoalsProvider).maybeWhen(data: (list) => list, orElse: () => const <Goal>[]);
@@ -146,6 +158,9 @@ class _AchievementDialogContent extends StatefulWidget {
 }
 
 class _AchievementDialogContentState extends State<_AchievementDialogContent> {
+  static const String _titleRequiredMessage = 'Title is required';
+  static const String _notLinkedLabel = 'Not linked to a goal';
+
   final formKey = GlobalKey<FormState>();
   final titleController = TextEditingController();
   final descriptionController = TextEditingController();
@@ -159,80 +174,76 @@ class _AchievementDialogContentState extends State<_AchievementDialogContent> {
     super.dispose();
   }
 
+  void _submit() {
+    if (formKey.currentState?.validate() ?? false) {
+      Navigator.pop(
+        context,
+        _AchievementDialogResult(
+          title: titleController.text.trim(),
+          description: descriptionController.text.trim(),
+          achievedAt: achievedAt,
+          selectedGoalId: selectedGoalId,
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text('Log Achievement'),
-      content: SingleChildScrollView(
-        child: Form(
-          key: formKey,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextFormField(
-                controller: titleController,
-                decoration: const InputDecoration(labelText: 'Title', border: OutlineInputBorder()),
-                validator: (value) => (value == null || value.trim().isEmpty) ? 'Title is required' : null,
-              ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: descriptionController,
-                maxLines: 2,
-                decoration: const InputDecoration(labelText: 'Description (optional)', border: OutlineInputBorder()),
-              ),
-              const SizedBox(height: 12),
-              DropdownButtonFormField<String?>(
-                initialValue: selectedGoalId,
-                items: [
-                  const DropdownMenuItem<String?>(value: null, child: Text('Not linked to a goal')),
-                  for (final goal in widget.allGoals)
-                    DropdownMenuItem<String?>(value: goal.id, child: Text(goal.title)),
-                ],
-                onChanged: (value) => setState(() => selectedGoalId = value),
-                decoration: const InputDecoration(labelText: 'Related goal (optional)', border: OutlineInputBorder()),
-              ),
-              const SizedBox(height: 12),
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                title: const Text('Achieved on'),
-                subtitle: Text(widget.formatDate(achievedAt)),
-                trailing: const Icon(Icons.calendar_today_outlined),
-                onTap: () async {
-                  final picked = await showDatePicker(
-                    context: context,
-                    initialDate: achievedAt,
-                    firstDate: DateTime(2020),
-                    lastDate: DateTime(2100),
-                  );
-                  if (!mounted) return;
-                  if (picked != null) {
-                    setState(() => achievedAt = picked);
-                  }
-                },
-              ),
-            ],
-          ),
+    final spacing = AppThemeTokens.of(context).spacing;
+    return AppFormDialog(
+      title: 'Log Achievement',
+      submitLabel: 'Save',
+      onSubmit: _submit,
+      child: Form(
+        key: formKey,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextFormField(
+              controller: titleController,
+              decoration: const InputDecoration(labelText: 'Title'),
+              validator: (value) => (value == null || value.trim().isEmpty) ? _titleRequiredMessage : null,
+            ),
+            SizedBox(height: spacing.md),
+            TextFormField(
+              controller: descriptionController,
+              maxLines: 2,
+              decoration: const InputDecoration(labelText: 'Description (optional)'),
+            ),
+            SizedBox(height: spacing.md),
+            DropdownButtonFormField<String?>(
+              initialValue: selectedGoalId,
+              items: [
+                const DropdownMenuItem<String?>(value: null, child: Text(_notLinkedLabel)),
+                for (final goal in widget.allGoals)
+                  DropdownMenuItem<String?>(value: goal.id, child: Text(goal.title)),
+              ],
+              onChanged: (value) => setState(() => selectedGoalId = value),
+              decoration: const InputDecoration(labelText: 'Related goal (optional)'),
+            ),
+            SizedBox(height: spacing.md),
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Achieved on'),
+              subtitle: Text(widget.formatDate(achievedAt)),
+              trailing: const Icon(Icons.calendar_today_outlined),
+              onTap: () async {
+                final picked = await showDatePicker(
+                  context: context,
+                  initialDate: achievedAt,
+                  firstDate: DateTime(2020),
+                  lastDate: DateTime(2100),
+                );
+                if (!mounted) return;
+                if (picked != null) {
+                  setState(() => achievedAt = picked);
+                }
+              },
+            ),
+          ],
         ),
       ),
-      actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-        FilledButton(
-          onPressed: () {
-            if (formKey.currentState?.validate() ?? false) {
-              Navigator.pop(
-                context,
-                _AchievementDialogResult(
-                  title: titleController.text.trim(),
-                  description: descriptionController.text.trim(),
-                  achievedAt: achievedAt,
-                  selectedGoalId: selectedGoalId,
-                ),
-              );
-            }
-          },
-          child: const Text('Save'),
-        ),
-      ],
     );
   }
 }

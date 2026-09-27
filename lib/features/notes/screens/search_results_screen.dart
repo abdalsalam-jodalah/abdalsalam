@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/theme/app_theme_tokens.dart';
 import '../../../shared/widgets/empty_state.dart';
 import '../../../shared/widgets/search_widgets.dart';
+import '../../../shared/widgets/ui/app_card.dart';
+import '../../../shared/widgets/ui/show_app_bottom_sheet.dart';
 
 class SearchResultsScreen extends StatefulWidget {
   static const routeName = '/notes/search';
@@ -13,6 +16,11 @@ class SearchResultsScreen extends StatefulWidget {
 }
 
 class _SearchResultsScreenState extends State<SearchResultsScreen> {
+  static const String _title = 'Search Results';
+  static const String _searchHint = 'Search notes by title/content';
+  static const String _emptyTitle = 'No matching notes';
+  static const String _emptySubtitle = 'Try broader keywords or adjust filters.';
+
   String _query = '';
   String _sortBy = 'relevance';
   String _status = 'all';
@@ -25,6 +33,8 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final tokens = AppThemeTokens.of(context);
+    final theme = Theme.of(context);
     final filtered = _sample.where((item) {
       final full = '${item['title']} ${item['content']}'.toLowerCase();
       return _query.isEmpty || full.contains(_query.toLowerCase());
@@ -32,7 +42,7 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Search Results'),
+        title: const Text(_title),
         actions: [
           PopupMenuButton<String>(
             initialValue: _sortBy,
@@ -44,8 +54,8 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
             ],
           ),
           IconButton(
-            onPressed: () => showModalBottomSheet<void>(
-              context: context,
+            onPressed: () => showAppBottomSheet<void>(
+              context,
               builder: (context) => FilterSheet(
                 statuses: const ['all', 'active', 'archived'],
                 onStatusSelected: (status) => setState(() => _status = status),
@@ -58,44 +68,49 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
       body: Column(
         children: [
           Padding(
-            padding: const EdgeInsets.all(16),
+            padding: EdgeInsets.all(tokens.spacing.lg),
             child: DebouncedSearchBar(
-              hint: 'Search notes by title/content',
+              hint: _searchHint,
               onQueryChanged: (value) => setState(() => _query = value),
             ),
           ),
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
+            padding: EdgeInsets.symmetric(horizontal: tokens.spacing.lg),
             child: Align(
               alignment: Alignment.centerLeft,
               child: Text('Status: $_status | Sort: $_sortBy'),
             ),
           ),
-          const SizedBox(height: 8),
+          SizedBox(height: tokens.spacing.sm),
           Expanded(
             child: filtered.isEmpty
-                ? const EmptyState(
-                    title: 'No matching notes',
-                    subtitle: 'Try broader keywords or adjust filters.',
-                  )
-                : ListView.builder(
-                    itemCount: filtered.length,
-                    itemBuilder: (context, index) {
-                      final item = filtered[index];
-                      return Card(
-                        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-                        child: ListTile(
-                          title: HighlightedText(
-                            text: item['title']!,
-                            query: _query,
-                          ),
-                          subtitle: HighlightedText(
-                            text: item['content']!,
-                            query: _query,
+                ? const EmptyState(title: _emptyTitle, subtitle: _emptySubtitle)
+                : ListView(
+                    padding: EdgeInsets.all(tokens.spacing.lg),
+                    children: [
+                      for (final item in filtered)
+                        Padding(
+                          padding: EdgeInsets.only(bottom: tokens.spacing.md),
+                          child: AppCard(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                DefaultTextStyle.merge(
+                                  style: theme.textTheme.titleSmall!,
+                                  child: HighlightedText(text: item['title']!, query: _query),
+                                ),
+                                SizedBox(height: tokens.spacing.xs),
+                                DefaultTextStyle.merge(
+                                  style: theme.textTheme.bodySmall!
+                                      .copyWith(color: theme.colorScheme.onSurfaceVariant),
+                                  child: HighlightedText(text: item['content']!, query: _query),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
-                      );
-                    },
+                    ],
                   ),
           ),
         ],

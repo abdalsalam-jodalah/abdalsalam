@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../../core/theme/app_theme_tokens.dart';
 import '../../../data/models/planning/life_plan.dart';
 import '../../../shared/widgets/app_feedback.dart';
 import '../../../shared/widgets/async_error_view.dart';
@@ -79,6 +80,7 @@ class _LifePlanScreenState extends ConsumerState<LifePlanScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final spacing = AppThemeTokens.of(context).spacing;
     final lifePlanAsync = ref.watch(lifePlanProvider);
 
     return Scaffold(
@@ -92,7 +94,7 @@ class _LifePlanScreenState extends ConsumerState<LifePlanScreen> {
         data: (plan) {
           _loadFrom(plan);
           return ListView(
-            padding: const EdgeInsets.all(16),
+            padding: EdgeInsets.all(spacing.lg),
             children: [
               TextFormField(
                 controller: _visionController,
@@ -100,22 +102,20 @@ class _LifePlanScreenState extends ConsumerState<LifePlanScreen> {
                 decoration: const InputDecoration(
                   labelText: 'Vision',
                   hintText: 'Who do you want to become?',
-                  border: OutlineInputBorder(),
                 ),
               ),
-              const SizedBox(height: 12),
+              SizedBox(height: spacing.md),
               TextFormField(
                 controller: _missionController,
                 maxLines: 3,
                 decoration: const InputDecoration(
                   labelText: 'Mission',
                   hintText: 'What is your purpose day to day?',
-                  border: OutlineInputBorder(),
                 ),
               ),
-              const SizedBox(height: 16),
+              SizedBox(height: spacing.lg),
               Text('Values', style: Theme.of(context).textTheme.titleMedium),
-              const SizedBox(height: 8),
+              SizedBox(height: spacing.sm),
               _ChipEditor(
                 controller: _valueController,
                 items: _values,
@@ -123,9 +123,9 @@ class _LifePlanScreenState extends ConsumerState<LifePlanScreen> {
                 onAdd: (value) => setState(() => _values = [..._values, value]),
                 onRemove: (index) => setState(() => _values = [..._values]..removeAt(index)),
               ),
-              const SizedBox(height: 16),
+              SizedBox(height: spacing.lg),
               Text('Principles', style: Theme.of(context).textTheme.titleMedium),
-              const SizedBox(height: 8),
+              SizedBox(height: spacing.sm),
               _ChipEditor(
                 controller: _principleController,
                 items: _principles,
@@ -133,7 +133,7 @@ class _LifePlanScreenState extends ConsumerState<LifePlanScreen> {
                 onAdd: (value) => setState(() => _principles = [..._principles, value]),
                 onRemove: (index) => setState(() => _principles = [..._principles]..removeAt(index)),
               ),
-              const SizedBox(height: 20),
+              SizedBox(height: spacing.xl),
               FilledButton.icon(
                 onPressed: _save,
                 icon: const Icon(Icons.save_outlined),
@@ -173,12 +173,13 @@ class _ChipEditor extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final spacing = AppThemeTokens.of(context).spacing;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Wrap(
-          spacing: 8,
-          runSpacing: 8,
+          spacing: spacing.sm,
+          runSpacing: spacing.sm,
           children: [
             for (var i = 0; i < items.length; i++)
               InputChip(
@@ -187,17 +188,17 @@ class _ChipEditor extends StatelessWidget {
               ),
           ],
         ),
-        const SizedBox(height: 8),
+        SizedBox(height: spacing.sm),
         Row(
           children: [
             Expanded(
               child: TextField(
                 controller: controller,
-                decoration: InputDecoration(hintText: hintText, border: const OutlineInputBorder()),
+                decoration: InputDecoration(hintText: hintText),
                 onSubmitted: (_) => _submit(),
               ),
             ),
-            const SizedBox(width: 8),
+            SizedBox(width: spacing.sm),
             IconButton(icon: const Icon(Icons.add_circle_outline), onPressed: _submit),
           ],
         ),

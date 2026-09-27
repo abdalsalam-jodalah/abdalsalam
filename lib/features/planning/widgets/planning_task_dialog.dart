@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../../core/theme/app_theme_tokens.dart';
 import '../../../data/models/planning/goal.dart';
 import '../../../data/models/planning/planning_task.dart';
 import '../../../shared/widgets/app_feedback.dart';
+import '../../../shared/widgets/ui/app_form_dialog.dart';
 import '../providers/planning_providers.dart';
 
 const _uuid = Uuid();
@@ -102,6 +104,9 @@ class _PlanningTaskDialogContent extends StatefulWidget {
 }
 
 class _PlanningTaskDialogContentState extends State<_PlanningTaskDialogContent> {
+  static const String _titleRequiredMessage = 'Title is required';
+  static const String _notLinkedLabel = 'Not linked to a goal';
+
   final formKey = GlobalKey<FormState>();
   late final TextEditingController titleController;
   late final TextEditingController descriptionController;
@@ -126,58 +131,54 @@ class _PlanningTaskDialogContentState extends State<_PlanningTaskDialogContent> 
     super.dispose();
   }
 
+  void _submit() {
+    if (formKey.currentState?.validate() ?? false) {
+      Navigator.pop(
+        context,
+        _PlanningTaskResult(titleController.text.trim(), descriptionController.text.trim(), selectedGoalId),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
-      title: Text(widget.existing == null ? 'New Task' : 'Edit Task'),
-      content: SingleChildScrollView(
-        child: Form(
-          key: formKey,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextFormField(
-                controller: titleController,
-                decoration: const InputDecoration(labelText: 'Title', border: OutlineInputBorder()),
-                validator: (value) => (value == null || value.trim().isEmpty) ? 'Title is required' : null,
+    final spacing = AppThemeTokens.of(context).spacing;
+    return AppFormDialog(
+      title: widget.existing == null ? 'New Task' : 'Edit Task',
+      submitLabel: widget.existing == null ? 'Create' : 'Save',
+      onSubmit: _submit,
+      child: Form(
+        key: formKey,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextFormField(
+              controller: titleController,
+              decoration: const InputDecoration(labelText: 'Title'),
+              validator: (value) => (value == null || value.trim().isEmpty) ? _titleRequiredMessage : null,
+            ),
+            SizedBox(height: spacing.md),
+            TextFormField(
+              controller: descriptionController,
+              maxLines: 2,
+              decoration: const InputDecoration(labelText: 'Description (optional)'),
+            ),
+            if (allowGoalLink) ...[
+              SizedBox(height: spacing.md),
+              DropdownButtonFormField<String?>(
+                initialValue: selectedGoalId,
+                items: [
+                  const DropdownMenuItem<String?>(value: null, child: Text(_notLinkedLabel)),
+                  for (final goal in widget.linkableGoals)
+                    DropdownMenuItem<String?>(value: goal.id, child: Text(goal.title)),
+                ],
+                onChanged: (value) => setState(() => selectedGoalId = value),
+                decoration: const InputDecoration(labelText: 'Link to goal (optional)'),
               ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: descriptionController,
-                maxLines: 2,
-                decoration: const InputDecoration(labelText: 'Description (optional)', border: OutlineInputBorder()),
-              ),
-              if (allowGoalLink) ...[
-                const SizedBox(height: 12),
-                DropdownButtonFormField<String?>(
-                  initialValue: selectedGoalId,
-                  items: [
-                    const DropdownMenuItem<String?>(value: null, child: Text('Not linked to a goal')),
-                    for (final goal in widget.linkableGoals)
-                      DropdownMenuItem<String?>(value: goal.id, child: Text(goal.title)),
-                  ],
-                  onChanged: (value) => setState(() => selectedGoalId = value),
-                  decoration: const InputDecoration(labelText: 'Link to goal (optional)', border: OutlineInputBorder()),
-                ),
-              ],
             ],
-          ),
+          ],
         ),
       ),
-      actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-        FilledButton(
-          onPressed: () {
-            if (formKey.currentState?.validate() ?? false) {
-              Navigator.pop(
-                context,
-                _PlanningTaskResult(titleController.text.trim(), descriptionController.text.trim(), selectedGoalId),
-              );
-            }
-          },
-          child: Text(widget.existing == null ? 'Create' : 'Save'),
-        ),
-      ],
     );
   }
 }

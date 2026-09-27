@@ -2,8 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../../core/formatting/app_date_formatter.dart';
+import '../../../core/theme/app_theme_tokens.dart';
 import '../../../data/models/planning/goal.dart';
 import '../../../shared/widgets/app_feedback.dart';
+import '../../../shared/widgets/ui/app_form_dialog.dart';
 import '../providers/planning_providers.dart';
 
 const _uuid = Uuid();
@@ -170,6 +173,11 @@ class _GoalEditorContent extends StatefulWidget {
 }
 
 class _GoalEditorContentState extends State<_GoalEditorContent> {
+  static const String _noParentLabel = 'None';
+  static const String _notSetLabel = 'Not set';
+  static const String _pickLifeAreaMessage = 'Pick a life area';
+  static const String _titleRequiredMessage = 'Title is required';
+
   final formKey = GlobalKey<FormState>();
   late final TextEditingController titleController;
   late final TextEditingController descriptionController;
@@ -198,113 +206,107 @@ class _GoalEditorContentState extends State<_GoalEditorContent> {
     super.dispose();
   }
 
+  void _submit() {
+    if (formKey.currentState?.validate() ?? false) {
+      Navigator.pop(
+        context,
+        _GoalEditorResult(
+          title: titleController.text.trim(),
+          description: descriptionController.text.trim(),
+          scope: selectedScope,
+          status: selectedStatus,
+          targetDate: selectedDate,
+          parentGoalId: selectedParentId,
+          area: selectedArea,
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
-      title: Text(widget.existing == null ? 'New Goal' : 'Edit Goal'),
-      content: SingleChildScrollView(
-        child: Form(
-          key: formKey,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextFormField(
-                controller: titleController,
-                decoration: const InputDecoration(labelText: 'Title', border: OutlineInputBorder()),
-                validator: (value) => (value == null || value.trim().isEmpty) ? 'Title is required' : null,
-              ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: descriptionController,
-                maxLines: 2,
-                decoration: const InputDecoration(labelText: 'Description (optional)', border: OutlineInputBorder()),
-              ),
-              const SizedBox(height: 12),
-              DropdownButtonFormField<GoalScope>(
-                initialValue: selectedScope,
-                items: GoalScope.values
-                    .map((scope) => DropdownMenuItem(value: scope, child: Text(goalScopeLabel(scope))))
-                    .toList(),
-                onChanged: (value) => setState(() => selectedScope = value ?? selectedScope),
-                decoration: const InputDecoration(labelText: 'Scope', border: OutlineInputBorder()),
-              ),
-              const SizedBox(height: 12),
-              DropdownButtonFormField<GoalStatus>(
-                initialValue: selectedStatus,
-                items: GoalStatus.values
-                    .map((status) => DropdownMenuItem(value: status, child: Text(goalStatusLabel(status))))
-                    .toList(),
-                onChanged: (value) => setState(() => selectedStatus = value ?? selectedStatus),
-                decoration: const InputDecoration(labelText: 'Status', border: OutlineInputBorder()),
-              ),
-              const SizedBox(height: 12),
-              DropdownButtonFormField<String?>(
-                initialValue: selectedParentId,
-                items: [
-                  const DropdownMenuItem<String?>(value: null, child: Text('None')),
-                  for (final candidate in widget.allGoals.where((g) => g.id != widget.existing?.id))
-                    DropdownMenuItem<String?>(value: candidate.id, child: Text(candidate.title)),
-                ],
-                onChanged: (value) => setState(() => selectedParentId = value),
-                decoration: const InputDecoration(labelText: 'Linked goal (optional)', border: OutlineInputBorder()),
-              ),
-              const SizedBox(height: 12),
-              DropdownButtonFormField<LifeArea>(
-                initialValue: selectedArea,
-                items: LifeArea.values
-                    .map((area) => DropdownMenuItem(value: area, child: Text(goalAreaLabel(area))))
-                    .toList(),
-                onChanged: (value) => setState(() => selectedArea = value),
-                validator: (value) => value == null ? 'Pick a life area' : null,
-                decoration: const InputDecoration(labelText: 'Life area', border: OutlineInputBorder()),
-              ),
-              const SizedBox(height: 12),
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                title: const Text('Target date'),
-                subtitle: Text(selectedDate == null
-                    ? 'Not set'
-                    : '${selectedDate!.year}-${selectedDate!.month.toString().padLeft(2, '0')}-${selectedDate!.day.toString().padLeft(2, '0')}'),
-                trailing: const Icon(Icons.calendar_today_outlined),
-                onTap: () async {
-                  final picked = await showDatePicker(
-                    context: context,
-                    initialDate: selectedDate ?? DateTime.now(),
-                    firstDate: DateTime(2020),
-                    lastDate: DateTime(2100),
-                  );
-                  if (!mounted) return;
-                  if (picked != null) {
-                    setState(() => selectedDate = picked);
-                  }
-                },
-              ),
-            ],
-          ),
+    final spacing = AppThemeTokens.of(context).spacing;
+    return AppFormDialog(
+      title: widget.existing == null ? 'New Goal' : 'Edit Goal',
+      submitLabel: widget.existing == null ? 'Create' : 'Save',
+      onSubmit: _submit,
+      child: Form(
+        key: formKey,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextFormField(
+              controller: titleController,
+              decoration: const InputDecoration(labelText: 'Title'),
+              validator: (value) => (value == null || value.trim().isEmpty) ? _titleRequiredMessage : null,
+            ),
+            SizedBox(height: spacing.md),
+            TextFormField(
+              controller: descriptionController,
+              maxLines: 2,
+              decoration: const InputDecoration(labelText: 'Description (optional)'),
+            ),
+            SizedBox(height: spacing.md),
+            DropdownButtonFormField<GoalScope>(
+              initialValue: selectedScope,
+              items: GoalScope.values
+                  .map((scope) => DropdownMenuItem(value: scope, child: Text(goalScopeLabel(scope))))
+                  .toList(),
+              onChanged: (value) => setState(() => selectedScope = value ?? selectedScope),
+              decoration: const InputDecoration(labelText: 'Scope'),
+            ),
+            SizedBox(height: spacing.md),
+            DropdownButtonFormField<GoalStatus>(
+              initialValue: selectedStatus,
+              items: GoalStatus.values
+                  .map((status) => DropdownMenuItem(value: status, child: Text(goalStatusLabel(status))))
+                  .toList(),
+              onChanged: (value) => setState(() => selectedStatus = value ?? selectedStatus),
+              decoration: const InputDecoration(labelText: 'Status'),
+            ),
+            SizedBox(height: spacing.md),
+            DropdownButtonFormField<String?>(
+              initialValue: selectedParentId,
+              items: [
+                const DropdownMenuItem<String?>(value: null, child: Text(_noParentLabel)),
+                for (final candidate in widget.allGoals.where((g) => g.id != widget.existing?.id))
+                  DropdownMenuItem<String?>(value: candidate.id, child: Text(candidate.title)),
+              ],
+              onChanged: (value) => setState(() => selectedParentId = value),
+              decoration: const InputDecoration(labelText: 'Linked goal (optional)'),
+            ),
+            SizedBox(height: spacing.md),
+            DropdownButtonFormField<LifeArea>(
+              initialValue: selectedArea,
+              items: LifeArea.values
+                  .map((area) => DropdownMenuItem(value: area, child: Text(goalAreaLabel(area))))
+                  .toList(),
+              onChanged: (value) => setState(() => selectedArea = value),
+              validator: (value) => value == null ? _pickLifeAreaMessage : null,
+              decoration: const InputDecoration(labelText: 'Life area'),
+            ),
+            SizedBox(height: spacing.md),
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Target date'),
+              subtitle: Text(selectedDate == null ? _notSetLabel : AppDateFormatter.date(selectedDate!)),
+              trailing: const Icon(Icons.calendar_today_outlined),
+              onTap: () async {
+                final picked = await showDatePicker(
+                  context: context,
+                  initialDate: selectedDate ?? DateTime.now(),
+                  firstDate: DateTime(2020),
+                  lastDate: DateTime(2100),
+                );
+                if (!mounted) return;
+                if (picked != null) {
+                  setState(() => selectedDate = picked);
+                }
+              },
+            ),
+          ],
         ),
       ),
-      actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-        FilledButton(
-          onPressed: () {
-            if (formKey.currentState?.validate() ?? false) {
-              Navigator.pop(
-                context,
-                _GoalEditorResult(
-                  title: titleController.text.trim(),
-                  description: descriptionController.text.trim(),
-                  scope: selectedScope,
-                  status: selectedStatus,
-                  targetDate: selectedDate,
-                  parentGoalId: selectedParentId,
-                  area: selectedArea,
-                ),
-              );
-            }
-          },
-          child: Text(widget.existing == null ? 'Create' : 'Save'),
-        ),
-      ],
     );
   }
 }

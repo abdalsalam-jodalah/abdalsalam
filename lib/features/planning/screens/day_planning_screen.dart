@@ -2,10 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../../core/formatting/app_date_formatter.dart';
+import '../../../core/theme/app_theme_tokens.dart';
 import '../../../data/models/planning/goal.dart';
 import '../../../data/models/planning/planning_task.dart';
 import '../../../shared/widgets/app_feedback.dart';
 import '../../../shared/widgets/async_error_view.dart';
+import '../../../shared/widgets/empty_state.dart';
+import '../../../shared/widgets/ui/app_form_dialog.dart';
 import '../providers/planning_providers.dart';
 import '../widgets/planning_task_dialog.dart';
 import '../widgets/reorderable_task_list.dart';
@@ -24,10 +28,10 @@ class DayPlanningScreen extends ConsumerStatefulWidget {
 }
 
 class _DayPlanningScreenState extends ConsumerState<DayPlanningScreen> {
-  DateTime _selectedDate = _dateOnly(DateTime.now());
+  static const String _emptyGoalsTitle = 'No goals set for this day yet';
+  static const String _emptyGoalsSubtitle = 'Tap + to add one.';
 
-  String _formatDate(DateTime date) =>
-      '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+  DateTime _selectedDate = _dateOnly(DateTime.now());
 
   void _shiftDay(int delta) {
     setState(() => _selectedDate = _dateOnly(_selectedDate.add(Duration(days: delta))));
@@ -48,12 +52,13 @@ class _DayPlanningScreenState extends ConsumerState<DayPlanningScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final tokens = AppThemeTokens.of(context);
     final goalsAsync = ref.watch(goalsForDateProvider(_selectedDate));
     final tasksAsync = ref.watch(tasksForDateProvider(_selectedDate));
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(_formatDate(_selectedDate)),
+        title: Text(AppDateFormatter.date(_selectedDate)),
         actions: [
           IconButton(icon: const Icon(Icons.chevron_left), onPressed: () => _shiftDay(-1)),
           IconButton(icon: const Icon(Icons.calendar_today_outlined), onPressed: _pickDate),
@@ -61,10 +66,10 @@ class _DayPlanningScreenState extends ConsumerState<DayPlanningScreen> {
         ],
       ),
       body: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: EdgeInsets.all(tokens.spacing.lg),
         children: [
           _buildGoalsSection(goalsAsync),
-          const Divider(height: 32),
+          Divider(height: tokens.spacing.xxl),
           _buildTasksSection(tasksAsync),
         ],
       ),
@@ -72,6 +77,7 @@ class _DayPlanningScreenState extends ConsumerState<DayPlanningScreen> {
   }
 
   Widget _buildGoalsSection(AsyncValue<List<Goal>> goalsAsync) {
+    final tokens = AppThemeTokens.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -83,9 +89,9 @@ class _DayPlanningScreenState extends ConsumerState<DayPlanningScreen> {
           ],
         ),
         goalsAsync.when(
-          loading: () => const Padding(
-            padding: EdgeInsets.symmetric(vertical: 12),
-            child: Center(child: CircularProgressIndicator()),
+          loading: () => Padding(
+            padding: EdgeInsets.symmetric(vertical: tokens.spacing.md),
+            child: const Center(child: CircularProgressIndicator()),
           ),
           error: (error, stack) => AsyncErrorView(
             error: error,
@@ -94,9 +100,11 @@ class _DayPlanningScreenState extends ConsumerState<DayPlanningScreen> {
           ),
           data: (goals) {
             if (goals.isEmpty) {
-              return const Padding(
-                padding: EdgeInsets.symmetric(vertical: 12),
-                child: Text('No goals set for this day yet.'),
+              return const EmptyState(
+                title: _emptyGoalsTitle,
+                subtitle: _emptyGoalsSubtitle,
+                icon: Icons.flag_rounded,
+                isCompact: true,
               );
             }
             return Column(
@@ -111,7 +119,7 @@ class _DayPlanningScreenState extends ConsumerState<DayPlanningScreen> {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: goal.status == GoalStatus.achieved
-                          ? const TextStyle(decoration: TextDecoration.lineThrough)
+                          ? Theme.of(context).textTheme.bodyLarge?.copyWith(decoration: TextDecoration.lineThrough)
                           : null,
                     ),
                     subtitle: goal.description != null && goal.description!.isNotEmpty
@@ -131,6 +139,7 @@ class _DayPlanningScreenState extends ConsumerState<DayPlanningScreen> {
   }
 
   Widget _buildTasksSection(AsyncValue<List<PlanningTask>> tasksAsync) {
+    final tokens = AppThemeTokens.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -142,9 +151,9 @@ class _DayPlanningScreenState extends ConsumerState<DayPlanningScreen> {
           ],
         ),
         tasksAsync.when(
-          loading: () => const Padding(
-            padding: EdgeInsets.symmetric(vertical: 12),
-            child: Center(child: CircularProgressIndicator()),
+          loading: () => Padding(
+            padding: EdgeInsets.symmetric(vertical: tokens.spacing.md),
+            child: const Center(child: CircularProgressIndicator()),
           ),
           error: (error, stack) => AsyncErrorView(
             error: error,
@@ -295,6 +304,8 @@ class _DayGoalDialogContent extends StatefulWidget {
 }
 
 class _DayGoalDialogContentState extends State<_DayGoalDialogContent> {
+  static const String _titleRequiredMessage = 'Title is required';
+
   final formKey = GlobalKey<FormState>();
   final titleController = TextEditingController();
   final descriptionController = TextEditingController();
@@ -306,43 +317,38 @@ class _DayGoalDialogContentState extends State<_DayGoalDialogContent> {
     super.dispose();
   }
 
+  void _submit() {
+    if (formKey.currentState?.validate() ?? false) {
+      Navigator.pop(context, _DayGoalDialogResult(titleController.text.trim(), descriptionController.text.trim()));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text('New Goal'),
-      content: Form(
+    final spacing = AppThemeTokens.of(context).spacing;
+    return AppFormDialog(
+      title: 'New Goal',
+      submitLabel: 'Create',
+      onSubmit: _submit,
+      child: Form(
         key: formKey,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             TextFormField(
               controller: titleController,
-              decoration: const InputDecoration(labelText: 'Title', border: OutlineInputBorder()),
-              validator: (value) => (value == null || value.trim().isEmpty) ? 'Title is required' : null,
+              decoration: const InputDecoration(labelText: 'Title'),
+              validator: (value) => (value == null || value.trim().isEmpty) ? _titleRequiredMessage : null,
             ),
-            const SizedBox(height: 12),
+            SizedBox(height: spacing.md),
             TextFormField(
               controller: descriptionController,
               maxLines: 2,
-              decoration: const InputDecoration(labelText: 'Description (optional)', border: OutlineInputBorder()),
+              decoration: const InputDecoration(labelText: 'Description (optional)'),
             ),
           ],
         ),
       ),
-      actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-        FilledButton(
-          onPressed: () {
-            if (formKey.currentState?.validate() ?? false) {
-              Navigator.pop(
-                context,
-                _DayGoalDialogResult(titleController.text.trim(), descriptionController.text.trim()),
-              );
-            }
-          },
-          child: const Text('Create'),
-        ),
-      ],
     );
   }
 }

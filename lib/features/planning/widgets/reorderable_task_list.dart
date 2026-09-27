@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../data/models/planning/planning_task.dart';
+import '../../../shared/widgets/empty_state.dart';
 
 enum _TaskMenuAction { edit, delete }
 
@@ -29,12 +30,17 @@ class ReorderableTaskList extends StatelessWidget {
     onReorder(reordered);
   }
 
+  static const String _emptyTitle = 'No tasks yet';
+  static const String _emptySubtitle = 'Tap + to add one.';
+
   @override
   Widget build(BuildContext context) {
     if (tasks.isEmpty) {
-      return const Padding(
-        padding: EdgeInsets.symmetric(vertical: 12),
-        child: Text('No tasks yet. Tap + to add one.'),
+      return const EmptyState(
+        title: _emptyTitle,
+        subtitle: _emptySubtitle,
+        icon: Icons.checklist_rounded,
+        isCompact: true,
       );
     }
 
@@ -58,7 +64,9 @@ class ReorderableTaskList extends StatelessWidget {
               task.title,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: task.isCompleted ? const TextStyle(decoration: TextDecoration.lineThrough) : null,
+              style: task.isCompleted
+                  ? Theme.of(context).textTheme.bodyLarge?.copyWith(decoration: TextDecoration.lineThrough)
+                  : null,
             ),
             subtitle: task.description != null && task.description!.isNotEmpty
                 ? Text(task.description!, maxLines: 2, overflow: TextOverflow.ellipsis)

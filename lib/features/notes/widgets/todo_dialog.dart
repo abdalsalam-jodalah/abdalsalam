@@ -3,9 +3,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../../core/errors/app_error.dart';
+import '../../../core/theme/app_theme_tokens.dart';
 import '../../../data/models/habits/habit.dart';
 import '../../../data/models/notes/todo.dart';
 import '../../../shared/widgets/app_feedback.dart';
+import '../../../shared/widgets/ui/app_form_dialog.dart';
 import '../../habits/screens/habit_form_screen.dart';
 import '../providers/notes_providers.dart';
 
@@ -80,6 +82,16 @@ class _TodoDialogContent extends StatefulWidget {
 }
 
 class _TodoDialogContentState extends State<_TodoDialogContent> {
+  static const String _newTodoTitle = 'New Todo';
+  static const String _editTodoTitle = 'Edit Todo';
+  static const String _createLabel = 'Create';
+  static const String _saveLabel = 'Save';
+  static const String _labelFieldLabel = 'Label';
+  static const String _bodyFieldLabel = 'Body (optional)';
+  static const String _labelRequiredMessage = 'Label is required';
+  static const String _linkedToHabitLabel = 'Linked to habit';
+  static const String _markAsHabitLabel = 'Mark as habit';
+
   final formKey = GlobalKey<FormState>();
   late final TextEditingController titleController;
   late final TextEditingController descriptionController;
@@ -114,62 +126,57 @@ class _TodoDialogContentState extends State<_TodoDialogContent> {
     AppFeedback.showError(context, error);
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      title: Text(widget.existing == null ? 'New Todo' : 'Edit Todo'),
-      content: SingleChildScrollView(
-        child: Form(
-          key: formKey,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextFormField(
-                controller: titleController,
-                decoration: const InputDecoration(labelText: 'Label', border: OutlineInputBorder()),
-                validator: (value) => (value == null || value.trim().isEmpty) ? 'Label is required' : null,
-              ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: descriptionController,
-                maxLines: 4,
-                decoration: const InputDecoration(labelText: 'Body (optional)', border: OutlineInputBorder()),
-              ),
-              const SizedBox(height: 12),
-              Align(
-                alignment: Alignment.centerLeft,
-                child: TextButton.icon(
-                  onPressed: linkedHabitId != null
-                      ? null
-                      : () async {
-                          final habit = await Navigator.of(context).push<Habit?>(
-                            MaterialPageRoute(
-                              builder: (_) => HabitFormScreen(
-                                prefillTitle: titleController.text.trim(),
-                                prefillDescription: descriptionController.text.trim(),
-                              ),
-                            ),
-                          );
-                          if (!mounted) return;
-                          if (habit != null) {
-                            setState(() => linkedHabitId = habit.id);
-                          }
-                        },
-                  icon: Icon(linkedHabitId != null ? Icons.link : Icons.link_outlined),
-                  label: Text(linkedHabitId != null ? 'Linked to habit' : 'Mark as habit'),
-                ),
-              ),
-            ],
-          ),
+  Future<void> _linkHabit() async {
+    final habit = await Navigator.of(context).push<Habit?>(
+      MaterialPageRoute(
+        builder: (_) => HabitFormScreen(
+          prefillTitle: titleController.text.trim(),
+          prefillDescription: descriptionController.text.trim(),
         ),
       ),
-      actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-        FilledButton(
-          onPressed: isSaving ? null : _save,
-          child: Text(widget.existing == null ? 'Create' : 'Save'),
+    );
+    if (!mounted) return;
+    if (habit != null) {
+      setState(() => linkedHabitId = habit.id);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final tokens = AppThemeTokens.of(context);
+    return AppFormDialog(
+      title: widget.existing == null ? _newTodoTitle : _editTodoTitle,
+      submitLabel: widget.existing == null ? _createLabel : _saveLabel,
+      isSubmitting: isSaving,
+      onSubmit: _save,
+      child: Form(
+        key: formKey,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextFormField(
+              controller: titleController,
+              decoration: const InputDecoration(labelText: _labelFieldLabel),
+              validator: (value) => (value == null || value.trim().isEmpty) ? _labelRequiredMessage : null,
+            ),
+            SizedBox(height: tokens.spacing.md),
+            TextFormField(
+              controller: descriptionController,
+              maxLines: 4,
+              decoration: const InputDecoration(labelText: _bodyFieldLabel),
+            ),
+            SizedBox(height: tokens.spacing.md),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton.icon(
+                onPressed: linkedHabitId != null ? null : _linkHabit,
+                icon: Icon(linkedHabitId != null ? Icons.link : Icons.link_outlined),
+                label: Text(linkedHabitId != null ? _linkedToHabitLabel : _markAsHabitLabel),
+              ),
+            ),
+          ],
         ),
-      ],
+      ),
     );
   }
 }

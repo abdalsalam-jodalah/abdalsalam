@@ -2,9 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../../core/formatting/app_date_formatter.dart';
+import '../../../core/theme/app_module_accents.dart';
+import '../../../core/theme/app_theme_tokens.dart';
 import '../../../data/models/planning/review.dart';
 import '../../../shared/widgets/app_feedback.dart';
 import '../../../shared/widgets/async_error_view.dart';
+import '../../../shared/widgets/empty_state.dart';
+import '../../../shared/widgets/ui/app_card.dart';
+import '../../../shared/widgets/ui/app_form_dialog.dart';
 import '../providers/planning_providers.dart';
 
 class ReviewsScreen extends ConsumerStatefulWidget {
@@ -18,6 +24,7 @@ class ReviewsScreen extends ConsumerStatefulWidget {
 
 class _ReviewsScreenState extends ConsumerState<ReviewsScreen> {
   static const String _reviewSavedMessage = 'Review saved';
+  static const String _emptySubtitle = 'Tap + to add one.';
 
   final _uuid = const Uuid();
   ReviewPeriod _selectedPeriod = ReviewPeriod.daily;
@@ -57,6 +64,7 @@ class _ReviewsScreenState extends ConsumerState<ReviewsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final tokens = AppThemeTokens.of(context);
     final reviewsAsync = ref.watch(reviewsByPeriodProvider(_selectedPeriod));
 
     return Scaffold(
@@ -69,7 +77,7 @@ class _ReviewsScreenState extends ConsumerState<ReviewsScreen> {
       body: Column(
         children: [
           Padding(
-            padding: const EdgeInsets.all(16),
+            padding: EdgeInsets.all(tokens.spacing.lg),
             child: SegmentedButton<ReviewPeriod>(
               segments: ReviewPeriod.values
                   .map((period) => ButtonSegment(value: period, label: Text(_periodLabel(period))))
@@ -87,52 +95,21 @@ class _ReviewsScreenState extends ConsumerState<ReviewsScreen> {
               ),
               data: (reviews) {
                 if (reviews.isEmpty) {
-                  return Center(child: Text('No ${_selectedPeriod.name} reviews yet. Tap + to add one.'));
+                  return EmptyState(
+                    title: 'No ${_selectedPeriod.name} reviews yet',
+                    subtitle: _emptySubtitle,
+                    icon: Icons.rate_review_rounded,
+                  );
                 }
 
                 return ListView.builder(
-                  padding: const EdgeInsets.all(16),
+                  padding: EdgeInsets.all(tokens.spacing.lg),
                   itemCount: reviews.length,
                   itemBuilder: (context, index) {
                     final review = reviews[index];
-                    return Card(
-                      margin: const EdgeInsets.only(bottom: 12),
-                      child: Padding(
-                        padding: const EdgeInsets.all(12),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              '${_formatDate(review.periodStart)} - ${_formatDate(review.periodEnd)}',
-                              style: const TextStyle(fontWeight: FontWeight.bold),
-                            ),
-                            if (review.rating != null) ...[
-                              const SizedBox(height: 4),
-                              Text('Rating: ${review.rating}/5'),
-                            ],
-                            if (review.wins != null && review.wins!.isNotEmpty) ...[
-                              const SizedBox(height: 8),
-                              Text('Wins', style: Theme.of(context).textTheme.labelLarge),
-                              Text(review.wins!),
-                            ],
-                            if (review.challenges != null && review.challenges!.isNotEmpty) ...[
-                              const SizedBox(height: 8),
-                              Text('Challenges', style: Theme.of(context).textTheme.labelLarge),
-                              Text(review.challenges!),
-                            ],
-                            if (review.lessonsLearned != null && review.lessonsLearned!.isNotEmpty) ...[
-                              const SizedBox(height: 8),
-                              Text('Lessons learned', style: Theme.of(context).textTheme.labelLarge),
-                              Text(review.lessonsLearned!),
-                            ],
-                            if (review.nextFocus != null && review.nextFocus!.isNotEmpty) ...[
-                              const SizedBox(height: 8),
-                              Text('Next focus', style: Theme.of(context).textTheme.labelLarge),
-                              Text(review.nextFocus!),
-                            ],
-                          ],
-                        ),
-                      ),
+                    return Padding(
+                      padding: EdgeInsets.only(bottom: tokens.spacing.md),
+                      child: _ReviewCard(review: review, periodStartLabel: _formatDate(review.periodStart), periodEndLabel: _formatDate(review.periodEnd)),
                     );
                   },
                 );
@@ -144,8 +121,7 @@ class _ReviewsScreenState extends ConsumerState<ReviewsScreen> {
     );
   }
 
-  String _formatDate(DateTime date) =>
-      '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+  String _formatDate(DateTime date) => AppDateFormatter.date(date);
 
   Future<void> _showReviewDialog() async {
     final result = await showDialog<_ReviewDialogResult>(
@@ -183,6 +159,51 @@ class _ReviewsScreenState extends ConsumerState<ReviewsScreen> {
     }
     AppFeedback.showSuccess(context, _reviewSavedMessage);
     ref.invalidate(reviewsByPeriodProvider(result.period));
+  }
+}
+
+class _ReviewCard extends StatelessWidget {
+  final Review review;
+  final String periodStartLabel;
+  final String periodEndLabel;
+
+  const _ReviewCard({required this.review, required this.periodStartLabel, required this.periodEndLabel});
+
+  @override
+  Widget build(BuildContext context) {
+    final tokens = AppThemeTokens.of(context);
+    final theme = Theme.of(context);
+    final accent = AppModuleAccents.forModule('planning');
+    return AppCard(
+      accentColor: accent,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('$periodStartLabel - $periodEndLabel', style: theme.textTheme.titleMedium),
+          if (review.rating != null) ...[
+            SizedBox(height: tokens.spacing.xs),
+            Text('Rating: ${review.rating}/5', style: theme.textTheme.bodyMedium),
+          ],
+          if (review.wins != null && review.wins!.isNotEmpty) ..._section(context, 'Wins', review.wins!),
+          if (review.challenges != null && review.challenges!.isNotEmpty)
+            ..._section(context, 'Challenges', review.challenges!),
+          if (review.lessonsLearned != null && review.lessonsLearned!.isNotEmpty)
+            ..._section(context, 'Lessons learned', review.lessonsLearned!),
+          if (review.nextFocus != null && review.nextFocus!.isNotEmpty)
+            ..._section(context, 'Next focus', review.nextFocus!),
+        ],
+      ),
+    );
+  }
+
+  List<Widget> _section(BuildContext context, String label, String value) {
+    final tokens = AppThemeTokens.of(context);
+    final theme = Theme.of(context);
+    return [
+      SizedBox(height: tokens.spacing.sm),
+      Text(label, style: theme.textTheme.labelLarge),
+      Text(value, style: theme.textTheme.bodyMedium),
+    ];
   }
 }
 
@@ -248,86 +269,82 @@ class _ReviewDialogContentState extends State<_ReviewDialogContent> {
     return allFieldsEmpty ? _atLeastOneFieldRequiredMessage : null;
   }
 
+  void _submit() {
+    if (formKey.currentState?.validate() ?? false) {
+      Navigator.pop(
+        context,
+        _ReviewDialogResult(
+          period: selectedPeriod,
+          wins: winsController.text.trim(),
+          challenges: challengesController.text.trim(),
+          lessons: lessonsController.text.trim(),
+          nextFocus: nextFocusController.text.trim(),
+          rating: rating,
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text('New Review'),
-      content: SingleChildScrollView(
-        child: Form(
-          key: formKey,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              DropdownButtonFormField<ReviewPeriod>(
-                initialValue: selectedPeriod,
-                items: ReviewPeriod.values
-                    .map((period) => DropdownMenuItem(value: period, child: Text(widget.periodLabel(period))))
-                    .toList(),
-                onChanged: (value) => setState(() => selectedPeriod = value ?? selectedPeriod),
-                decoration: const InputDecoration(labelText: 'Period', border: OutlineInputBorder()),
-              ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: winsController,
-                maxLines: 2,
-                decoration: const InputDecoration(labelText: 'Wins', border: OutlineInputBorder()),
-                validator: _validateReflectionField,
-              ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: challengesController,
-                maxLines: 2,
-                decoration: const InputDecoration(labelText: 'Challenges', border: OutlineInputBorder()),
-                validator: _validateReflectionField,
-              ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: lessonsController,
-                maxLines: 2,
-                decoration: const InputDecoration(labelText: 'Lessons learned', border: OutlineInputBorder()),
-                validator: _validateReflectionField,
-              ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: nextFocusController,
-                maxLines: 2,
-                decoration: const InputDecoration(labelText: 'Next focus', border: OutlineInputBorder()),
-                validator: _validateReflectionField,
-              ),
-              const SizedBox(height: 12),
-              DropdownButtonFormField<int>(
-                initialValue: rating,
-                items: [1, 2, 3, 4, 5]
-                    .map((value) => DropdownMenuItem(value: value, child: Text('$value / 5')))
-                    .toList(),
-                onChanged: (value) => setState(() => rating = value),
-                decoration: const InputDecoration(labelText: 'Self rating', border: OutlineInputBorder()),
-              ),
-            ],
-          ),
+    final spacing = AppThemeTokens.of(context).spacing;
+    return AppFormDialog(
+      title: 'New Review',
+      submitLabel: 'Save',
+      onSubmit: _submit,
+      child: Form(
+        key: formKey,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            DropdownButtonFormField<ReviewPeriod>(
+              initialValue: selectedPeriod,
+              items: ReviewPeriod.values
+                  .map((period) => DropdownMenuItem(value: period, child: Text(widget.periodLabel(period))))
+                  .toList(),
+              onChanged: (value) => setState(() => selectedPeriod = value ?? selectedPeriod),
+              decoration: const InputDecoration(labelText: 'Period'),
+            ),
+            SizedBox(height: spacing.md),
+            TextFormField(
+              controller: winsController,
+              maxLines: 2,
+              decoration: const InputDecoration(labelText: 'Wins'),
+              validator: _validateReflectionField,
+            ),
+            SizedBox(height: spacing.md),
+            TextFormField(
+              controller: challengesController,
+              maxLines: 2,
+              decoration: const InputDecoration(labelText: 'Challenges'),
+              validator: _validateReflectionField,
+            ),
+            SizedBox(height: spacing.md),
+            TextFormField(
+              controller: lessonsController,
+              maxLines: 2,
+              decoration: const InputDecoration(labelText: 'Lessons learned'),
+              validator: _validateReflectionField,
+            ),
+            SizedBox(height: spacing.md),
+            TextFormField(
+              controller: nextFocusController,
+              maxLines: 2,
+              decoration: const InputDecoration(labelText: 'Next focus'),
+              validator: _validateReflectionField,
+            ),
+            SizedBox(height: spacing.md),
+            DropdownButtonFormField<int>(
+              initialValue: rating,
+              items: [1, 2, 3, 4, 5]
+                  .map((value) => DropdownMenuItem(value: value, child: Text('$value / 5')))
+                  .toList(),
+              onChanged: (value) => setState(() => rating = value),
+              decoration: const InputDecoration(labelText: 'Self rating'),
+            ),
+          ],
         ),
       ),
-      actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-        FilledButton(
-          onPressed: () {
-            if (formKey.currentState?.validate() ?? false) {
-              Navigator.pop(
-                context,
-                _ReviewDialogResult(
-                  period: selectedPeriod,
-                  wins: winsController.text.trim(),
-                  challenges: challengesController.text.trim(),
-                  lessons: lessonsController.text.trim(),
-                  nextFocus: nextFocusController.text.trim(),
-                  rating: rating,
-                ),
-              );
-            }
-          },
-          child: const Text('Save'),
-        ),
-      ],
     );
   }
 }

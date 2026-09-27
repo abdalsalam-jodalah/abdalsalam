@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/theme/app_theme_tokens.dart';
 import '../../../data/models/notes/note.dart';
 import '../../../shared/widgets/app_feedback.dart';
 import '../../../shared/widgets/async_error_view.dart';
+import '../../../shared/widgets/empty_state.dart';
+import '../../../shared/widgets/loading_skeleton.dart';
 import '../providers/notes_providers.dart';
 import '../widgets/note_dialog.dart';
 import '../widgets/notes_widgets.dart';
@@ -13,20 +16,25 @@ enum _NoteMenuAction { edit, delete }
 
 class NotesHomeScreen extends ConsumerWidget {
   static const routeName = '/notes/home';
+  static const String _title = 'Notes';
+  static const String _todosTooltip = 'Todos';
+  static const String _emptyTitle = 'No notes yet';
+  static const String _emptySubtitle = 'Tap + to add one.';
 
   const NotesHomeScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final tokens = AppThemeTokens.of(context);
     final notesAsync = ref.watch(activeNotesProvider);
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Notes'),
+        title: const Text(_title),
         actions: [
           IconButton(
             icon: const Icon(Icons.checklist_outlined),
-            tooltip: 'Todos',
+            tooltip: _todosTooltip,
             onPressed: () => Navigator.of(context).pushNamed(TodoListScreen.routeName),
           ),
         ],
@@ -36,17 +44,17 @@ class NotesHomeScreen extends ConsumerWidget {
         child: const Icon(Icons.add),
       ),
       body: notesAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
+        loading: () => const LoadingSkeleton(),
         error: (error, stack) => AsyncErrorView(
           error: error,
           onRetry: () => ref.invalidate(activeNotesProvider),
         ),
         data: (notes) {
           if (notes.isEmpty) {
-            return const Center(child: Text('No notes yet. Tap + to add one.'));
+            return const EmptyState(title: _emptyTitle, subtitle: _emptySubtitle);
           }
           return ReorderableListView.builder(
-            padding: const EdgeInsets.all(16),
+            padding: EdgeInsets.all(tokens.spacing.lg),
             buildDefaultDragHandles: false,
             itemCount: notes.length,
             onReorderItem: (oldIndex, newIndex) => _reorder(context, ref, notes, oldIndex, newIndex),
@@ -55,24 +63,28 @@ class NotesHomeScreen extends ConsumerWidget {
               return ReorderableDelayedDragStartListener(
                 key: ValueKey(note.id),
                 index: index,
-                child: NoteCard(
-                  title: note.title,
-                  preview: note.content,
-                  onTap: () => _editNote(context, ref, note),
-                  trailing: PopupMenuButton<_NoteMenuAction>(
-                    icon: const Icon(Icons.more_vert),
-                    onSelected: (action) async {
-                      switch (action) {
-                        case _NoteMenuAction.edit:
-                          await _editNote(context, ref, note);
-                        case _NoteMenuAction.delete:
-                          await _deleteNote(context, ref, note);
-                      }
-                    },
-                    itemBuilder: (context) => const [
-                      PopupMenuItem(value: _NoteMenuAction.edit, child: Text('Edit')),
-                      PopupMenuItem(value: _NoteMenuAction.delete, child: Text('Delete')),
-                    ],
+                child: Padding(
+                  padding: EdgeInsets.only(bottom: tokens.spacing.md),
+                  child: NoteCard(
+                    title: note.title,
+                    preview: note.content,
+                    accentColor: noteColorFromKey(note.color),
+                    onTap: () => _editNote(context, ref, note),
+                    trailing: PopupMenuButton<_NoteMenuAction>(
+                      icon: const Icon(Icons.more_vert),
+                      onSelected: (action) async {
+                        switch (action) {
+                          case _NoteMenuAction.edit:
+                            await _editNote(context, ref, note);
+                          case _NoteMenuAction.delete:
+                            await _deleteNote(context, ref, note);
+                        }
+                      },
+                      itemBuilder: (context) => const [
+                        PopupMenuItem(value: _NoteMenuAction.edit, child: Text('Edit')),
+                        PopupMenuItem(value: _NoteMenuAction.delete, child: Text('Delete')),
+                      ],
+                    ),
                   ),
                 ),
               );

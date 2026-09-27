@@ -1,9 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/theme/app_module_accents.dart';
+import '../../../core/theme/app_theme_tokens.dart';
 import '../../../data/models/planning/goal.dart';
 import '../../../shared/widgets/app_feedback.dart';
 import '../../../shared/widgets/async_error_view.dart';
+import '../../../shared/widgets/empty_state.dart';
+import '../../../shared/widgets/ui/app_card.dart';
+import '../../../shared/widgets/ui/filter_bar.dart';
+import '../../../shared/widgets/ui/filter_option.dart';
+import '../../../shared/widgets/ui/progress_bar.dart';
+import '../../../shared/widgets/ui/show_confirm_dialog.dart';
 import '../providers/planning_providers.dart';
 import '../widgets/goal_editor_dialog.dart';
 
@@ -18,6 +26,8 @@ class GoalsScreen extends ConsumerStatefulWidget {
 
 class _GoalsScreenState extends ConsumerState<GoalsScreen> {
   static const String _goalDeletedMessage = 'Goal deleted';
+  static const String _emptyTitle = 'No goals yet';
+  static const String _emptySubtitle = 'Tap + to add one.';
 
   GoalScope? _selectedScope;
   LifeArea? _selectedArea;
@@ -30,6 +40,7 @@ class _GoalsScreenState extends ConsumerState<GoalsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final tokens = AppThemeTokens.of(context);
     final goalsAsync = ref.watch(activeGoalsProvider);
 
     return Scaffold(
@@ -41,8 +52,28 @@ class _GoalsScreenState extends ConsumerState<GoalsScreen> {
       ),
       body: Column(
         children: [
-          _buildScopeFilter(),
-          _buildAreaFilter(),
+          Padding(
+            padding: EdgeInsets.fromLTRB(tokens.spacing.lg, tokens.spacing.md, tokens.spacing.lg, 0),
+            child: FilterBar<GoalScope?>(
+              options: [
+                const FilterOption<GoalScope?>(null, 'All'),
+                for (final scope in GoalScope.values) FilterOption<GoalScope?>(scope, _scopeLabel(scope)),
+              ],
+              selected: _selectedScope,
+              onSelected: (value) => setState(() => _selectedScope = value),
+            ),
+          ),
+          Padding(
+            padding: EdgeInsets.fromLTRB(tokens.spacing.lg, tokens.spacing.sm, tokens.spacing.lg, tokens.spacing.sm),
+            child: FilterBar<LifeArea?>(
+              options: [
+                const FilterOption<LifeArea?>(null, 'All areas'),
+                for (final area in LifeArea.values) FilterOption<LifeArea?>(area, _areaLabel(area)),
+              ],
+              selected: _selectedArea,
+              onSelected: (value) => setState(() => _selectedArea = value),
+            ),
+          ),
           Expanded(
             child: goalsAsync.when(
               loading: () => const Center(child: CircularProgressIndicator()),
@@ -57,15 +88,22 @@ class _GoalsScreenState extends ConsumerState<GoalsScreen> {
                     .toList(growable: false);
 
                 if (filtered.isEmpty) {
-                  return const Center(child: Text('No goals yet. Tap + to add one.'));
+                  return const EmptyState(
+                    title: _emptyTitle,
+                    subtitle: _emptySubtitle,
+                    icon: Icons.flag_rounded,
+                  );
                 }
 
                 return RefreshIndicator(
                   onRefresh: () async => ref.invalidate(activeGoalsProvider),
                   child: ListView.builder(
-                    padding: const EdgeInsets.all(16),
+                    padding: EdgeInsets.all(tokens.spacing.lg),
                     itemCount: filtered.length,
-                    itemBuilder: (context, index) => _buildGoalCard(filtered[index], goals),
+                    itemBuilder: (context, index) => Padding(
+                      padding: EdgeInsets.only(bottom: tokens.spacing.md),
+                      child: _buildGoalCard(context, filtered[index], goals),
+                    ),
                   ),
                 );
               },
@@ -76,61 +114,10 @@ class _GoalsScreenState extends ConsumerState<GoalsScreen> {
     );
   }
 
-  Widget _buildScopeFilter() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: Row(
-          children: [
-            ChoiceChip(
-              label: const Text('All'),
-              selected: _selectedScope == null,
-              onSelected: (_) => setState(() => _selectedScope = null),
-            ),
-            const SizedBox(width: 8),
-            for (final scope in GoalScope.values) ...[
-              ChoiceChip(
-                label: Text(_scopeLabel(scope)),
-                selected: _selectedScope == scope,
-                onSelected: (_) => setState(() => _selectedScope = scope),
-              ),
-              const SizedBox(width: 8),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildAreaFilter() {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: Row(
-          children: [
-            ChoiceChip(
-              label: const Text('All areas'),
-              selected: _selectedArea == null,
-              onSelected: (_) => setState(() => _selectedArea = null),
-            ),
-            const SizedBox(width: 8),
-            for (final area in LifeArea.values) ...[
-              ChoiceChip(
-                label: Text(_areaLabel(area)),
-                selected: _selectedArea == area,
-                onSelected: (_) => setState(() => _selectedArea = area),
-              ),
-              const SizedBox(width: 8),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildGoalCard(Goal goal, List<Goal> allGoals) {
+  Widget _buildGoalCard(BuildContext context, Goal goal, List<Goal> allGoals) {
+    final tokens = AppThemeTokens.of(context);
+    final theme = Theme.of(context);
+    final accent = AppModuleAccents.forModule('planning');
     Goal? parent;
     if (goal.parentGoalId != null) {
       for (final candidate in allGoals) {
@@ -141,56 +128,57 @@ class _GoalsScreenState extends ConsumerState<GoalsScreen> {
       }
     }
 
-    return Card(
-      margin: const EdgeInsets.only(bottom: 12),
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Text(goal.title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                ),
-                if (goal.area != null) ...[
-                  Chip(label: Text(_areaLabel(goal.area!)), visualDensity: VisualDensity.compact),
-                  const SizedBox(width: 4),
-                ],
-                Chip(label: Text(_scopeLabel(goal.scope)), visualDensity: VisualDensity.compact),
+    return AppCard(
+      accentColor: accent,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(child: Text(goal.title, style: theme.textTheme.titleMedium)),
+              if (goal.area != null) ...[
+                Chip(label: Text(_areaLabel(goal.area!)), visualDensity: VisualDensity.compact),
+                SizedBox(width: tokens.spacing.xs),
               ],
-            ),
-            if (goal.description != null && goal.description!.isNotEmpty) ...[
-              const SizedBox(height: 4),
-              Text(goal.description!),
+              Chip(label: Text(_scopeLabel(goal.scope)), visualDensity: VisualDensity.compact),
             ],
-            if (parent != null) ...[
-              const SizedBox(height: 4),
-              Text('Linked to: ${parent.title}', style: const TextStyle(fontStyle: FontStyle.italic, fontSize: 12)),
-            ],
-            const SizedBox(height: 8),
-            LinearProgressIndicator(value: goal.progress.clamp(0.0, 1.0)),
-            const SizedBox(height: 8),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(_statusLabel(goal.status), style: Theme.of(context).textTheme.bodySmall),
-                Row(
-                  children: [
-                    IconButton(
-                      icon: const Icon(Icons.edit_outlined, size: 20),
-                      onPressed: () => _showGoalDialog(goal: goal),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.delete_outline, size: 20),
-                      onPressed: () => _deleteGoal(goal),
-                    ),
-                  ],
-                ),
-              ],
+          ),
+          if (goal.description != null && goal.description!.isNotEmpty) ...[
+            SizedBox(height: tokens.spacing.xs),
+            Text(goal.description!, style: theme.textTheme.bodyMedium),
+          ],
+          if (parent != null) ...[
+            SizedBox(height: tokens.spacing.xs),
+            Text(
+              'Linked to: ${parent.title}',
+              style: theme.textTheme.bodySmall?.copyWith(
+                fontStyle: FontStyle.italic,
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
             ),
           ],
-        ),
+          SizedBox(height: tokens.spacing.sm),
+          ProgressBar(value: goal.progress, color: accent),
+          SizedBox(height: tokens.spacing.sm),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(_statusLabel(goal.status), style: theme.textTheme.bodySmall),
+              Row(
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.edit_outlined),
+                    onPressed: () => _showGoalDialog(goal: goal),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.delete_outline),
+                    onPressed: () => _deleteGoal(goal),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
@@ -206,23 +194,15 @@ class _GoalsScreenState extends ConsumerState<GoalsScreen> {
   }
 
   Future<void> _deleteGoal(Goal goal) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Delete Goal'),
-        content: Text('Delete "${goal.title}"?'),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Cancel')),
-          FilledButton(
-            style: FilledButton.styleFrom(backgroundColor: Colors.red),
-            onPressed: () => Navigator.pop(dialogContext, true),
-            child: const Text('Delete'),
-          ),
-        ],
-      ),
+    final confirmed = await showConfirmDialog(
+      context,
+      title: 'Delete Goal',
+      message: 'Delete "${goal.title}"?',
+      confirmLabel: 'Delete',
+      isDestructive: true,
     );
 
-    if (confirmed != true) {
+    if (!confirmed) {
       return;
     }
 

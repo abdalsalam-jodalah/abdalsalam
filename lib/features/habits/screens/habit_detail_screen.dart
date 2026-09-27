@@ -1,10 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/formatting/app_date_formatter.dart';
+import '../../../core/theme/app_module_accents.dart';
+import '../../../core/theme/app_theme_tokens.dart';
 import '../../../data/models/habits/habit.dart';
 import '../../../data/models/habits/habit_log.dart';
 import '../../../shared/widgets/async_error_view.dart';
 import '../../../shared/widgets/charts/app_bar_chart.dart';
+import '../../../shared/widgets/empty_state.dart';
+import '../../../shared/widgets/loading_skeleton.dart';
+import '../../../shared/widgets/ui/async_section.dart';
+import '../../../shared/widgets/ui/entity_tile.dart';
+import '../../../shared/widgets/ui/icon_badge.dart';
+import '../../../shared/widgets/ui/stat_grid.dart';
+import '../../../shared/widgets/ui/stat_tile.dart';
 import '../providers/habits_providers.dart';
 import '../widgets/habit_style_picker.dart';
 import '../widgets/habits_widgets.dart';
@@ -13,6 +23,8 @@ import 'habit_form_screen.dart';
 
 class HabitDetailScreen extends ConsumerWidget {
   static const routeName = '/habits/detail';
+  static const String _title = 'Habit Detail';
+  static const String _notFoundMessage = 'Habit not found';
 
   final String habitId;
 
@@ -23,16 +35,16 @@ class HabitDetailScreen extends ConsumerWidget {
     final habitAsync = ref.watch(habitByIdProvider(habitId));
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Habit Detail')),
+      appBar: AppBar(title: const Text(_title)),
       body: habitAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
+        loading: () => const LoadingSkeleton(),
         error: (error, _) => AsyncErrorView(
           error: error,
           onRetry: () => ref.invalidate(habitByIdProvider(habitId)),
         ),
         data: (habit) {
           if (habit == null) {
-            return const Center(child: Text('Habit not found'));
+            return const Center(child: Text(_notFoundMessage));
           }
           return _HabitDetailBody(habit: habit);
         },
@@ -42,31 +54,46 @@ class HabitDetailScreen extends ConsumerWidget {
 }
 
 class _HabitDetailBody extends ConsumerWidget {
+  static const double _headerIconSize = 56;
+  static const String _consistencyCalendarTitle = 'Consistency Calendar';
+  static const String _moodTrendTitle = 'Mood Trend';
+  static const String _intensityTrendTitle = 'Intensity Trend';
+  static const String _logTimelineTitle = 'Log Timeline';
+  static const String _noIncidentsTitle = 'No incidents logged yet';
+  static const String _noIncidentsSubtitle = 'Log an incident to see the trend.';
+  static const String _noLogsTitle = 'No logs yet';
+  static const String _noLogsSubtitle = 'Log an entry to see it here.';
+  static const String _logOccurrenceLabel = 'Log occurrence';
+  static const String _logIncidentLabel = 'Log incident';
+
   final Habit habit;
 
   const _HabitDetailBody({required this.habit});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final tokens = AppThemeTokens.of(context);
+    final theme = Theme.of(context);
     final statsAsync = ref.watch(habitStatisticsProvider(habit.id));
     final logsAsync = ref.watch(logsForHabitProvider(habit.id));
     final color = habitColorFromHex(habit.color);
     final icon = kHabitIconOptions[habit.icon] ?? kHabitIconOptions[kDefaultHabitIcon]!;
 
     return ListView(
-      padding: const EdgeInsets.all(16),
+      padding: EdgeInsets.all(tokens.spacing.lg),
       children: [
         Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            CircleAvatar(backgroundColor: color.withValues(alpha: 0.2), child: Icon(icon, color: color)),
-            const SizedBox(width: 12),
+            IconBadge(icon: icon, color: color, size: _headerIconSize),
+            SizedBox(width: tokens.spacing.md),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(habit.name, style: Theme.of(context).textTheme.titleLarge),
+                  Text(habit.name, style: theme.textTheme.titleLarge),
                   Wrap(
-                    spacing: 6,
+                    spacing: tokens.spacing.xs,
                     children: [
                       Chip(
                         visualDensity: VisualDensity.compact,
@@ -95,30 +122,20 @@ class _HabitDetailBody extends ConsumerWidget {
           ],
         ),
         if (habit.description.isNotEmpty) ...[
-          const SizedBox(height: 8),
+          SizedBox(height: tokens.spacing.sm),
           Text(habit.description),
         ],
-        const SizedBox(height: 16),
-        statsAsync.when(
-          loading: () => const Center(child: CircularProgressIndicator()),
-          error: (error, _) => AsyncErrorView(
-            error: error,
-            isCompact: true,
-            onRetry: () => ref.invalidate(habitStatisticsProvider(habit.id)),
-          ),
-          data: (stats) => _StatsRow(stats: stats),
+        SizedBox(height: tokens.spacing.lg),
+        AsyncSection<Map<String, dynamic>>(
+          value: statsAsync,
+          onRetry: () => ref.invalidate(habitStatisticsProvider(habit.id)),
+          builder: (stats) => _buildStatsGrid(context, stats),
         ),
-        const SizedBox(height: 16),
-        Text('Consistency Calendar', style: Theme.of(context).textTheme.titleMedium),
-        const SizedBox(height: 8),
-        logsAsync.when(
-          loading: () => const Center(child: CircularProgressIndicator()),
-          error: (error, _) => AsyncErrorView(
-            error: error,
-            isCompact: true,
-            onRetry: () => ref.invalidate(logsForHabitProvider(habit.id)),
-          ),
-          data: (logs) {
+        AsyncSection<List<HabitLog>>(
+          value: logsAsync,
+          title: _consistencyCalendarTitle,
+          onRetry: () => ref.invalidate(logsForHabitProvider(habit.id)),
+          builder: (logs) {
             final now = DateTime.now();
             final entries = <DateTime, bool>{
               for (final log in logs.where((log) => log.completedAt.year == now.year && log.completedAt.month == now.month))
@@ -127,17 +144,11 @@ class _HabitDetailBody extends ConsumerWidget {
             return CompletionCalendar(entries: entries);
           },
         ),
-        const SizedBox(height: 16),
-        Text(habit.isGoodHabit ? 'Mood Trend' : 'Intensity Trend', style: Theme.of(context).textTheme.titleMedium),
-        const SizedBox(height: 8),
-        logsAsync.when(
-          loading: () => const SizedBox.shrink(),
-          error: (error, _) => AsyncErrorView(
-            error: error,
-            isCompact: true,
-            onRetry: () => ref.invalidate(logsForHabitProvider(habit.id)),
-          ),
-          data: (logs) {
+        AsyncSection<List<HabitLog>>(
+          value: logsAsync,
+          title: habit.isGoodHabit ? _moodTrendTitle : _intensityTrendTitle,
+          onRetry: () => ref.invalidate(logsForHabitProvider(habit.id)),
+          builder: (logs) {
             final sorted = [...logs]..sort((a, b) => a.completedAt.compareTo(b.completedAt));
             if (habit.isGoodHabit) {
               final moodValues = sorted
@@ -151,89 +162,73 @@ class _HabitDetailBody extends ConsumerWidget {
                 .whereType<double>()
                 .toList(growable: false);
             return intensityValues.isEmpty
-                ? const Card(child: Padding(padding: EdgeInsets.all(12), child: Text('No incidents logged yet')))
+                ? const EmptyState(title: _noIncidentsTitle, subtitle: _noIncidentsSubtitle, isCompact: true)
                 : AppBarChart(values: intensityValues);
           },
         ),
-        const SizedBox(height: 20),
+        SizedBox(height: tokens.spacing.sm),
         FilledButton.icon(
           onPressed: () => showLogHabitSheet(context, ref, habit),
           icon: const Icon(Icons.add_task_outlined),
-          label: Text(habit.isGoodHabit ? 'Log occurrence' : 'Log incident'),
+          label: Text(habit.isGoodHabit ? _logOccurrenceLabel : _logIncidentLabel),
         ),
-        const SizedBox(height: 20),
-        Text('Log Timeline', style: Theme.of(context).textTheme.titleMedium),
-        const SizedBox(height: 8),
-        logsAsync.when(
-          loading: () => const Center(child: CircularProgressIndicator()),
-          error: (error, _) => AsyncErrorView(
-            error: error,
-            isCompact: true,
-            onRetry: () => ref.invalidate(logsForHabitProvider(habit.id)),
-          ),
-          data: (logs) => logs.isEmpty
-              ? const Padding(padding: EdgeInsets.symmetric(vertical: 8), child: Text('No logs yet'))
-              : Column(children: logs.map((log) => _LogTile(habit: habit, log: log)).toList(growable: false)),
+        AsyncSection<List<HabitLog>>(
+          value: logsAsync,
+          title: _logTimelineTitle,
+          onRetry: () => ref.invalidate(logsForHabitProvider(habit.id)),
+          builder: (logs) => logs.isEmpty
+              ? const EmptyState(title: _noLogsTitle, subtitle: _noLogsSubtitle, isCompact: true)
+              : Column(
+                  children: [
+                    for (final log in logs)
+                      Padding(
+                        padding: EdgeInsets.only(bottom: tokens.spacing.sm),
+                        child: _buildLogTile(context, log),
+                      ),
+                  ],
+                ),
         ),
       ],
     );
   }
-}
 
-class _StatsRow extends StatelessWidget {
-  final Map<String, dynamic> stats;
-
-  const _StatsRow({required this.stats});
-
-  @override
-  Widget build(BuildContext context) {
+  Widget _buildStatsGrid(BuildContext context, Map<String, dynamic> stats) {
     if (stats.isEmpty) {
       return const SizedBox.shrink();
     }
+    final accent = AppModuleAccents.forModule('habits');
     final completionRate = (stats['completionRateThisMonth'] as double?)?.toStringAsFixed(0) ?? '0';
-    return Wrap(
-      spacing: 12,
-      runSpacing: 12,
+    return StatGrid(
       children: [
-        _StatChip(label: 'Current Streak', value: '${stats['currentStreak']}'),
-        _StatChip(label: 'Best Streak', value: '${stats['bestStreak']}'),
-        _StatChip(label: 'This Month', value: '$completionRate%'),
-        _StatChip(label: 'Total Logs', value: '${stats['totalLogs']}'),
+        StatTile(
+          icon: Icons.local_fire_department_rounded,
+          label: 'Current Streak',
+          value: '${stats['currentStreak']}',
+          accentColor: accent,
+        ),
+        StatTile(
+          icon: Icons.emoji_events_outlined,
+          label: 'Best Streak',
+          value: '${stats['bestStreak']}',
+          accentColor: accent,
+        ),
+        StatTile(
+          icon: Icons.calendar_month_outlined,
+          label: 'This Month',
+          value: '$completionRate%',
+          accentColor: accent,
+        ),
+        StatTile(
+          icon: Icons.checklist_rtl_outlined,
+          label: 'Total Logs',
+          value: '${stats['totalLogs']}',
+          accentColor: accent,
+        ),
       ],
     );
   }
-}
 
-class _StatChip extends StatelessWidget {
-  final String label;
-  final String value;
-
-  const _StatChip({required this.label, required this.value});
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        child: Column(
-          children: [
-            Text(value, style: Theme.of(context).textTheme.titleMedium),
-            Text(label, style: Theme.of(context).textTheme.bodySmall),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _LogTile extends StatelessWidget {
-  final Habit habit;
-  final HabitLog log;
-
-  const _LogTile({required this.habit, required this.log});
-
-  @override
-  Widget build(BuildContext context) {
+  Widget _buildLogTile(BuildContext context, HabitLog log) {
     final subtitleParts = habit.isGoodHabit
         ? [
             if (log.mood != null) 'Mood: ${log.mood}',
@@ -245,11 +240,11 @@ class _LogTile extends StatelessWidget {
             if (log.trigger != null) 'Trigger: ${log.trigger}',
             if (log.intensity != null) 'Intensity: ${log.intensity}',
           ];
-    return Card(
-      child: ListTile(
-        title: Text('${log.completedAt.toLocal()}'.split('.').first),
-        subtitle: subtitleParts.isEmpty ? null : Text(subtitleParts.join(' | ')),
-      ),
+    return EntityTile(
+      title: AppDateFormatter.dateTime(log.completedAt),
+      subtitle: subtitleParts.isEmpty ? null : subtitleParts.join(' | '),
+      icon: habit.isGoodHabit ? Icons.check_circle_outline : Icons.warning_amber_outlined,
+      accentColor: habitColorFromHex(habit.color),
     );
   }
 }

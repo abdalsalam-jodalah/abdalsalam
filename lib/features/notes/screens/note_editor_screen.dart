@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/theme/app_theme_tokens.dart';
 import '../widgets/notes_widgets.dart';
 
 class NoteEditorScreen extends StatelessWidget {
@@ -9,11 +10,12 @@ class NoteEditorScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final tokens = AppThemeTokens.of(context);
     return Scaffold(
       appBar: AppBar(title: const Text('Note Editor')),
-      body: const Padding(
-        padding: EdgeInsets.all(12),
-        child: RichTextEditorWidget(),
+      body: Padding(
+        padding: EdgeInsets.all(tokens.spacing.md),
+        child: const RichTextEditorWidget(),
       ),
     );
   }

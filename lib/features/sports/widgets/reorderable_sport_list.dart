@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/theme/app_theme_tokens.dart';
+
 /// Generic drag-reorder list core shared by the Weekly Schedule and Daily
 /// Log screens, following the [ReorderableListView] pattern used by
 /// planning's ReorderableTaskList.
 class ReorderableSportList<T> extends StatelessWidget {
+  static const String _defaultEmptyMessage = 'Nothing here yet.';
   final List<T> items;
   final String Function(T item) keyOf;
   final Widget Function(BuildContext context, T item, int index) itemBuilder;
@@ -30,9 +33,9 @@ class ReorderableSportList<T> extends StatelessWidget {
   Widget build(BuildContext context) {
     if (items.isEmpty) {
       return emptyState ??
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 12),
-            child: Text('Nothing here yet.'),
+          Padding(
+            padding: EdgeInsets.symmetric(vertical: AppThemeTokens.of(context).spacing.md),
+            child: Text(_defaultEmptyMessage, style: Theme.of(context).textTheme.bodyMedium),
           );
     }
 

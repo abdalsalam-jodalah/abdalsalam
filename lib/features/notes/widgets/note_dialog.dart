@@ -3,8 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../../core/errors/app_error.dart';
+import '../../../core/theme/app_theme_tokens.dart';
 import '../../../data/models/notes/note.dart';
 import '../../../shared/widgets/app_feedback.dart';
+import '../../../shared/widgets/ui/app_form_dialog.dart';
 import '../providers/notes_providers.dart';
 
 const _uuid = Uuid();
@@ -68,6 +70,14 @@ class _NoteDialogContent extends StatefulWidget {
 }
 
 class _NoteDialogContentState extends State<_NoteDialogContent> {
+  static const String _newNoteTitle = 'New Note';
+  static const String _editNoteTitle = 'Edit Note';
+  static const String _createLabel = 'Create';
+  static const String _saveLabel = 'Save';
+  static const String _labelFieldLabel = 'Label';
+  static const String _bodyFieldLabel = 'Body';
+  static const String _labelRequiredMessage = 'Label is required';
+
   final formKey = GlobalKey<FormState>();
   late final TextEditingController titleController;
   late final TextEditingController contentController;
@@ -102,36 +112,31 @@ class _NoteDialogContentState extends State<_NoteDialogContent> {
 
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
-      title: Text(widget.existing == null ? 'New Note' : 'Edit Note'),
-      content: SingleChildScrollView(
-        child: Form(
-          key: formKey,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextFormField(
-                controller: titleController,
-                decoration: const InputDecoration(labelText: 'Label', border: OutlineInputBorder()),
-                validator: (value) => (value == null || value.trim().isEmpty) ? 'Label is required' : null,
-              ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: contentController,
-                maxLines: 6,
-                decoration: const InputDecoration(labelText: 'Body', border: OutlineInputBorder()),
-              ),
-            ],
-          ),
+    final tokens = AppThemeTokens.of(context);
+    return AppFormDialog(
+      title: widget.existing == null ? _newNoteTitle : _editNoteTitle,
+      submitLabel: widget.existing == null ? _createLabel : _saveLabel,
+      isSubmitting: isSaving,
+      onSubmit: _save,
+      child: Form(
+        key: formKey,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextFormField(
+              controller: titleController,
+              decoration: const InputDecoration(labelText: _labelFieldLabel),
+              validator: (value) => (value == null || value.trim().isEmpty) ? _labelRequiredMessage : null,
+            ),
+            SizedBox(height: tokens.spacing.md),
+            TextFormField(
+              controller: contentController,
+              maxLines: 6,
+              decoration: const InputDecoration(labelText: _bodyFieldLabel),
+            ),
+          ],
         ),
       ),
-      actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-        FilledButton(
-          onPressed: isSaving ? null : _save,
-          child: Text(widget.existing == null ? 'Create' : 'Save'),
-        ),
-      ],
     );
   }
 }

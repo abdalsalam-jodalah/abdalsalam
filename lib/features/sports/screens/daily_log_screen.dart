@@ -3,19 +3,25 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../../core/errors/app_error.dart';
+import '../../../core/formatting/app_date_formatter.dart';
+import '../../../core/theme/app_theme_tokens.dart';
 import '../../../data/models/sports/exercise.dart';
 import '../../../data/models/sports/exercise_log.dart';
-import '../../../data/models/sports/exercise_set_log.dart';
 import '../../../shared/widgets/app_feedback.dart';
 import '../../../shared/widgets/async_error_view.dart';
+import '../../../shared/widgets/empty_state.dart';
+import '../../../shared/widgets/ui/app_section_header.dart';
+import '../../../shared/widgets/ui/show_app_bottom_sheet.dart';
 import '../providers/sports_providers.dart';
 import '../widgets/reorderable_sport_list.dart';
+import '../widgets/sports_log_tile.dart';
 import '../widgets/sports_widgets.dart';
 
 const _uuid = Uuid();
 
 class DailyLogScreen extends ConsumerStatefulWidget {
   static const routeName = '/sports/daily-log';
+  static const String title = 'Daily Log';
 
   /// When true, renders without its own [Scaffold]/[AppBar] for embedding
   /// inside the tabbed [SportsScreen] shell.
@@ -28,10 +34,10 @@ class DailyLogScreen extends ConsumerStatefulWidget {
 }
 
 class _DailyLogScreenState extends ConsumerState<DailyLogScreen> {
-  DateTime _selectedDate = dateOnly(DateTime.now());
+  static const int _restTimerShort = 60;
+  static const int _restTimerLong = 90;
 
-  String _formatDate(DateTime date) =>
-      '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+  DateTime _selectedDate = dateOnly(DateTime.now());
 
   void _shiftDay(int delta) {
     setState(() => _selectedDate = dateOnly(_selectedDate.add(Duration(days: delta))));
@@ -54,44 +60,34 @@ class _DailyLogScreenState extends ConsumerState<DailyLogScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final tokens = AppThemeTokens.of(context);
     final dateNav = Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
         IconButton(icon: const Icon(Icons.chevron_left), onPressed: () => _shiftDay(-1)),
-        TextButton(onPressed: _pickDate, child: Text(_formatDate(_selectedDate))),
+        TextButton(onPressed: _pickDate, child: Text(AppDateFormatter.date(_selectedDate))),
         IconButton(icon: const Icon(Icons.chevron_right), onPressed: () => _shiftDay(1)),
       ],
     );
 
-    final body = SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (widget.embedded) ...[
-            Row(
-              children: [
-                Text(
-                  'Daily Log',
-                  style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            dateNav,
-            const SizedBox(height: 12),
-          ],
-          Row(
-            children: const [
-              RestTimer(seconds: 60),
-              SizedBox(width: 8),
-              RestTimer(seconds: 90),
-            ],
-          ),
-          const SizedBox(height: 16),
-          _DailyLogBody(key: ValueKey('daily-log-${_selectedDate.toIso8601String()}'), date: _selectedDate),
+    final body = ListView(
+      padding: EdgeInsets.all(tokens.spacing.lg),
+      children: [
+        if (widget.embedded) ...[
+          const AppSectionHeader(title: DailyLogScreen.title, padding: EdgeInsets.zero),
+          dateNav,
+          SizedBox(height: tokens.spacing.sm),
         ],
-      ),
+        Row(
+          children: [
+            const RestTimer(seconds: _restTimerShort),
+            SizedBox(width: tokens.spacing.sm),
+            const RestTimer(seconds: _restTimerLong),
+          ],
+        ),
+        SizedBox(height: tokens.spacing.lg),
+        _DailyLogBody(key: ValueKey('daily-log-${_selectedDate.toIso8601String()}'), date: _selectedDate),
+      ],
     );
 
     if (widget.embedded) {
@@ -100,7 +96,7 @@ class _DailyLogScreenState extends ConsumerState<DailyLogScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Daily Log'),
+        title: const Text(DailyLogScreen.title),
         actions: [
           IconButton(icon: const Icon(Icons.chevron_left), onPressed: () => _shiftDay(-1)),
           IconButton(icon: const Icon(Icons.calendar_today_outlined), onPressed: _pickDate),
@@ -125,10 +121,14 @@ class _DailyLogBody extends ConsumerStatefulWidget {
 }
 
 class _DailyLogBodyState extends ConsumerState<_DailyLogBody> {
+  static const String _emptyTitle = 'Nothing logged for this day yet.';
+  static const String _emptySubtitle = 'Load your schedule or add an exercise to get started.';
+
   DateTime get date => widget.date;
 
   @override
   Widget build(BuildContext context) {
+    final spacing = AppThemeTokens.of(context).spacing;
     final logsAsync = ref.watch(logsForDateProvider(date));
     final exercisesAsync = ref.watch(allActiveExercisesProvider);
 
@@ -157,7 +157,7 @@ class _DailyLogBodyState extends ConsumerState<_DailyLogBody> {
                   children: [
                     Text('Exercises performed', style: Theme.of(context).textTheme.titleMedium),
                     Wrap(
-                      spacing: 8,
+                      spacing: spacing.sm,
                       children: [
                         TextButton.icon(
                           onPressed: () => _loadFromSchedule(logs, allExercises),
@@ -173,20 +173,26 @@ class _DailyLogBodyState extends ConsumerState<_DailyLogBody> {
                     ),
                   ],
                 ),
+                SizedBox(height: spacing.sm),
                 ReorderableSportList<ExerciseLog>(
                   items: logs,
                   keyOf: (log) => log.id,
-                  emptyState: const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 24),
-                    child: Text('Nothing logged for this day yet.'),
+                  emptyState: const EmptyState(
+                    title: _emptyTitle,
+                    subtitle: _emptySubtitle,
+                    icon: Icons.fitness_center_rounded,
+                    isCompact: true,
                   ),
                   itemBuilder: (context, log, index) {
                     final exercise = exerciseById[log.exerciseId];
-                    return _LogTile(
-                      key: ValueKey('tile-${log.id}'),
-                      log: log,
-                      exercise: exercise,
-                      onDelete: () => _deleteLog(log),
+                    return Padding(
+                      padding: EdgeInsets.only(bottom: spacing.sm),
+                      child: SportsLogTile(
+                        key: ValueKey('tile-${log.id}'),
+                        log: log,
+                        exercise: exercise,
+                        onDelete: () => _deleteLog(log),
+                      ),
                     );
                   },
                   onReorder: (reordered) => _reorderLogs(reordered),
@@ -267,14 +273,12 @@ class _DailyLogBodyState extends ConsumerState<_DailyLogBody> {
     final loggedIds = currentLogs.map((log) => log.exerciseId).toSet();
     final available = allExercises.where((exercise) => !loggedIds.contains(exercise.id)).toList();
 
-    final selected = await showModalBottomSheet<Exercise>(
-      context: context,
+    final selected = await showAppBottomSheet<Exercise>(
+      context,
+      title: 'Add exercise',
       builder: (sheetContext) {
         if (available.isEmpty) {
-          return const Padding(
-            padding: EdgeInsets.all(24),
-            child: Text('All catalog exercises are already logged for this day, or none exist yet.'),
-          );
+          return const Text('All catalog exercises are already logged for this day, or none exist yet.');
         }
         return ListView(
           shrinkWrap: true,
@@ -313,349 +317,5 @@ class _DailyLogBodyState extends ConsumerState<_DailyLogBody> {
       AppFeedback.showError(context, createResult.error!);
     }
     ref.invalidate(logsForDateProvider(date));
-  }
-}
-
-class _LogTile extends ConsumerWidget {
-  final ExerciseLog log;
-  final Exercise? exercise;
-  final VoidCallback onDelete;
-
-  const _LogTile({super.key, required this.log, required this.exercise, required this.onDelete});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final isCardio = exercise?.trackingType == ExerciseTrackingType.cardio;
-
-    return Card(
-      margin: const EdgeInsets.only(bottom: 8),
-      child: ExpansionTile(
-        leading: const Icon(Icons.drag_indicator),
-        title: Text(exercise?.name ?? 'Unknown exercise'),
-        subtitle: isCardio ? _cardioSummary() : null,
-        trailing: IconButton(icon: const Icon(Icons.delete_outline), onPressed: onDelete),
-        children: [
-          if (isCardio)
-            _CardioForm(key: ValueKey('cardio-${log.id}'), log: log)
-          else
-            _StrengthSets(key: ValueKey('strength-${log.id}'), log: log, exerciseId: log.exerciseId),
-        ],
-      ),
-    );
-  }
-
-  Widget? _cardioSummary() {
-    final parts = <String>[];
-    if (log.steps != null) parts.add('${log.steps} steps');
-    if (log.durationSeconds != null) parts.add('${(log.durationSeconds! / 60).toStringAsFixed(0)} min');
-    if (log.distanceKm != null) parts.add('${log.distanceKm!.toStringAsFixed(1)} km');
-    if (parts.isEmpty) return null;
-    return Text(parts.join(' • '));
-  }
-}
-
-class _CardioForm extends ConsumerStatefulWidget {
-  final ExerciseLog log;
-
-  const _CardioForm({super.key, required this.log});
-
-  @override
-  ConsumerState<_CardioForm> createState() => _CardioFormState();
-}
-
-class _CardioFormState extends ConsumerState<_CardioForm> {
-  static const String _mustBeWholeNumberMessage = 'Must be a whole number';
-  static const String _mustBeNumberMessage = 'Must be a number';
-
-  final _formKey = GlobalKey<FormState>();
-  late final TextEditingController _stepsController;
-  late final TextEditingController _durationController;
-  late final TextEditingController _distanceController;
-
-  @override
-  void initState() {
-    super.initState();
-    _stepsController = TextEditingController(text: widget.log.steps?.toString() ?? '');
-    _durationController = TextEditingController(text: widget.log.durationSeconds?.toString() ?? '');
-    _distanceController = TextEditingController(text: widget.log.distanceKm?.toString() ?? '');
-  }
-
-  @override
-  void dispose() {
-    _stepsController.dispose();
-    _durationController.dispose();
-    _distanceController.dispose();
-    super.dispose();
-  }
-
-  String? _validateOptionalWholeNumber(String? value) {
-    if (value == null || value.trim().isEmpty) {
-      return null;
-    }
-    return int.tryParse(value) == null ? _mustBeWholeNumberMessage : null;
-  }
-
-  String? _validateOptionalDecimal(String? value) {
-    if (value == null || value.trim().isEmpty) {
-      return null;
-    }
-    return double.tryParse(value) == null ? _mustBeNumberMessage : null;
-  }
-
-  Future<void> _save() async {
-    if (!(_formKey.currentState?.validate() ?? false)) {
-      return;
-    }
-    final service = ref.read(exerciseLogServiceProvider);
-    final updateResult = await service.update(
-      widget.log.copyWith(
-        steps: int.tryParse(_stepsController.text),
-        durationSeconds: int.tryParse(_durationController.text),
-        distanceKm: double.tryParse(_distanceController.text),
-        updatedAt: DateTime.now(),
-      ),
-    );
-    if (!mounted) {
-      return;
-    }
-    if (updateResult.isFailure) {
-      AppFeedback.showError(context, updateResult.error!);
-    }
-    ref.invalidate(logsForDateProvider(dateOnly(widget.log.date)));
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-      child: Form(
-        key: _formKey,
-        child: Row(
-          children: [
-            Expanded(
-              child: TextFormField(
-                controller: _stepsController,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(labelText: 'Steps'),
-                validator: _validateOptionalWholeNumber,
-                onFieldSubmitted: (_) => _save(),
-                onEditingComplete: _save,
-              ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: TextFormField(
-                controller: _durationController,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(labelText: 'Duration (sec)'),
-                validator: _validateOptionalWholeNumber,
-                onFieldSubmitted: (_) => _save(),
-                onEditingComplete: _save,
-              ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: TextFormField(
-                controller: _distanceController,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                decoration: const InputDecoration(labelText: 'Distance (km)'),
-                validator: _validateOptionalDecimal,
-                onFieldSubmitted: (_) => _save(),
-                onEditingComplete: _save,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-/// A [ConsumerStatefulWidget] rather than a stateless [ConsumerWidget] so
-/// [ref] stays bound to a stable [State] across the `await showDialog(...)`
-/// call below — see the comment on `_CategorySection` in
-/// exercise_library_screen.dart.
-class _StrengthSets extends ConsumerStatefulWidget {
-  final ExerciseLog log;
-  final String exerciseId;
-
-  const _StrengthSets({super.key, required this.log, required this.exerciseId});
-
-  @override
-  ConsumerState<_StrengthSets> createState() => _StrengthSetsState();
-}
-
-class _StrengthSetsState extends ConsumerState<_StrengthSets> {
-  @override
-  Widget build(BuildContext context) {
-    final setsAsync = ref.watch(setsForLogProvider(widget.log.id));
-    final prAsync = ref.watch(personalRecordProvider(widget.exerciseId));
-
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          setsAsync.when(
-            loading: () => const LinearProgressIndicator(),
-            error: (error, stack) => AsyncErrorView(
-              error: error,
-              isCompact: true,
-              onRetry: () => ref.invalidate(setsForLogProvider(widget.log.id)),
-            ),
-            data: (sets) {
-              if (sets.isEmpty) {
-                return const Text('No sets logged yet.');
-              }
-              return Column(
-                children: [
-                  for (final set in sets)
-                    Row(
-                      key: ValueKey(set.id),
-                      children: [
-                        Expanded(child: Text('Set ${set.setNumber}')),
-                        Expanded(child: Text('${set.reps} reps')),
-                        Expanded(
-                          child: Text(set.weightKg != null ? '${set.weightKg} kg' : '-'),
-                        ),
-                        prAsync.maybeWhen(
-                          data: (pr) => (pr != null && set.weightKg != null && set.weightKg! >= pr)
-                              ? const PRBadge(label: 'PR')
-                              : const SizedBox.shrink(),
-                          orElse: () => const SizedBox.shrink(),
-                        ),
-                      ],
-                    ),
-                ],
-              );
-            },
-          ),
-          const SizedBox(height: 8),
-          OutlinedButton.icon(
-            onPressed: () => _showAddSetDialog(),
-            icon: const Icon(Icons.add),
-            label: const Text('Add set'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Future<void> _showAddSetDialog() async {
-    final result = await showDialog<_AddSetResult>(
-      context: context,
-      builder: (_) => const _AddSetDialogContent(),
-    );
-
-    if (result == null) return;
-
-    if (!mounted) {
-      return;
-    }
-    final currentSets = ref.read(setsForLogProvider(widget.log.id)).maybeWhen(
-          data: (list) => list,
-          orElse: () => const <ExerciseSetLog>[],
-        );
-
-    final service = ref.read(exerciseSetLogServiceProvider);
-    final now = DateTime.now();
-    final createResult = await service.create(
-      ExerciseSetLog(
-        id: _uuid.v4(),
-        createdAt: now,
-        updatedAt: now,
-        userId: sportUserId,
-        exerciseLogId: widget.log.id,
-        setNumber: currentSets.length + 1,
-        reps: result.reps,
-        weightKg: result.weight,
-      ),
-    );
-    if (!mounted) {
-      return;
-    }
-    if (createResult.isFailure) {
-      AppFeedback.showError(context, createResult.error!);
-    }
-    ref.invalidate(setsForLogProvider(widget.log.id));
-    ref.invalidate(personalRecordProvider(widget.exerciseId));
-  }
-}
-
-class _AddSetResult {
-  _AddSetResult(this.reps, this.weight);
-
-  final int reps;
-  final double? weight;
-}
-
-class _AddSetDialogContent extends StatefulWidget {
-  const _AddSetDialogContent();
-
-  @override
-  State<_AddSetDialogContent> createState() => _AddSetDialogContentState();
-}
-
-class _AddSetDialogContentState extends State<_AddSetDialogContent> {
-  static const String _mustBeNumberMessage = 'Must be a number';
-
-  final formKey = GlobalKey<FormState>();
-  final repsController = TextEditingController();
-  final weightController = TextEditingController();
-
-  @override
-  void dispose() {
-    repsController.dispose();
-    weightController.dispose();
-    super.dispose();
-  }
-
-  String? _validateOptionalWeight(String? value) {
-    if (value == null || value.trim().isEmpty) {
-      return null;
-    }
-    return double.tryParse(value) == null ? _mustBeNumberMessage : null;
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text('Add Set'),
-      content: Form(
-        key: formKey,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextFormField(
-              controller: repsController,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(labelText: 'Reps', border: OutlineInputBorder()),
-              validator: (value) => (value == null || int.tryParse(value) == null) ? 'Required' : null,
-            ),
-            const SizedBox(height: 12),
-            TextFormField(
-              controller: weightController,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              decoration: const InputDecoration(labelText: 'Weight (kg, optional)', border: OutlineInputBorder()),
-              validator: _validateOptionalWeight,
-            ),
-          ],
-        ),
-      ),
-      actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-        FilledButton(
-          onPressed: () {
-            if (formKey.currentState?.validate() ?? false) {
-              Navigator.pop(
-                context,
-                _AddSetResult(int.parse(repsController.text), double.tryParse(weightController.text)),
-              );
-            }
-          },
-          child: const Text('Add'),
-        ),
-      ],
-    );
   }
 }

@@ -2,15 +2,22 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 
+import '../../../core/formatting/app_date_formatter.dart';
+import '../../../core/theme/app_theme_tokens.dart';
 import '../../../data/models/sports/exercise.dart';
 import '../../../data/models/sports/exercise_log.dart';
 import '../../../data/models/sports/weekly_schedule_entry.dart';
 import '../../../shared/widgets/async_error_view.dart';
+import '../../../shared/widgets/ui/app_section_header.dart';
+import '../../../shared/widgets/ui/month_heatmap.dart';
+import '../../../shared/widgets/ui/show_app_bottom_sheet.dart';
 import '../providers/sports_providers.dart';
 
 class CalendarViewScreen extends ConsumerStatefulWidget {
   static const routeName = '/sports/calendar';
+  static const String title = 'Calendar';
 
   /// When true, renders without its own [Scaffold]/[AppBar] for embedding
   /// inside the tabbed [SportsScreen] shell.
@@ -23,6 +30,11 @@ class CalendarViewScreen extends ConsumerStatefulWidget {
 }
 
 class _CalendarViewScreenState extends ConsumerState<CalendarViewScreen> {
+  static final DateFormat _monthFormat = DateFormat('MMMM yyyy');
+  static const double _sheetInitialSize = 0.6;
+  static const double _sheetMinSize = 0.4;
+  static const double _sheetMaxSize = 0.9;
+
   DateTime _visibleMonth = DateTime(DateTime.now().year, DateTime.now().month);
 
   void _shiftMonth(int delta) {
@@ -31,49 +43,40 @@ class _CalendarViewScreenState extends ConsumerState<CalendarViewScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final tokens = AppThemeTokens.of(context);
     final monthStart = DateTime(_visibleMonth.year, _visibleMonth.month, 1);
     final monthEnd = DateTime(_visibleMonth.year, _visibleMonth.month + 1, 0);
     final logsAsync = ref.watch(logsInRangeProvider((start: monthStart, end: monthEnd)));
 
-    final body = Padding(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (widget.embedded)
-            Text(
-              'Calendar',
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
-            ),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              IconButton(icon: const Icon(Icons.chevron_left), onPressed: () => _shiftMonth(-1)),
-              Text(
-                '${_visibleMonth.year}-${_visibleMonth.month.toString().padLeft(2, '0')}',
-                style: Theme.of(context).textTheme.titleMedium,
-              ),
-              IconButton(icon: const Icon(Icons.chevron_right), onPressed: () => _shiftMonth(1)),
-            ],
+    final body = ListView(
+      padding: EdgeInsets.all(tokens.spacing.lg),
+      children: [
+        if (widget.embedded) AppSectionHeader(title: CalendarViewScreen.title, padding: EdgeInsets.zero),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            IconButton(icon: const Icon(Icons.chevron_left), onPressed: () => _shiftMonth(-1)),
+            Text(_monthFormat.format(_visibleMonth), style: Theme.of(context).textTheme.titleMedium),
+            IconButton(icon: const Icon(Icons.chevron_right), onPressed: () => _shiftMonth(1)),
+          ],
+        ),
+        SizedBox(height: tokens.spacing.sm),
+        logsAsync.when(
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (error, stack) => AsyncErrorView(
+            error: error,
+            onRetry: () => ref.invalidate(logsInRangeProvider((start: monthStart, end: monthEnd))),
           ),
-          const SizedBox(height: 8),
-          logsAsync.when(
-            loading: () => const Center(child: CircularProgressIndicator()),
-            error: (error, stack) => AsyncErrorView(
-              error: error,
-              onRetry: () => ref.invalidate(logsInRangeProvider((start: monthStart, end: monthEnd))),
-            ),
-            data: (logs) {
-              final daysWithLogs = logs.map((log) => dateOnly(log.date)).toSet();
-              return _MonthGrid(
-                month: _visibleMonth,
-                daysWithData: daysWithLogs,
-                onDaySelected: (day) => _showDayDetail(context, day),
-              );
-            },
-          ),
-        ],
-      ),
+          data: (logs) {
+            final daysWithLogs = logs.map((log) => dateOnly(log.date)).toSet();
+            return MonthHeatmap(
+              month: _visibleMonth,
+              intensityForDay: (day) => daysWithLogs.contains(day) ? 1 : 0,
+              onDayTap: (day) => _showDayDetail(context, day),
+            );
+          },
+        ),
+      ],
     );
 
     if (widget.embedded) {
@@ -83,64 +86,16 @@ class _CalendarViewScreenState extends ConsumerState<CalendarViewScreen> {
   }
 
   void _showDayDetail(BuildContext context, DateTime day) {
-    unawaited(showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
+    unawaited(showAppBottomSheet<void>(
+      context,
       builder: (sheetContext) => DraggableScrollableSheet(
-        initialChildSize: 0.6,
-        minChildSize: 0.4,
-        maxChildSize: 0.9,
+        initialChildSize: _sheetInitialSize,
+        minChildSize: _sheetMinSize,
+        maxChildSize: _sheetMaxSize,
         expand: false,
         builder: (sheetContext, scrollController) => _DayDetailSheet(day: day, scrollController: scrollController),
       ),
     ));
-  }
-}
-
-class _MonthGrid extends StatelessWidget {
-  final DateTime month;
-  final Set<DateTime> daysWithData;
-  final ValueChanged<DateTime> onDaySelected;
-
-  const _MonthGrid({required this.month, required this.daysWithData, required this.onDaySelected});
-
-  @override
-  Widget build(BuildContext context) {
-    final end = DateTime(month.year, month.month + 1, 0);
-    final days = List<DateTime>.generate(end.day, (index) => DateTime(month.year, month.month, index + 1));
-    final today = dateOnly(DateTime.now());
-
-    return GridView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      itemCount: days.length,
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 7,
-        mainAxisSpacing: 6,
-        crossAxisSpacing: 6,
-      ),
-      itemBuilder: (context, index) {
-        final day = days[index];
-        final hasData = daysWithData.contains(day);
-        final isToday = day == today;
-        return InkWell(
-          borderRadius: BorderRadius.circular(10),
-          onTap: () => onDaySelected(day),
-          child: Container(
-            decoration: BoxDecoration(
-              color: hasData ? Theme.of(context).colorScheme.primaryContainer : Colors.transparent,
-              border: Border.all(
-                color: isToday ? Theme.of(context).colorScheme.primary : Theme.of(context).dividerColor,
-                width: isToday ? 2 : 1,
-              ),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            alignment: Alignment.center,
-            child: Text('${day.day}'),
-          ),
-        );
-      },
-    );
   }
 }
 
@@ -152,55 +107,48 @@ class _DayDetailSheet extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final tokens = AppThemeTokens.of(context);
     final logsAsync = ref.watch(logsForDateProvider(day));
     final scheduleAsync = ref.watch(scheduleForDayProvider(day.weekday));
     final exercisesAsync = ref.watch(allActiveExercisesProvider);
 
-    return Padding(
-      padding: const EdgeInsets.all(24),
-      child: exercisesAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (error, stack) => AsyncErrorView(
-          error: error,
-          onRetry: () => ref.invalidate(allActiveExercisesProvider),
-        ),
-        data: (allExercises) {
-          final exerciseById = {for (final exercise in allExercises) exercise.id: exercise};
-          return ListView(
-            controller: scrollController,
-            children: [
-              Text(
-                '${day.year}-${day.month.toString().padLeft(2, '0')}-${day.day.toString().padLeft(2, '0')}',
-                style: Theme.of(context).textTheme.titleLarge,
-              ),
-              const SizedBox(height: 16),
-              Text('Scheduled', style: Theme.of(context).textTheme.titleMedium),
-              const SizedBox(height: 8),
-              scheduleAsync.when(
-                loading: () => const CircularProgressIndicator(),
-                error: (error, stack) => AsyncErrorView(
-                  error: error,
-                  isCompact: true,
-                  onRetry: () => ref.invalidate(scheduleForDayProvider(day.weekday)),
-                ),
-                data: (entries) => _buildScheduleList(entries, exerciseById),
-              ),
-              const Divider(height: 32),
-              Text('Logged', style: Theme.of(context).textTheme.titleMedium),
-              const SizedBox(height: 8),
-              logsAsync.when(
-                loading: () => const CircularProgressIndicator(),
-                error: (error, stack) => AsyncErrorView(
-                  error: error,
-                  isCompact: true,
-                  onRetry: () => ref.invalidate(logsForDateProvider(day)),
-                ),
-                data: (logs) => _buildLoggedList(logs, exerciseById),
-              ),
-            ],
-          );
-        },
+    return exercisesAsync.when(
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (error, stack) => AsyncErrorView(
+        error: error,
+        onRetry: () => ref.invalidate(allActiveExercisesProvider),
       ),
+      data: (allExercises) {
+        final exerciseById = {for (final exercise in allExercises) exercise.id: exercise};
+        return ListView(
+          controller: scrollController,
+          children: [
+            Text(AppDateFormatter.date(day), style: Theme.of(context).textTheme.titleLarge),
+            SizedBox(height: tokens.spacing.lg),
+            AppSectionHeader(title: 'Scheduled', padding: EdgeInsets.zero),
+            scheduleAsync.when(
+              loading: () => const CircularProgressIndicator(),
+              error: (error, stack) => AsyncErrorView(
+                error: error,
+                isCompact: true,
+                onRetry: () => ref.invalidate(scheduleForDayProvider(day.weekday)),
+              ),
+              data: (entries) => _buildScheduleList(entries, exerciseById),
+            ),
+            Divider(height: tokens.spacing.xxl),
+            AppSectionHeader(title: 'Logged', padding: EdgeInsets.zero),
+            logsAsync.when(
+              loading: () => const CircularProgressIndicator(),
+              error: (error, stack) => AsyncErrorView(
+                error: error,
+                isCompact: true,
+                onRetry: () => ref.invalidate(logsForDateProvider(day)),
+              ),
+              data: (logs) => _buildLoggedList(logs, exerciseById),
+            ),
+          ],
+        );
+      },
     );
   }
 

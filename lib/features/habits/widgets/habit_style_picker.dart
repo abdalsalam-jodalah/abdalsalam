@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 
+import '../../../core/theme/app_theme_tokens.dart';
+import '../../../shared/widgets/ui/app_form_dialog.dart';
+
 const Map<String, IconData> kHabitIconOptions = <String, IconData>{
   'star': Icons.star_outline,
   'fitness': Icons.fitness_center,
@@ -46,6 +49,9 @@ String habitColorToHex(Color color) {
 }
 
 class HabitIconPickerField extends StatelessWidget {
+  static const double _selectedBorderWidth = 2;
+  static const double _unselectedBorderWidth = 1;
+
   final String selectedIcon;
   final ValueChanged<String> onChanged;
 
@@ -53,24 +59,26 @@ class HabitIconPickerField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final tokens = AppThemeTokens.of(context);
+    final colorScheme = Theme.of(context).colorScheme;
     return Wrap(
-      spacing: 8,
-      runSpacing: 8,
+      spacing: tokens.spacing.sm,
+      runSpacing: tokens.spacing.sm,
       children: kHabitIconOptions.entries.map((entry) {
         final isSelected = entry.key == selectedIcon;
         return InkWell(
           onTap: () => onChanged(entry.key),
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: tokens.radius.mediumBorder,
           child: Container(
-            padding: const EdgeInsets.all(10),
+            padding: EdgeInsets.all(tokens.spacing.sm),
             decoration: BoxDecoration(
               border: Border.all(
-                color: isSelected ? Theme.of(context).colorScheme.primary : Colors.grey.shade400,
-                width: isSelected ? 2 : 1,
+                color: isSelected ? colorScheme.primary : colorScheme.outlineVariant,
+                width: isSelected ? _selectedBorderWidth : _unselectedBorderWidth,
               ),
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: tokens.radius.mediumBorder,
             ),
-            child: Icon(entry.value),
+            child: Icon(entry.value, color: isSelected ? colorScheme.primary : colorScheme.onSurfaceVariant),
           ),
         );
       }).toList(),
@@ -79,6 +87,11 @@ class HabitIconPickerField extends StatelessWidget {
 }
 
 class HabitColorPickerField extends StatelessWidget {
+  static const double _swatchDiameter = 24;
+  static const String _pickColorTitle = 'Pick a color';
+  static const String _selectLabel = 'Select';
+  static const String _chooseColorLabel = 'Choose color';
+
   final String selectedColorHex;
   final ValueChanged<String> onChanged;
 
@@ -89,25 +102,15 @@ class HabitColorPickerField extends StatelessWidget {
     final result = await showDialog<Color>(
       context: context,
       builder: (dialogContext) {
-        return AlertDialog(
-          title: const Text('Pick a color'),
-          content: SingleChildScrollView(
-            child: HueRingPicker(
-              pickerColor: pickerColor,
-              onColorChanged: (color) => pickerColor = color,
-              enableAlpha: false,
-            ),
+        return AppFormDialog(
+          title: _pickColorTitle,
+          submitLabel: _selectLabel,
+          onSubmit: () => Navigator.of(dialogContext).pop(pickerColor),
+          child: HueRingPicker(
+            pickerColor: pickerColor,
+            onColorChanged: (color) => pickerColor = color,
+            enableAlpha: false,
           ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop(),
-              child: const Text('Cancel'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.of(dialogContext).pop(pickerColor),
-              child: const Text('Select'),
-            ),
-          ],
         );
       },
     );
@@ -118,30 +121,32 @@ class HabitColorPickerField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final tokens = AppThemeTokens.of(context);
+    final colorScheme = Theme.of(context).colorScheme;
     final color = habitColorFromHex(selectedColorHex);
     return InkWell(
       onTap: () => _openPicker(context),
-      borderRadius: BorderRadius.circular(8),
+      borderRadius: tokens.radius.mediumBorder,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        padding: EdgeInsets.symmetric(horizontal: tokens.spacing.md, vertical: tokens.spacing.sm),
         decoration: BoxDecoration(
-          border: Border.all(color: Colors.grey.shade400),
-          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: colorScheme.outlineVariant),
+          borderRadius: tokens.radius.mediumBorder,
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             Container(
-              width: 24,
-              height: 24,
+              width: _swatchDiameter,
+              height: _swatchDiameter,
               decoration: BoxDecoration(
                 color: color,
                 shape: BoxShape.circle,
-                border: Border.all(color: Colors.grey.shade400),
+                border: Border.all(color: colorScheme.outlineVariant),
               ),
             ),
-            const SizedBox(width: 8),
-            const Text('Choose color'),
+            SizedBox(width: tokens.spacing.sm),
+            Text(_chooseColorLabel, style: Theme.of(context).textTheme.bodyMedium),
           ],
         ),
       ),

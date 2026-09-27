@@ -1,8 +1,29 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/theme/app_theme_tokens.dart';
+import '../../../shared/widgets/ui/app_card.dart';
+import '../../../shared/widgets/ui/entity_tile.dart';
+
+const Map<String, int> _kNoteColorValues = <String, int>{
+  'yellow': 0xFFFFF59D,
+  'blue': 0xFF90CAF9,
+  'green': 0xFFA5D6A7,
+  'pink': 0xFFF48FB1,
+};
+
+/// Resolves a note's named colour key (from user-chosen note data or the
+/// `notesDefaultColor` setting) into the accent colour rendered on its card.
+Color? noteColorFromKey(String? key) {
+  final value = _kNoteColorValues[key];
+  return value == null ? null : Color(value);
+}
+
 class NoteCard extends StatelessWidget {
+  static const IconData _icon = Icons.sticky_note_2_outlined;
+
   final String title;
   final String preview;
+  final Color? accentColor;
   final VoidCallback? onTap;
   final Widget? trailing;
 
@@ -10,20 +31,20 @@ class NoteCard extends StatelessWidget {
     super.key,
     required this.title,
     required this.preview,
+    this.accentColor,
     this.onTap,
     this.trailing,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      child: ListTile(
-        leading: const Icon(Icons.sticky_note_2_outlined),
-        title: Text(title, maxLines: 1, overflow: TextOverflow.ellipsis),
-        subtitle: preview.isEmpty ? null : Text(preview, maxLines: 2, overflow: TextOverflow.ellipsis),
-        trailing: trailing,
-        onTap: onTap,
-      ),
+    return EntityTile(
+      title: title,
+      subtitle: preview.isEmpty ? null : preview,
+      icon: _icon,
+      accentColor: accentColor,
+      onTap: onTap,
+      trailing: trailing,
     );
   }
 }
@@ -44,17 +65,27 @@ class TodoItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return CheckboxListTile(
-      value: completed,
-      onChanged: onChanged,
-      controlAffinity: ListTileControlAffinity.leading,
-      title: Text(
-        title,
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: completed ? const TextStyle(decoration: TextDecoration.lineThrough) : null,
+    final tokens = AppThemeTokens.of(context);
+    final theme = Theme.of(context);
+    final titleStyle = completed
+        ? theme.textTheme.bodyLarge?.copyWith(
+            decoration: TextDecoration.lineThrough,
+            color: theme.colorScheme.onSurfaceVariant,
+          )
+        : theme.textTheme.bodyLarge;
+    return AppCard(
+      padding: EdgeInsets.symmetric(horizontal: tokens.spacing.lg, vertical: tokens.spacing.sm),
+      onTap: onChanged == null ? null : () => onChanged!(!completed),
+      child: Row(
+        children: [
+          Checkbox(value: completed, onChanged: onChanged),
+          SizedBox(width: tokens.spacing.sm),
+          Expanded(
+            child: Text(title, maxLines: 1, overflow: TextOverflow.ellipsis, style: titleStyle),
+          ),
+          if (trailing != null) ...[SizedBox(width: tokens.spacing.sm), trailing!],
+        ],
       ),
-      secondary: trailing,
     );
   }
 }
@@ -67,6 +98,14 @@ class RichTextEditorWidget extends StatefulWidget {
 }
 
 class _RichTextEditorWidgetState extends State<RichTextEditorWidget> {
+  static const String _boldLabel = 'Bold';
+  static const String _italicLabel = 'Italic';
+  static const String _underlineLabel = 'Underline';
+  static const String _bulletsLabel = 'Bullets';
+  static const String _numberedLabel = 'Numbered';
+  static const String _headingLabel = 'Heading';
+  static const String _hintText = 'Write your note with formatting...';
+
   late final TextEditingController _controller;
 
   @override
@@ -116,38 +155,32 @@ class _RichTextEditorWidgetState extends State<RichTextEditorWidget> {
 
   @override
   Widget build(BuildContext context) {
+    final tokens = AppThemeTokens.of(context);
     return Column(
       children: [
         Wrap(
-          spacing: 8,
-          runSpacing: 8,
+          spacing: tokens.spacing.sm,
+          runSpacing: tokens.spacing.sm,
           children: [
-            OutlinedButton(onPressed: () => _wrapSelection('**', '**'), child: const Text('Bold')),
-            OutlinedButton(onPressed: () => _wrapSelection('_', '_'), child: const Text('Italic')),
-            OutlinedButton(onPressed: () => _wrapSelection('<u>', '</u>'), child: const Text('Underline')),
-            OutlinedButton(onPressed: () => _prefixLine('- '), child: const Text('Bullets')),
-            OutlinedButton(onPressed: () => _prefixLine('1. '), child: const Text('Numbered')),
-            OutlinedButton(onPressed: () => _prefixLine('## '), child: const Text('Heading')),
+            OutlinedButton(onPressed: () => _wrapSelection('**', '**'), child: const Text(_boldLabel)),
+            OutlinedButton(onPressed: () => _wrapSelection('_', '_'), child: const Text(_italicLabel)),
+            OutlinedButton(onPressed: () => _wrapSelection('<u>', '</u>'), child: const Text(_underlineLabel)),
+            OutlinedButton(onPressed: () => _prefixLine('- '), child: const Text(_bulletsLabel)),
+            OutlinedButton(onPressed: () => _prefixLine('1. '), child: const Text(_numberedLabel)),
+            OutlinedButton(onPressed: () => _prefixLine('## '), child: const Text(_headingLabel)),
           ],
         ),
-        const SizedBox(height: 8),
+        SizedBox(height: tokens.spacing.sm),
         Expanded(
-          child: Container(
-            decoration: BoxDecoration(
-              border: Border.all(color: Theme.of(context).dividerColor),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: TextField(
-              controller: _controller,
-              maxLines: null,
-              expands: true,
-              keyboardType: TextInputType.multiline,
-              textAlignVertical: TextAlignVertical.top,
-              decoration: const InputDecoration(
-                contentPadding: EdgeInsets.all(12),
-                border: InputBorder.none,
-                hintText: 'Write your note with formatting...',
-              ),
+          child: TextField(
+            controller: _controller,
+            maxLines: null,
+            expands: true,
+            keyboardType: TextInputType.multiline,
+            textAlignVertical: TextAlignVertical.top,
+            decoration: InputDecoration(
+              contentPadding: EdgeInsets.all(tokens.spacing.md),
+              hintText: _hintText,
             ),
           ),
         ),
