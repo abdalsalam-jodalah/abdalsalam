@@ -1,16 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:intl/intl.dart';
 
+import '../../../core/theme/app_theme_tokens.dart';
 import '../../../data/models/religious/prayer_log.dart';
 import '../../../providers/app_providers.dart';
 import '../../../shared/widgets/app_feedback.dart';
 import '../../../shared/widgets/async_error_view.dart';
 import '../../../shared/widgets/empty_state.dart';
-import '../../../shared/widgets/section_header.dart';
+import '../../../shared/widgets/ui/app_section_header.dart';
+import '../../../shared/widgets/ui/page_header.dart';
 import '../providers/prayer_providers.dart';
 import '../providers/religious_tracking_providers.dart';
 import '../widgets/prayer_calendar_heatmap.dart';
+import '../widgets/prayer_log_dialog.dart';
+import '../widgets/prayer_log_tile.dart';
+import '../widgets/prayer_stats_summary.dart';
 import '../widgets/prayer_streak_widget.dart';
 import 'quran_progress_screen.dart';
 
@@ -28,30 +32,20 @@ class PrayerLogsScreen extends ConsumerWidget {
     if (embedded) {
       return Column(
         children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 16, 8, 0),
-            child: Row(
-              children: [
-                Text(
-                  'Prayers',
-                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
-                ),
-                const Spacer(),
-                IconButton(
-                  icon: const Icon(Icons.menu_book_outlined),
-                  tooltip: 'Quran progress',
-                  onPressed: () =>
-                      Navigator.of(context).pushNamed(QuranProgressScreen.routeName),
-                ),
-                IconButton(
-                  icon: const Icon(Icons.add),
-                  tooltip: 'Add Log',
-                  onPressed: () => _showAddDialog(context, ref),
-                ),
-              ],
-            ),
+          PageHeader(
+            title: 'Prayers',
+            actions: [
+              IconButton(
+                icon: const Icon(Icons.menu_book_outlined),
+                tooltip: 'Quran progress',
+                onPressed: () => Navigator.of(context).pushNamed(QuranProgressScreen.routeName),
+              ),
+              IconButton(
+                icon: const Icon(Icons.add),
+                tooltip: 'Add Log',
+                onPressed: () => _showAddDialog(context, ref),
+              ),
+            ],
           ),
           Expanded(child: _buildBody(context, ref)),
         ],
@@ -79,86 +73,95 @@ class PrayerLogsScreen extends ConsumerWidget {
   }
 
   Widget _buildBody(BuildContext context, WidgetRef ref) {
+    final tokens = AppThemeTokens.of(context);
     final logsState = ref.watch(prayerLogsControllerProvider);
     final allLogsState = ref.watch(prayerAllLogsProvider);
     final streak = ref.watch(religiousStreakProvider);
 
     return ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          streak.maybeWhen(
-            data: (value) => PrayerStreakWidget(streakDays: value),
-            orElse: () => const SizedBox.shrink(),
+      padding: EdgeInsets.all(tokens.spacing.lg),
+      children: [
+        streak.maybeWhen(
+          data: (value) => PrayerStreakWidget(streakDays: value),
+          orElse: () => const SizedBox.shrink(),
+        ),
+        SizedBox(height: tokens.spacing.md),
+        allLogsState.when(
+          data: (allLogs) => PrayerStatsSummary(allLogs: allLogs),
+          loading: () => Padding(
+            padding: EdgeInsets.symmetric(vertical: tokens.spacing.xl),
+            child: const Center(child: CircularProgressIndicator()),
           ),
-          const SizedBox(height: 16),
-          allLogsState.when(
-            data: (allLogs) => _StatsSummaryRow(allLogs: allLogs),
-            loading: () => const Padding(
-              padding: EdgeInsets.symmetric(vertical: 24),
-              child: Center(child: CircularProgressIndicator()),
-            ),
-            error: (err, _) => AsyncErrorView(
-              error: err,
-              isCompact: true,
-              onRetry: () => ref.invalidate(prayerAllLogsProvider),
-            ),
+          error: (err, _) => AsyncErrorView(
+            error: err,
+            isCompact: true,
+            onRetry: () => ref.invalidate(prayerAllLogsProvider),
           ),
-          const SizedBox(height: 16),
-          allLogsState.when(
-            data: (allLogs) => PrayerCalendarHeatmap(
-              dailyCompletions: _dailyCompletions(allLogs),
-            ),
-            loading: () => const Center(child: CircularProgressIndicator()),
-            error: (err, _) => AsyncErrorView(
-              error: err,
-              isCompact: true,
-              onRetry: () => ref.invalidate(prayerAllLogsProvider),
-            ),
+        ),
+        SizedBox(height: tokens.spacing.md),
+        allLogsState.when(
+          data: (allLogs) => PrayerCalendarHeatmap(dailyCompletions: _dailyCompletions(allLogs)),
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (err, _) => AsyncErrorView(
+            error: err,
+            isCompact: true,
+            onRetry: () => ref.invalidate(prayerAllLogsProvider),
           ),
-          const SizedBox(height: 20),
-          const SectionHeader(title: 'Today'),
-          const SizedBox(height: 8),
-          logsState.when(
-            data: (logs) => logs.isEmpty
-                ? const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 8),
-                    child: Text('No prayer logs for today yet.'),
-                  )
-                : Column(children: logs.map((log) => _PrayerLogCard(log: log)).toList()),
-            loading: () => const Center(child: CircularProgressIndicator()),
-            error: (err, _) => AsyncErrorView(
-              error: err,
-              isCompact: true,
-              onRetry: () => ref.invalidate(prayerLogsControllerProvider),
-            ),
+        ),
+        AppSectionHeader(title: 'Today'),
+        logsState.when(
+          data: (logs) => logs.isEmpty
+              ? Padding(
+                  padding: EdgeInsets.symmetric(vertical: tokens.spacing.sm),
+                  child: Text('No prayer logs for today yet.', style: Theme.of(context).textTheme.bodyMedium),
+                )
+              : Column(
+                  children: [
+                    for (final log in logs)
+                      Padding(
+                        padding: EdgeInsets.only(bottom: tokens.spacing.sm),
+                        child: PrayerLogTile(log: log),
+                      ),
+                  ],
+                ),
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (err, _) => AsyncErrorView(
+            error: err,
+            isCompact: true,
+            onRetry: () => ref.invalidate(prayerLogsControllerProvider),
           ),
-          const SizedBox(height: 20),
-          const SectionHeader(title: 'History'),
-          const SizedBox(height: 8),
-          allLogsState.when(
-            data: (allLogs) {
-              if (allLogs.isEmpty) {
-                return EmptyState(
-                  title: 'No prayer logs yet',
-                  subtitle: 'Add your first prayer log to start tracking.',
-                  actionLabel: 'Add Log',
-                  onAction: () => _showAddDialog(context, ref),
-                );
-              }
-              final sorted = [...allLogs]..sort((a, b) => b.prayedAt.compareTo(a.prayedAt));
-              return Column(
-                children: sorted.map((log) => _PrayerLogCard(log: log)).toList(),
+        ),
+        AppSectionHeader(title: 'History'),
+        allLogsState.when(
+          data: (allLogs) {
+            if (allLogs.isEmpty) {
+              return EmptyState(
+                title: 'No prayer logs yet',
+                subtitle: 'Add your first prayer log to start tracking.',
+                actionLabel: 'Add Log',
+                onAction: () => _showAddDialog(context, ref),
               );
-            },
-            loading: () => const Center(child: CircularProgressIndicator()),
-            error: (err, _) => AsyncErrorView(
-              error: err,
-              isCompact: true,
-              onRetry: () => ref.invalidate(prayerAllLogsProvider),
-            ),
+            }
+            final sorted = [...allLogs]..sort((a, b) => b.prayedAt.compareTo(a.prayedAt));
+            return Column(
+              children: [
+                for (final log in sorted)
+                  Padding(
+                    padding: EdgeInsets.only(bottom: tokens.spacing.sm),
+                    child: PrayerLogTile(log: log),
+                  ),
+              ],
+            );
+          },
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (err, _) => AsyncErrorView(
+            error: err,
+            isCompact: true,
+            onRetry: () => ref.invalidate(prayerAllLogsProvider),
           ),
-        ],
-      );
+        ),
+      ],
+    );
   }
 
   static Map<DateTime, int> _dailyCompletions(List<PrayerLog> logs) {
@@ -168,27 +171,6 @@ class PrayerLogsScreen extends ConsumerWidget {
       map[day] = (map[day] ?? 0) + 1;
     }
     return map;
-  }
-
-  static String _deltaLabel(PrayerLog log) {
-    final delta = log.prayedAt.difference(log.scheduledAt!);
-    if (delta.inMinutes.abs() < 1) {
-      return 'On time';
-    }
-    final minutes = delta.inMinutes.abs();
-    return delta.isNegative
-        ? '$minutes min before ${_prayerLabel(log.prayerName)}'
-        : '$minutes min after ${_prayerLabel(log.prayerName)}';
-  }
-
-  static String _prayerLabel(PrayerName prayer) {
-    return switch (prayer) {
-      PrayerName.fajr => 'Fajr',
-      PrayerName.dhuhr => 'Dhuhr',
-      PrayerName.asr => 'Asr',
-      PrayerName.maghrib => 'Maghrib',
-      PrayerName.isha => 'Isha',
-    };
   }
 
   Future<void> _showAddDialog(BuildContext context, WidgetRef ref) async {
@@ -209,10 +191,7 @@ class PrayerLogsScreen extends ConsumerWidget {
       return;
     }
 
-    final result = await showDialog<_PrayerLogResult>(
-      context: context,
-      builder: (_) => _PrayerLogDialogContent(ref: ref, initialScheduledAt: scheduledAt),
-    );
+    final result = await showPrayerLogDialog(context, ref, initialScheduledAt: scheduledAt);
 
     if (result == null) return;
 
@@ -226,284 +205,5 @@ class PrayerLogsScreen extends ConsumerWidget {
     if (error != null && context.mounted) {
       AppFeedback.showError(context, error);
     }
-  }
-}
-
-class _PrayerLogResult {
-  _PrayerLogResult({
-    required this.prayer,
-    required this.prayedAt,
-    required this.overrideOnTime,
-    required this.manualOnTime,
-    required this.notes,
-  });
-
-  final PrayerName prayer;
-  final DateTime prayedAt;
-  final bool overrideOnTime;
-  final bool manualOnTime;
-  final String? notes;
-}
-
-class _PrayerLogDialogContent extends StatefulWidget {
-  const _PrayerLogDialogContent({required this.ref, required this.initialScheduledAt});
-
-  final WidgetRef ref;
-  final DateTime? initialScheduledAt;
-
-  @override
-  State<_PrayerLogDialogContent> createState() => _PrayerLogDialogContentState();
-}
-
-class _PrayerLogDialogContentState extends State<_PrayerLogDialogContent> {
-  PrayerName selectedPrayer = PrayerName.fajr;
-  DateTime prayedAt = DateTime.now();
-  bool overrideOnTime = false;
-  bool manualOnTime = true;
-  final notesController = TextEditingController();
-  DateTime? scheduledAt;
-
-  @override
-  void initState() {
-    super.initState();
-    scheduledAt = widget.initialScheduledAt;
-  }
-
-  @override
-  void dispose() {
-    notesController.dispose();
-    super.dispose();
-  }
-
-  Future<void> _refreshScheduled(PrayerName prayer) async {
-    try {
-      final snapshot = await widget.ref.read(todayPrayerTimesProvider.future);
-      if (!mounted) return;
-      setState(() => scheduledAt = scheduledTimeForPrayer(prayer, snapshot));
-    } catch (error, stackTrace) {
-      widget.ref.read(loggerProvider).error(
-            'Could not resolve scheduled prayer time for $prayer in the add-log dialog.',
-            error: error,
-            stackTrace: stackTrace,
-          );
-      if (!mounted) return;
-      setState(() => scheduledAt = null);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final delta = scheduledAt == null ? null : prayedAt.difference(scheduledAt!);
-
-    return AlertDialog(
-      title: const Text('Add Prayer Log'),
-      content: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            DropdownButtonFormField<PrayerName>(
-              initialValue: selectedPrayer,
-              items: PrayerName.values
-                  .map(
-                    (prayer) => DropdownMenuItem(
-                      value: prayer,
-                      child: Text(prayer.name.toUpperCase()),
-                    ),
-                  )
-                  .toList(growable: false),
-              onChanged: (value) async {
-                if (value != null) {
-                  setState(() => selectedPrayer = value);
-                  await _refreshScheduled(value);
-                }
-              },
-              decoration: const InputDecoration(labelText: 'Prayer'),
-            ),
-            const SizedBox(height: 12),
-            if (scheduledAt != null) Text('Scheduled: ${DateFormat('hh:mm a').format(scheduledAt!)}'),
-            const SizedBox(height: 8),
-            OutlinedButton.icon(
-              onPressed: () async {
-                final pickedTime = await showTimePicker(
-                  context: context,
-                  initialTime: TimeOfDay.fromDateTime(prayedAt),
-                );
-                if (pickedTime == null) {
-                  return;
-                }
-                setState(() {
-                  prayedAt = DateTime(
-                    prayedAt.year,
-                    prayedAt.month,
-                    prayedAt.day,
-                    pickedTime.hour,
-                    pickedTime.minute,
-                  );
-                });
-              },
-              icon: const Icon(Icons.schedule),
-              label: Text('Prayed at: ${DateFormat('hh:mm a').format(prayedAt)}'),
-            ),
-            if (delta != null) ...[
-              const SizedBox(height: 8),
-              Text(
-                delta.inMinutes.abs() < 1
-                    ? 'On time'
-                    : delta.isNegative
-                        ? '${delta.inMinutes.abs()} min before adhan'
-                        : '${delta.inMinutes.abs()} min after adhan',
-                style: Theme.of(context).textTheme.bodyMedium,
-              ),
-            ],
-            const SizedBox(height: 12),
-            SwitchListTile(
-              contentPadding: EdgeInsets.zero,
-              title: const Text('Manually override on-time status'),
-              value: overrideOnTime,
-              onChanged: (value) => setState(() => overrideOnTime = value),
-            ),
-            if (overrideOnTime)
-              SwitchListTile(
-                contentPadding: EdgeInsets.zero,
-                title: const Text('On time'),
-                value: manualOnTime,
-                onChanged: (value) => setState(() => manualOnTime = value),
-              ),
-            TextField(
-              controller: notesController,
-              maxLines: 2,
-              decoration: const InputDecoration(
-                labelText: 'Notes (optional)',
-              ),
-            ),
-          ],
-        ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Cancel'),
-        ),
-        FilledButton(
-          onPressed: () {
-            Navigator.of(context).pop(
-              _PrayerLogResult(
-                prayer: selectedPrayer,
-                prayedAt: prayedAt,
-                overrideOnTime: overrideOnTime,
-                manualOnTime: manualOnTime,
-                notes: notesController.text.trim().isEmpty ? null : notesController.text.trim(),
-              ),
-            );
-          },
-          child: const Text('Save'),
-        ),
-      ],
-    );
-  }
-}
-
-class _StatsSummaryRow extends StatelessWidget {
-  const _StatsSummaryRow({required this.allLogs});
-
-  final List<PrayerLog> allLogs;
-
-  @override
-  Widget build(BuildContext context) {
-    final onTimeCount = allLogs.where((log) => log.onTime).length;
-    final onTimePercent = allLogs.isEmpty ? 0 : ((onTimeCount / allLogs.length) * 100).round();
-    final scheme = Theme.of(context).colorScheme;
-
-    return Row(
-      children: [
-        Expanded(
-          child: _StatCard(
-            label: 'Total Logs',
-            value: '${allLogs.length}',
-            icon: Icons.mosque_outlined,
-            color: scheme.primary,
-          ),
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: _StatCard(
-            label: 'On Time',
-            value: '$onTimePercent%',
-            icon: Icons.check_circle_outline,
-            color: scheme.tertiary,
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _StatCard extends StatelessWidget {
-  const _StatCard({
-    required this.label,
-    required this.value,
-    required this.icon,
-    required this.color,
-  });
-
-  final String label;
-  final String value;
-  final IconData icon;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      margin: EdgeInsets.zero,
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Icon(icon, color: color, size: 20),
-            const SizedBox(height: 8),
-            Text(label, style: Theme.of(context).textTheme.labelMedium),
-            const SizedBox(height: 4),
-            Text(value, style: Theme.of(context).textTheme.headlineSmall),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _PrayerLogCard extends StatelessWidget {
-  const _PrayerLogCard({required this.log});
-
-  final PrayerLog log;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Card(
-      margin: const EdgeInsets.only(bottom: 8),
-      child: ListTile(
-        leading: Container(
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: scheme.primary.withValues(alpha: 0.15),
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: Icon(Icons.mosque_outlined, color: scheme.primary, size: 20),
-        ),
-        title: Text(
-          '${log.prayerName.name.toUpperCase()} • ${DateFormat('MMM d').format(log.prayedAt)}',
-        ),
-        subtitle: Text(
-          '${DateFormat('hh:mm a').format(log.prayedAt)}'
-          '${log.scheduledAt != null ? ' • ${PrayerLogsScreen._deltaLabel(log)}' : ''}',
-        ),
-        trailing: Icon(
-          log.onTime ? Icons.check_circle : Icons.schedule,
-          color: log.onTime ? scheme.primary : scheme.tertiary,
-        ),
-      ),
-    );
   }
 }

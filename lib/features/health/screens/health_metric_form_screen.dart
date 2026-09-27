@@ -3,8 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../../core/errors/app_error.dart';
+import '../../../core/theme/app_theme_tokens.dart';
 import '../../../data/models/health/health_metric.dart';
 import '../../../shared/widgets/app_feedback.dart';
+import '../../../shared/widgets/ui/date_time_field.dart';
 import '../providers/health_providers.dart';
 import '../services/health_metric_service.dart';
 
@@ -112,12 +114,13 @@ class _HealthMetricFormScreenState extends ConsumerState<HealthMetricFormScreen>
 
   @override
   Widget build(BuildContext context) {
+    final tokens = AppThemeTokens.of(context);
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.metric == null ? 'Add Metric' : 'Edit Metric'),
       ),
       body: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: EdgeInsets.all(tokens.spacing.lg),
         child: Form(
           key: _formKey,
           child: ListView(
@@ -138,29 +141,24 @@ class _HealthMetricFormScreenState extends ConsumerState<HealthMetricFormScreen>
                 },
                 decoration: const InputDecoration(
                   labelText: 'Metric type',
-                  border: OutlineInputBorder(),
                   prefixIcon: Icon(Icons.monitor_heart_outlined),
                 ),
               ),
               if (_selectedType == 'Custom') ...[
-                const SizedBox(height: 12),
+                SizedBox(height: tokens.spacing.md),
                 TextFormField(
                   controller: _customTypeController,
-                  decoration: const InputDecoration(
-                    labelText: 'Custom metric name',
-                    border: OutlineInputBorder(),
-                  ),
+                  decoration: const InputDecoration(labelText: 'Custom metric name'),
                   validator: (value) =>
                       _selectedType == 'Custom' && (value == null || value.trim().isEmpty) ? 'Required' : null,
                 ),
               ],
-              const SizedBox(height: 12),
+              SizedBox(height: tokens.spacing.md),
               TextFormField(
                 controller: _valueController,
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
                 decoration: const InputDecoration(
                   labelText: 'Value',
-                  border: OutlineInputBorder(),
                   prefixIcon: Icon(Icons.numbers),
                 ),
                 validator: (value) {
@@ -168,51 +166,35 @@ class _HealthMetricFormScreenState extends ConsumerState<HealthMetricFormScreen>
                   return double.tryParse(value.trim()) == null ? _invalidValueMessage : null;
                 },
               ),
-              const SizedBox(height: 12),
+              SizedBox(height: tokens.spacing.md),
               TextFormField(
                 controller: _unitController,
                 decoration: const InputDecoration(
                   labelText: 'Unit',
-                  border: OutlineInputBorder(),
                   prefixIcon: Icon(Icons.straighten),
                 ),
                 validator: (value) => (value == null || value.trim().isEmpty) ? 'Required' : null,
               ),
-              const SizedBox(height: 12),
-              ListTile(
-                contentPadding: const EdgeInsets.symmetric(horizontal: 8),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                  side: BorderSide(color: Theme.of(context).dividerColor),
-                ),
-                leading: const Icon(Icons.calendar_today_outlined),
-                title: const Text('Measured at'),
-                subtitle: Text(
-                  '${_measuredAt.year}-${_measuredAt.month.toString().padLeft(2, '0')}-${_measuredAt.day.toString().padLeft(2, '0')}',
-                ),
-                onTap: () async {
-                  final picked = await showDatePicker(
-                    context: context,
-                    initialDate: _measuredAt,
-                    firstDate: DateTime(2020),
-                    lastDate: DateTime(2100),
-                  );
-                  if (picked != null && mounted) {
-                    setState(() => _measuredAt = picked);
+              SizedBox(height: tokens.spacing.md),
+              DateTimeField(
+                label: 'Measured at',
+                value: _measuredAt,
+                onChanged: (date) {
+                  if (date != null) {
+                    setState(() => _measuredAt = date);
                   }
                 },
               ),
-              const SizedBox(height: 12),
+              SizedBox(height: tokens.spacing.md),
               TextFormField(
                 controller: _notesController,
                 maxLines: 3,
                 decoration: const InputDecoration(
                   labelText: 'Notes (optional)',
-                  border: OutlineInputBorder(),
                   prefixIcon: Icon(Icons.notes),
                 ),
               ),
-              const SizedBox(height: 20),
+              SizedBox(height: tokens.spacing.xl),
               FilledButton.icon(
                 onPressed: _save,
                 icon: const Icon(Icons.save_outlined),

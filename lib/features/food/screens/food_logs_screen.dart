@@ -1,9 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/formatting/app_date_formatter.dart';
+import '../../../core/theme/app_module_accents.dart';
+import '../../../core/theme/app_theme_tokens.dart';
 import '../../../data/models/food/food_log.dart';
 import '../../../shared/widgets/app_feedback.dart';
 import '../../../shared/widgets/async_error_view.dart';
+import '../../../shared/widgets/ui/app_section_header.dart';
+import '../../../shared/widgets/ui/entity_tile.dart';
+import '../../../shared/widgets/ui/page_header.dart';
 import '../providers/food_providers.dart';
 import 'food_log_form_screen.dart';
 
@@ -57,13 +63,10 @@ class _FoodLogsScreenState extends ConsumerState<FoodLogsScreen> {
     }
   }
 
-  String _formatDate(DateTime date) =>
-      '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
-
   Map<String, List<FoodLog>> _groupByDay(List<FoodLog> logs) {
     final groups = <String, List<FoodLog>>{};
     for (final log in logs) {
-      final key = _formatDate(log.loggedAt);
+      final key = AppDateFormatter.date(log.loggedAt);
       groups.putIfAbsent(key, () => []).add(log);
     }
     return groups;
@@ -71,6 +74,8 @@ class _FoodLogsScreenState extends ConsumerState<FoodLogsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final tokens = AppThemeTokens.of(context);
+    final accent = AppModuleAccents.forModule('food');
     final logsAsync = ref.watch(foodLogsProvider);
 
     final content = logsAsync.when(
@@ -86,45 +91,50 @@ class _FoodLogsScreenState extends ConsumerState<FoodLogsScreen> {
 
         final groups = _groupByDay(logs);
         return ListView(
-          padding: const EdgeInsets.all(16),
           children: [
-            if (widget.embedded)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: Text(
-                  'Food Logs',
-                  style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
-                ),
+            if (widget.embedded) const PageHeader(title: 'Food Logs'),
+            Padding(
+              padding: EdgeInsets.fromLTRB(
+                tokens.spacing.lg,
+                widget.embedded ? 0 : tokens.spacing.lg,
+                tokens.spacing.lg,
+                tokens.spacing.lg,
               ),
-            for (final entry in groups.entries) ...[
-              Text(entry.key, style: Theme.of(context).textTheme.titleMedium),
-              const SizedBox(height: 8),
-              ...entry.value.map((log) => Card(
-                    child: ListTile(
-                      leading: const Icon(Icons.restaurant_outlined),
-                      title: Text('${log.category}: ${log.dishName}'),
-                      subtitle: Text(
-                        '${log.quantity}'
-                        '${log.calories != null ? ' • ${log.calories!.toStringAsFixed(0)} kcal' : ''}',
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  for (final entry in groups.entries) ...[
+                    AppSectionHeader(title: entry.key, padding: EdgeInsets.zero),
+                    SizedBox(height: tokens.spacing.sm),
+                    for (final log in entry.value) ...[
+                      EntityTile(
+                        icon: Icons.restaurant_outlined,
+                        accentColor: accent,
+                        title: '${log.category}: ${log.dishName}',
+                        subtitle: '${log.quantity}'
+                            '${log.calories != null ? ' • ${log.calories!.toStringAsFixed(0)} kcal' : ''}',
+                        onTap: () => _openForm(log: log),
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            IconButton(
+                              icon: const Icon(Icons.repeat),
+                              onPressed: () => _logAgain(log),
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.delete_outline),
+                              onPressed: () => _delete(log),
+                            ),
+                          ],
+                        ),
                       ),
-                      onTap: () => _openForm(log: log),
-                      trailing: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          IconButton(
-                            icon: const Icon(Icons.repeat),
-                            onPressed: () => _logAgain(log),
-                          ),
-                          IconButton(
-                            icon: const Icon(Icons.delete_outline),
-                            onPressed: () => _delete(log),
-                          ),
-                        ],
-                      ),
-                    ),
-                  )),
-              const SizedBox(height: 12),
-            ],
+                      SizedBox(height: tokens.spacing.sm),
+                    ],
+                    SizedBox(height: tokens.spacing.sm),
+                  ],
+                ],
+              ),
+            ),
           ],
         );
       },
@@ -138,7 +148,7 @@ class _FoodLogsScreenState extends ConsumerState<FoodLogsScreen> {
       return Stack(
         children: [
           content,
-          Positioned(right: 16, bottom: 16, child: fab),
+          Positioned(right: tokens.spacing.lg, bottom: tokens.spacing.lg, child: fab),
         ],
       );
     }

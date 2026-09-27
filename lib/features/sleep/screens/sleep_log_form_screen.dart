@@ -3,8 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../../core/errors/app_error.dart';
+import '../../../core/theme/app_theme_tokens.dart';
 import '../../../data/models/sleep/sleep_log.dart';
 import '../../../shared/widgets/app_feedback.dart';
+import '../../../shared/widgets/ui/date_time_field.dart';
 import '../providers/sleep_providers.dart';
 import '../services/sleep_log_service.dart';
 
@@ -71,24 +73,6 @@ class _SleepLogFormScreenState extends ConsumerState<SleepLogFormScreen> {
     super.dispose();
   }
 
-  Future<void> _pickDateTime(DateTime initial, ValueChanged<DateTime> onPick) async {
-    final date = await showDatePicker(
-      context: context,
-      initialDate: initial,
-      firstDate: DateTime(2020),
-      lastDate: DateTime(2100),
-    );
-    if (date == null || !mounted) return;
-
-    final time = await showTimePicker(
-      context: context,
-      initialTime: TimeOfDay.fromDateTime(initial),
-    );
-    if (time == null) return;
-
-    onPick(DateTime(date.year, date.month, date.day, time.hour, time.minute));
-  }
-
   Future<void> _save() async {
     if (!(_formKey.currentState?.validate() ?? false)) {
       return;
@@ -133,48 +117,53 @@ class _SleepLogFormScreenState extends ConsumerState<SleepLogFormScreen> {
     }
   }
 
-  String _formatDateTime(DateTime date) =>
-      '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')} '
-      '${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
-
   @override
   Widget build(BuildContext context) {
+    final tokens = AppThemeTokens.of(context);
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.log == null ? 'Add Sleep Log' : 'Edit Sleep Log'),
       ),
       body: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: EdgeInsets.all(tokens.spacing.lg),
         child: Form(
           key: _formKey,
           child: ListView(
             children: [
-              _DateTimeField(
+              DateTimeField(
                 label: 'Sleep start',
-                dateTime: _sleepStart,
-                display: _formatDateTime(_sleepStart),
-                onPick: () => _pickDateTime(_sleepStart, (value) => setState(() => _sleepStart = value)),
+                value: _sleepStart,
+                mode: DateTimeFieldMode.dateTime,
+                onChanged: (value) {
+                  if (value != null) {
+                    setState(() => _sleepStart = value);
+                  }
+                },
               ),
-              const SizedBox(height: 12),
-              _DateTimeField(
+              SizedBox(height: tokens.spacing.md),
+              DateTimeField(
                 label: 'Sleep end',
-                dateTime: _sleepEnd,
-                display: _formatDateTime(_sleepEnd),
-                onPick: () => _pickDateTime(_sleepEnd, (value) => setState(() => _sleepEnd = value)),
+                value: _sleepEnd,
+                mode: DateTimeFieldMode.dateTime,
+                onChanged: (value) {
+                  if (value != null) {
+                    setState(() => _sleepEnd = value);
+                  }
+                },
               ),
               if (!_sleepEnd.isAfter(_sleepStart))
                 Padding(
-                  padding: const EdgeInsets.only(top: 8),
+                  padding: EdgeInsets.only(top: tokens.spacing.sm),
                   child: Text(
-                    'Sleep end must be after sleep start.',
-                    style: TextStyle(color: Theme.of(context).colorScheme.error),
+                    _sleepEndBeforeStartMessage,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Theme.of(context).colorScheme.error),
                   ),
                 ),
-              const SizedBox(height: 16),
+              SizedBox(height: tokens.spacing.lg),
               Row(
                 children: [
                   const Icon(Icons.nightlight_outlined),
-                  const SizedBox(width: 12),
+                  SizedBox(width: tokens.spacing.md),
                   const Text('Night wake-ups'),
                   const Spacer(),
                   IconButton(
@@ -190,49 +179,45 @@ class _SleepLogFormScreenState extends ConsumerState<SleepLogFormScreen> {
                   ),
                 ],
               ),
-              const SizedBox(height: 16),
+              SizedBox(height: tokens.spacing.lg),
               _FeelingRatingField(
                 label: 'Feeling before sleep',
                 rating: _feelingBeforeSleep,
                 onChanged: (value) => setState(() => _feelingBeforeSleep = value),
                 noteController: _feelingBeforeSleepNoteController,
               ),
-              const SizedBox(height: 16),
+              SizedBox(height: tokens.spacing.lg),
               _FeelingRatingField(
                 label: 'Feeling on wakeup',
                 rating: _feelingOnWakeup,
                 onChanged: (value) => setState(() => _feelingOnWakeup = value),
                 noteController: _feelingOnWakeupNoteController,
               ),
-              const SizedBox(height: 16),
+              SizedBox(height: tokens.spacing.lg),
               _FeelingRatingField(
                 label: 'Feeling during day',
                 rating: _feelingDuringDay,
                 onChanged: (value) => setState(() => _feelingDuringDay = value),
                 noteController: _feelingDuringDayNoteController,
               ),
-              const SizedBox(height: 16),
-              _DateTimeField(
+              SizedBox(height: tokens.spacing.lg),
+              DateTimeField(
                 label: 'Last caffeine time (optional)',
-                dateTime: _lastCaffeineTime,
-                display: _lastCaffeineTime == null ? 'Not set' : _formatDateTime(_lastCaffeineTime!),
-                onPick: () => _pickDateTime(
-                  _lastCaffeineTime ?? _sleepStart,
-                  (value) => setState(() => _lastCaffeineTime = value),
-                ),
-                onClear: _lastCaffeineTime == null ? null : () => setState(() => _lastCaffeineTime = null),
+                value: _lastCaffeineTime,
+                mode: DateTimeFieldMode.dateTime,
+                isClearable: true,
+                onChanged: (value) => setState(() => _lastCaffeineTime = value),
               ),
-              const SizedBox(height: 12),
+              SizedBox(height: tokens.spacing.md),
               TextFormField(
                 controller: _notesController,
                 maxLines: 3,
                 decoration: const InputDecoration(
                   labelText: 'Notes (optional)',
-                  border: OutlineInputBorder(),
                   prefixIcon: Icon(Icons.notes),
                 ),
               ),
-              const SizedBox(height: 20),
+              SizedBox(height: tokens.spacing.xl),
               FilledButton.icon(
                 onPressed: _save,
                 icon: const Icon(Icons.save_outlined),
@@ -242,40 +227,6 @@ class _SleepLogFormScreenState extends ConsumerState<SleepLogFormScreen> {
           ),
         ),
       ),
-    );
-  }
-}
-
-class _DateTimeField extends StatelessWidget {
-  final String label;
-  final DateTime? dateTime;
-  final String display;
-  final VoidCallback onPick;
-  final VoidCallback? onClear;
-
-  const _DateTimeField({
-    required this.label,
-    required this.dateTime,
-    required this.display,
-    required this.onPick,
-    this.onClear,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return ListTile(
-      contentPadding: const EdgeInsets.symmetric(horizontal: 8),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(8),
-        side: BorderSide(color: Theme.of(context).dividerColor),
-      ),
-      leading: const Icon(Icons.access_time),
-      title: Text(label),
-      subtitle: Text(display),
-      trailing: onClear != null
-          ? IconButton(icon: const Icon(Icons.clear), onPressed: onClear)
-          : null,
-      onTap: onPick,
     );
   }
 }
@@ -295,11 +246,12 @@ class _FeelingRatingField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final tokens = AppThemeTokens.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(label, style: Theme.of(context).textTheme.titleSmall),
-        const SizedBox(height: 4),
+        SizedBox(height: tokens.spacing.xs),
         SegmentedButton<int>(
           segments: const [
             ButtonSegment(value: 1, label: Text('1')),
@@ -312,12 +264,11 @@ class _FeelingRatingField extends StatelessWidget {
           emptySelectionAllowed: true,
           onSelectionChanged: (values) => onChanged(values.isEmpty ? null : values.first),
         ),
-        const SizedBox(height: 8),
+        SizedBox(height: tokens.spacing.sm),
         TextFormField(
           controller: noteController,
           decoration: const InputDecoration(
             labelText: 'Note (optional)',
-            border: OutlineInputBorder(),
             isDense: true,
           ),
         ),

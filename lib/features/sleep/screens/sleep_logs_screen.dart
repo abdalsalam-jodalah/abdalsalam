@@ -1,9 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/formatting/app_date_formatter.dart';
+import '../../../core/theme/app_module_accents.dart';
+import '../../../core/theme/app_theme_tokens.dart';
 import '../../../data/models/sleep/sleep_log.dart';
 import '../../../shared/widgets/app_feedback.dart';
 import '../../../shared/widgets/async_error_view.dart';
+import '../../../shared/widgets/ui/entity_tile.dart';
+import '../../../shared/widgets/ui/page_header.dart';
 import '../providers/sleep_providers.dart';
 import 'sleep_log_form_screen.dart';
 
@@ -45,11 +50,10 @@ class _SleepLogsScreenState extends ConsumerState<SleepLogsScreen> {
     }
   }
 
-  String _formatDate(DateTime date) =>
-      '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
-
   @override
   Widget build(BuildContext context) {
+    final tokens = AppThemeTokens.of(context);
+    final accent = AppModuleAccents.forModule('sleep');
     final logsAsync = ref.watch(sleepLogsProvider);
 
     final content = logsAsync.when(
@@ -64,35 +68,37 @@ class _SleepLogsScreenState extends ConsumerState<SleepLogsScreen> {
         }
 
         return ListView(
-          padding: const EdgeInsets.all(16),
           children: [
-            if (widget.embedded)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: Text(
-                  'Sleep Logs',
-                  style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
-                ),
+            if (widget.embedded) const PageHeader(title: 'Sleep Logs'),
+            Padding(
+              padding: EdgeInsets.fromLTRB(
+                tokens.spacing.lg,
+                widget.embedded ? 0 : tokens.spacing.lg,
+                tokens.spacing.lg,
+                tokens.spacing.lg,
               ),
-            ...logs.map((log) {
-              final hours = log.duration.inMinutes / 60;
-              return Card(
-                child: ListTile(
-                  leading: const Icon(Icons.bedtime_outlined),
-                  title: Text('${hours.toStringAsFixed(1)}h • ${_formatDate(log.sleepStart)}'),
-                  subtitle: Text(
-                    '${log.nightWakeCount} wake-up(s)'
-                    '${log.notes != null ? '\n${log.notes}' : ''}',
-                  ),
-                  isThreeLine: log.notes != null,
-                  onTap: () => _openForm(log: log),
-                  trailing: IconButton(
-                    icon: const Icon(Icons.delete_outline),
-                    onPressed: () => _delete(log),
-                  ),
-                ),
-              );
-            }),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  for (final log in logs) ...[
+                    EntityTile(
+                      icon: Icons.bedtime_outlined,
+                      accentColor: accent,
+                      title: '${(log.duration.inMinutes / 60).toStringAsFixed(1)}h • ${AppDateFormatter.date(log.sleepStart)}',
+                      subtitle: '${log.nightWakeCount} wake-up(s)'
+                          '${log.notes != null ? '\n${log.notes}' : ''}',
+                      subtitleMaxLines: 2,
+                      onTap: () => _openForm(log: log),
+                      trailing: IconButton(
+                        icon: const Icon(Icons.delete_outline),
+                        onPressed: () => _delete(log),
+                      ),
+                    ),
+                    SizedBox(height: tokens.spacing.sm),
+                  ],
+                ],
+              ),
+            ),
           ],
         );
       },
@@ -106,7 +112,7 @@ class _SleepLogsScreenState extends ConsumerState<SleepLogsScreen> {
       return Stack(
         children: [
           content,
-          Positioned(right: 16, bottom: 16, child: fab),
+          Positioned(right: tokens.spacing.lg, bottom: tokens.spacing.lg, child: fab),
         ],
       );
     }

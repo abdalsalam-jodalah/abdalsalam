@@ -1,11 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:intl/intl.dart';
 
+import '../../../core/formatting/app_date_formatter.dart';
+import '../../../core/theme/app_theme_tokens.dart';
 import '../../../data/models/religious/religious_entry.dart';
 import '../../../shared/widgets/async_error_view.dart';
 import '../../../shared/widgets/empty_state.dart';
+import '../../../shared/widgets/ui/entity_tile.dart';
+import '../../../shared/widgets/ui/filter_bar.dart';
+import '../../../shared/widgets/ui/filter_option.dart';
+import '../../../shared/widgets/ui/page_header.dart';
 import '../providers/religious_tracking_providers.dart';
+import '../widgets/religious_entry_type_style.dart';
 
 class ReligiousHistoryScreen extends ConsumerStatefulWidget {
   static const routeName = '/religious/history';
@@ -28,111 +34,75 @@ class _ReligiousHistoryScreenState extends ConsumerState<ReligiousHistoryScreen>
     if (widget.embedded) {
       return Column(
         children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-            child: Align(
-              alignment: Alignment.centerLeft,
-              child: Text(
-                'History',
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
-              ),
-            ),
-          ),
+          const PageHeader(title: 'History'),
           Expanded(child: _buildBody(context)),
         ],
       );
     }
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Religious History'),
-      ),
+      appBar: AppBar(title: const Text('Religious History')),
       body: _buildBody(context),
     );
   }
 
   Widget _buildBody(BuildContext context) {
+    final tokens = AppThemeTokens.of(context);
     final state = ref.watch(religiousLogsControllerProvider);
 
     return Column(
-        children: [
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.all(12),
-            child: Row(
-              children: [
-                ChoiceChip(
-                  label: const Text('All'),
-                  selected: _filter == null,
-                  onSelected: (_) => setState(() => _filter = null),
-                ),
-                const SizedBox(width: 8),
-                ...ReligiousEntryType.values.map(
-                  (type) => Padding(
-                    padding: const EdgeInsets.only(right: 8),
-                    child: ChoiceChip(
-                      label: Text(_typeLabel(type)),
-                      selected: _filter == type,
-                      onSelected: (_) => setState(() => _filter = type),
-                    ),
-                  ),
-                ),
-              ],
-            ),
+      children: [
+        Padding(
+          padding: EdgeInsets.all(tokens.spacing.md),
+          child: FilterBar<ReligiousEntryType?>(
+            options: [
+              const FilterOption(null, 'All'),
+              for (final type in ReligiousEntryType.values) FilterOption(type, _typeLabel(type)),
+            ],
+            selected: _filter,
+            onSelected: (value) => setState(() => _filter = value),
           ),
-          Expanded(
-            child: state.when(
-              data: (logs) {
-                final filtered = _filter == null
-                    ? logs
-                    : logs.where((entry) => entry.type == _filter).toList(growable: false);
+        ),
+        Expanded(
+          child: state.when(
+            data: (logs) {
+              final filtered =
+                  _filter == null ? logs : logs.where((entry) => entry.type == _filter).toList(growable: false);
 
-                if (filtered.isEmpty) {
-                  return const EmptyState(
-                    title: 'No history yet',
-                    subtitle: 'Entries you log across the religious module will show up here.',
-                  );
-                }
-
-                return ListView.separated(
-                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                  itemCount: filtered.length,
-                  separatorBuilder: (context, index) => const SizedBox(height: 8),
-                  itemBuilder: (context, index) {
-                    final item = filtered[index];
-                    final color = _colorForType(context, item.type);
-                    return Card(
-                      child: ListTile(
-                        leading: Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: color.withValues(alpha: 0.15),
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: Icon(_iconForType(item.type), color: color, size: 20),
-                        ),
-                        title: Text(item.title),
-                        subtitle: Text(
-                          '${DateFormat('yyyy-MM-dd hh:mm a').format(item.loggedAt)}\n${item.details ?? ''}',
-                        ),
-                        isThreeLine: item.details != null && item.details!.trim().isNotEmpty,
-                        trailing: Text('x${item.count}'),
-                      ),
-                    );
-                  },
+              if (filtered.isEmpty) {
+                return const EmptyState(
+                  title: 'No history yet',
+                  subtitle: 'Entries you log across the religious module will show up here.',
                 );
-              },
-              loading: () => const Center(child: CircularProgressIndicator()),
-              error: (error, _) => AsyncErrorView(
-                error: error,
-                onRetry: () => ref.invalidate(religiousLogsControllerProvider),
-              ),
+              }
+
+              return ListView.separated(
+                padding: EdgeInsets.fromLTRB(tokens.spacing.lg, 0, tokens.spacing.lg, tokens.spacing.lg),
+                itemCount: filtered.length,
+                separatorBuilder: (context, index) => SizedBox(height: tokens.spacing.sm),
+                itemBuilder: (context, index) {
+                  final item = filtered[index];
+                  return EntityTile(
+                    icon: ReligiousEntryTypeStyle.icon(item.type),
+                    accentColor: ReligiousEntryTypeStyle.color(context, item.type),
+                    title: item.title,
+                    subtitle: '${AppDateFormatter.dateTime(item.loggedAt)}'
+                        '${item.details != null && item.details!.trim().isNotEmpty ? '\n${item.details}' : ''}',
+                    subtitleMaxLines: 3,
+                    trailing: Text('x${item.count}', style: Theme.of(context).textTheme.labelMedium),
+                  );
+                },
+              );
+            },
+            loading: () => const Center(child: CircularProgressIndicator()),
+            error: (error, _) => AsyncErrorView(
+              error: error,
+              onRetry: () => ref.invalidate(religiousLogsControllerProvider),
             ),
           ),
-        ],
-      );
+        ),
+      ],
+    );
   }
 
   String _typeLabel(ReligiousEntryType type) {
@@ -147,36 +117,6 @@ class _ReligiousHistoryScreenState extends ConsumerState<ReligiousHistoryScreen>
         return 'Athkar';
       case ReligiousEntryType.nightPrayer:
         return 'Night Prayer';
-    }
-  }
-
-  static IconData _iconForType(ReligiousEntryType type) {
-    switch (type) {
-      case ReligiousEntryType.prayer:
-        return Icons.mosque_outlined;
-      case ReligiousEntryType.quranReading:
-        return Icons.menu_book_outlined;
-      case ReligiousEntryType.badEvent:
-        return Icons.warning_amber_outlined;
-      case ReligiousEntryType.athkar:
-        return Icons.favorite_outline;
-      case ReligiousEntryType.nightPrayer:
-        return Icons.nights_stay_outlined;
-    }
-  }
-
-  static Color _colorForType(BuildContext context, ReligiousEntryType type) {
-    final scheme = Theme.of(context).colorScheme;
-    switch (type) {
-      case ReligiousEntryType.prayer:
-      case ReligiousEntryType.nightPrayer:
-        return scheme.primary;
-      case ReligiousEntryType.quranReading:
-        return scheme.secondary;
-      case ReligiousEntryType.athkar:
-        return scheme.tertiary;
-      case ReligiousEntryType.badEvent:
-        return scheme.error;
     }
   }
 }

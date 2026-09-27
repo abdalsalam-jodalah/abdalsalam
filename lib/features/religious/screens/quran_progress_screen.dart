@@ -1,12 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:intl/intl.dart';
 
 import '../../../core/errors/app_error.dart';
+import '../../../core/formatting/app_date_formatter.dart';
+import '../../../core/theme/app_theme_tokens.dart';
 import '../../../core/validation/validation_utils.dart';
 import '../../../shared/widgets/app_feedback.dart';
 import '../../../shared/widgets/async_error_view.dart';
 import '../../../shared/widgets/empty_state.dart';
+import '../../../shared/widgets/ui/app_card.dart';
+import '../../../shared/widgets/ui/app_form_dialog.dart';
+import '../../../shared/widgets/ui/entity_tile.dart';
 import '../providers/quran_providers.dart';
 
 class QuranProgressScreen extends ConsumerWidget {
@@ -16,6 +20,7 @@ class QuranProgressScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final tokens = AppThemeTokens.of(context);
     final state = ref.watch(quranProgressControllerProvider);
 
     return Scaffold(
@@ -36,49 +41,37 @@ class QuranProgressScreen extends ConsumerWidget {
           final scheme = Theme.of(context).colorScheme;
 
           return ListView(
-            padding: const EdgeInsets.all(16),
+            padding: EdgeInsets.all(tokens.spacing.lg),
             children: [
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Row(
-                        children: [
-                          Icon(Icons.menu_book_outlined, color: scheme.secondary, size: 20),
-                          const SizedBox(width: 8),
-                          const Text('Today total'),
-                        ],
-                      ),
-                      Text(
-                        '$totalPages pages / $totalMinutes min',
-                        style: Theme.of(context).textTheme.titleMedium,
-                      ),
-                    ],
-                  ),
+              AppCard(
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(Icons.menu_book_outlined, color: scheme.secondary),
+                        SizedBox(width: tokens.spacing.sm),
+                        const Text('Today total'),
+                      ],
+                    ),
+                    Text(
+                      '$totalPages pages / $totalMinutes min',
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                  ],
                 ),
               ),
-              const SizedBox(height: 12),
-              ...logs.map(
-                (log) => Card(
-                  margin: const EdgeInsets.only(bottom: 8),
-                  child: ListTile(
-                    leading: Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: scheme.secondary.withValues(alpha: 0.15),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Icon(Icons.menu_book_outlined, color: scheme.secondary, size: 20),
-                    ),
-                    title: Text('${log.pagesRead} pages'),
-                    subtitle: Text(
-                      '${log.minutesSpent} min - ${DateFormat('hh:mm a').format(log.loggedAt)}',
-                    ),
+              SizedBox(height: tokens.spacing.md),
+              for (final log in logs)
+                Padding(
+                  padding: EdgeInsets.only(bottom: tokens.spacing.sm),
+                  child: EntityTile(
+                    icon: Icons.menu_book_outlined,
+                    accentColor: scheme.secondary,
+                    title: '${log.pagesRead} pages',
+                    subtitle: '${log.minutesSpent} min - ${AppDateFormatter.time(log.loggedAt)}',
                   ),
                 ),
-              ),
             ],
           );
         },
@@ -180,9 +173,13 @@ class _QuranProgressDialogContentState extends State<_QuranProgressDialogContent
 
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text('Add Quran Progress'),
-      content: Form(
+    final tokens = AppThemeTokens.of(context);
+    return AppFormDialog(
+      title: 'Add Quran Progress',
+      submitLabel: 'Save',
+      isSubmitting: isSaving,
+      onSubmit: _save,
+      child: Form(
         key: _formKey,
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -193,7 +190,7 @@ class _QuranProgressDialogContentState extends State<_QuranProgressDialogContent
               decoration: const InputDecoration(labelText: 'Pages read'),
               validator: _validatePages,
             ),
-            const SizedBox(height: 12),
+            SizedBox(height: tokens.spacing.md),
             TextFormField(
               controller: minutesController,
               keyboardType: TextInputType.number,
@@ -203,22 +200,6 @@ class _QuranProgressDialogContentState extends State<_QuranProgressDialogContent
           ],
         ),
       ),
-      actions: [
-        TextButton(
-          onPressed: isSaving ? null : () => Navigator.of(context).pop(),
-          child: const Text('Cancel'),
-        ),
-        FilledButton(
-          onPressed: isSaving ? null : _save,
-          child: isSaving
-              ? const SizedBox(
-                  width: 16,
-                  height: 16,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : const Text('Save'),
-        ),
-      ],
     );
   }
 }

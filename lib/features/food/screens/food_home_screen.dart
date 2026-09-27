@@ -1,13 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/theme/app_module_accents.dart';
+import '../../../core/theme/app_theme_tokens.dart';
 import '../../../data/models/food/food_log.dart';
-import '../../../shared/widgets/async_error_view.dart';
+import '../../../shared/widgets/ui/app_card.dart';
+import '../../../shared/widgets/ui/app_section_header.dart';
+import '../../../shared/widgets/ui/async_section.dart';
+import '../../../shared/widgets/ui/entity_tile.dart';
+import '../../../shared/widgets/ui/page_header.dart';
 import '../providers/food_providers.dart';
 import 'food_log_form_screen.dart';
 
 class FoodHomeScreen extends ConsumerStatefulWidget {
   static const routeName = '/food/home';
+  static const String _pageTitle = 'Food Home';
+  static const String _dashboardTitle = 'Dashboard';
 
   /// When true, renders without its own [Scaffold]/[AppBar] for embedding
   /// inside the tabbed [FoodScreen] shell.
@@ -51,95 +59,89 @@ class _FoodHomeScreenState extends ConsumerState<FoodHomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final tokens = AppThemeTokens.of(context);
+    final accent = AppModuleAccents.forModule('food');
     final logs = ref.watch(foodLogsProvider);
     final stats = ref.watch(foodLogStatisticsProvider);
 
-    final body = ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
-        if (widget.embedded)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 12),
-            child: Text(
-              'Dashboard',
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
-            ),
-          ),
-        FilledButton.icon(
-          onPressed: () => Navigator.of(context).pushNamed(FoodLogFormScreen.routeName),
-          icon: const Icon(Icons.add),
-          label: const Text('Log Meal'),
-        ),
-        const SizedBox(height: 16),
-        Text("Today's Totals", style: Theme.of(context).textTheme.titleMedium),
-        const SizedBox(height: 8),
-        stats.when(
-          loading: () => const Center(child: CircularProgressIndicator()),
-          error: (error, _) => AsyncErrorView(
-            error: error,
-            isCompact: true,
-            onRetry: () => ref.invalidate(foodLogStatisticsProvider),
-          ),
-          data: (data) {
-            return Card(
-              child: Padding(
-                padding: const EdgeInsets.all(12),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('Calories: ${_formatValue(data['todayCalories'])} kcal'),
-                    Text('Protein: ${_formatValue(data['todayProteinGrams'])} g'),
-                    Text('Fat: ${_formatValue(data['todayFatGrams'])} g'),
-                    Text('Carbs: ${_formatValue(data['todayCarbGrams'])} g'),
-                  ],
-                ),
-              ),
-            );
-          },
-        ),
-        const SizedBox(height: 16),
-        Text("Today's Meals", style: Theme.of(context).textTheme.titleMedium),
-        const SizedBox(height: 8),
-        logs.when(
-          loading: () => const Center(child: CircularProgressIndicator()),
-          error: (error, _) => AsyncErrorView(
-            error: error,
-            isCompact: true,
-            onRetry: () => ref.invalidate(foodLogsProvider),
-          ),
-          data: (allLogs) {
-            final groups = _groupTodayByCategory(allLogs);
-            if (groups.isEmpty) {
-              return const Text('No meals logged today.');
-            }
-            return Column(
+    final sections = [
+      FilledButton.icon(
+        onPressed: () => Navigator.of(context).pushNamed(FoodLogFormScreen.routeName),
+        icon: const Icon(Icons.add),
+        label: const Text('Log Meal'),
+      ),
+      AsyncSection(
+        title: "Today's Totals",
+        value: stats,
+        onRetry: () => ref.invalidate(foodLogStatisticsProvider),
+        builder: (data) {
+          return AppCard(
+            child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                for (final entry in groups.entries) ...[
-                  Text(entry.key, style: Theme.of(context).textTheme.titleSmall),
-                  ...entry.value.map((log) => Card(
-                        child: ListTile(
-                          leading: const Icon(Icons.restaurant_outlined),
-                          title: Text(log.dishName),
-                          subtitle: Text(log.quantity),
-                          trailing: IconButton(
-                            icon: const Icon(Icons.repeat),
-                            onPressed: () => _logAgain(log),
-                          ),
-                        ),
-                      )),
-                  const SizedBox(height: 8),
+                Text('Calories: ${_formatValue(data['todayCalories'])} kcal'),
+                Text('Protein: ${_formatValue(data['todayProteinGrams'])} g'),
+                Text('Fat: ${_formatValue(data['todayFatGrams'])} g'),
+                Text('Carbs: ${_formatValue(data['todayCarbGrams'])} g'),
+              ],
+            ),
+          );
+        },
+      ),
+      AsyncSection(
+        title: "Today's Meals",
+        value: logs,
+        onRetry: () => ref.invalidate(foodLogsProvider),
+        builder: (allLogs) {
+          final groups = _groupTodayByCategory(allLogs);
+          if (groups.isEmpty) {
+            return const Text('No meals logged today.');
+          }
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              for (final entry in groups.entries) ...[
+                AppSectionHeader(title: entry.key),
+                for (final log in entry.value) ...[
+                  EntityTile(
+                    icon: Icons.restaurant_outlined,
+                    accentColor: accent,
+                    title: log.dishName,
+                    subtitle: log.quantity,
+                    trailing: IconButton(
+                      icon: const Icon(Icons.repeat),
+                      onPressed: () => _logAgain(log),
+                    ),
+                  ),
+                  SizedBox(height: tokens.spacing.sm),
                 ],
               ],
-            );
-          },
-        ),
-      ],
-    );
+            ],
+          );
+        },
+      ),
+    ];
 
     if (widget.embedded) {
-      return body;
+      return ListView(
+        children: [
+          const PageHeader(title: FoodHomeScreen._dashboardTitle),
+          Padding(
+            padding: EdgeInsets.symmetric(horizontal: tokens.spacing.lg),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [for (final section in sections) ...[section, SizedBox(height: tokens.spacing.lg)]],
+            ),
+          ),
+        ],
+      );
     }
-    return Scaffold(appBar: AppBar(title: const Text('Food Home')), body: body);
+    return Scaffold(
+      appBar: AppBar(title: const Text(FoodHomeScreen._pageTitle)),
+      body: ListView(
+        padding: EdgeInsets.all(tokens.spacing.lg),
+        children: [for (final section in sections) ...[section, SizedBox(height: tokens.spacing.lg)]],
+      ),
+    );
   }
 }

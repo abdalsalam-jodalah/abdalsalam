@@ -180,6 +180,10 @@ class FakeAthkarService extends Fake implements AthkarService {
 
   @override
   Future<Result<void, AppError>> deleteCustomAthkar(String id) async => deleteCustomAthkarResult;
+
+  @override
+  Future<Result<void, AppError>> scheduleSuggestionReminders({required String userId}) async =>
+      const Success(null);
 }
 
 class FakeQuranReadingRepository extends Fake implements QuranReadingRepository {

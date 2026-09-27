@@ -4,12 +4,20 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/errors/app_error.dart';
+import '../../../core/theme/app_module_accents.dart';
+import '../../../core/theme/app_theme_tokens.dart';
 import '../../../data/models/health/medication.dart';
 import '../../../shared/widgets/app_feedback.dart';
 import '../../../shared/widgets/async_error_view.dart';
+import '../../../shared/widgets/empty_state.dart';
+import '../../../shared/widgets/ui/app_card.dart';
+import '../../../shared/widgets/ui/show_confirm_dialog.dart';
+import '../../../shared/widgets/ui/stat_grid.dart';
+import '../../../shared/widgets/ui/stat_tile.dart';
 import '../providers/health_providers.dart';
 import '../services/health_service.dart';
 import '../services/medication_service.dart';
+import '../widgets/medication_tile.dart';
 import 'medication_form_screen.dart';
 
 class MedicationListScreen extends ConsumerStatefulWidget {
@@ -188,25 +196,15 @@ class _MedicationListScreenState extends ConsumerState<MedicationListScreen> wit
   }
 
   Future<void> _resetAll() async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Reset All Checks'),
-        content: const Text('Are you sure you want to uncheck all medications for today?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext, false),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(dialogContext, true),
-            child: const Text('Reset'),
-          ),
-        ],
-      ),
+    final confirmed = await showConfirmDialog(
+      context,
+      title: 'Reset All Checks',
+      message: 'Are you sure you want to uncheck all medications for today?',
+      confirmLabel: 'Reset',
+      icon: Icons.refresh_rounded,
     );
 
-    if (confirmed != true) {
+    if (!confirmed) {
       return;
     }
     final result = await _service.resetDailyLogs(_selectedDate);
@@ -237,6 +235,7 @@ class _MedicationListScreenState extends ConsumerState<MedicationListScreen> wit
 
   @override
   Widget build(BuildContext context) {
+    final tokens = AppThemeTokens.of(context);
     final tabBar = TabBar(
       controller: _tabController,
       tabs: const [
@@ -277,7 +276,7 @@ class _MedicationListScreenState extends ConsumerState<MedicationListScreen> wit
               Expanded(child: tabContent),
             ],
           ),
-          Positioned(right: 16, bottom: 16, child: fab),
+          Positioned(right: tokens.spacing.lg, bottom: tokens.spacing.lg, child: fab),
         ],
       );
     }
@@ -290,38 +289,21 @@ class _MedicationListScreenState extends ConsumerState<MedicationListScreen> wit
   }
 
   Widget _buildDailyChecklistTab() {
+    final tokens = AppThemeTokens.of(context);
     return _dailyChecklist.isEmpty
-        ? Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  Icons.medication_outlined,
-                  size: 64,
-                  color: Theme.of(context).colorScheme.outline,
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  'No medications scheduled for this day',
-                  style: Theme.of(context).textTheme.bodyLarge,
-                ),
-              ],
-            ),
+        ? const EmptyState(
+            title: 'No medications scheduled for this day',
+            subtitle: 'Enjoy a day off from tracking.',
+            icon: Icons.medication_outlined,
           )
         : ListView(
-            padding: const EdgeInsets.all(16),
+            padding: EdgeInsets.all(tokens.spacing.lg),
             children: [
-              // Date selector
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                  borderRadius: BorderRadius.circular(12),
-                ),
+              AppCard(
                 child: Row(
                   children: [
                     IconButton(
-                      icon: const Icon(Icons.chevron_left),
+                      icon: const Icon(Icons.chevron_left_rounded),
                       onPressed: () async {
                         setState(() {
                           _selectedDate = _selectedDate.subtract(const Duration(days: 1));
@@ -337,7 +319,7 @@ class _MedicationListScreenState extends ConsumerState<MedicationListScreen> wit
                       ),
                     ),
                     IconButton(
-                      icon: const Icon(Icons.chevron_right),
+                      icon: const Icon(Icons.chevron_right_rounded),
                       onPressed: () async {
                         setState(() {
                           _selectedDate = _selectedDate.add(const Duration(days: 1));
@@ -346,7 +328,7 @@ class _MedicationListScreenState extends ConsumerState<MedicationListScreen> wit
                       },
                     ),
                     IconButton(
-                      icon: const Icon(Icons.today),
+                      icon: const Icon(Icons.today_rounded),
                       onPressed: () async {
                         setState(() {
                           _selectedDate = DateTime.now();
@@ -357,137 +339,92 @@ class _MedicationListScreenState extends ConsumerState<MedicationListScreen> wit
                   ],
                 ),
               ),
-              
-              const SizedBox(height: 16),
-              
-              // Stats
+              SizedBox(height: tokens.spacing.lg),
               if (_stats.isNotEmpty)
-                Row(
+                StatGrid(
                   children: [
-                    Expanded(
-                      child: _StatCard(
-                        label: 'Taken',
-                        value: '${_stats['todayTaken']}/${_stats['todayTotal']}',
-                        icon: Icons.check_circle,
-                        color: Colors.green,
-                      ),
+                    StatTile(
+                      icon: Icons.check_circle_rounded,
+                      label: 'Taken',
+                      value: '${_stats['todayTaken']}/${_stats['todayTotal']}',
+                      accentColor: tokens.colors.success,
                     ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: _StatCard(
-                        label: 'Pending',
-                        value: '${_stats['todayPending']}',
-                        icon: Icons.pending,
-                        color: Colors.orange,
-                      ),
+                    StatTile(
+                      icon: Icons.pending_rounded,
+                      label: 'Pending',
+                      value: '${_stats['todayPending']}',
+                      accentColor: tokens.colors.warning,
                     ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: _StatCard(
-                        label: 'Adherence',
-                        value: '${_stats['adherenceRate']}%',
-                        icon: Icons.trending_up,
-                        color: Colors.blue,
-                      ),
+                    StatTile(
+                      icon: Icons.trending_up_rounded,
+                      label: 'Adherence',
+                      value: '${_stats['adherenceRate']}%',
+                      accentColor: tokens.colors.info,
                     ),
                   ],
                 ),
-              
-              if (_stats.isNotEmpty) const SizedBox(height: 16),
-              
-              // Reset button
+              if (_stats.isNotEmpty) SizedBox(height: tokens.spacing.lg),
               OutlinedButton.icon(
                 onPressed: _dailyChecklist.isEmpty ? null : _resetAll,
                 icon: const Icon(Icons.refresh),
                 label: const Text('Reset All Checks'),
               ),
-              
-              const SizedBox(height: 16),
-              
-              // Checklist items
-              ..._dailyChecklist.map((check) => Padding(
-                    padding: const EdgeInsets.only(bottom: 8),
-                    child: _ChecklistItem(
-                      check: check,
-                      onToggle: () => _toggleCheck(check),
-                    ),
-                  )),
+              SizedBox(height: tokens.spacing.lg),
+              for (final check in _dailyChecklist) ...[
+                _ChecklistItem(check: check, onToggle: () => _toggleCheck(check)),
+                SizedBox(height: tokens.spacing.sm),
+              ],
             ],
           );
   }
 
   Widget _buildManageTab() {
+    final tokens = AppThemeTokens.of(context);
     return _medications.isEmpty
-        ? Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  Icons.medication_outlined,
-                  size: 64,
-                  color: Theme.of(context).colorScheme.outline,
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  'No medications added yet',
-                  style: Theme.of(context).textTheme.bodyLarge,
-                ),
-                const SizedBox(height: 8),
-                const Text('Tap + to add your first medication'),
-              ],
-            ),
+        ? const EmptyState(
+            title: 'No medications added yet',
+            subtitle: 'Tap + to add your first medication',
+            icon: Icons.medication_outlined,
           )
         : CustomScrollView(
             slivers: [
               SliverToBoxAdapter(
-                child: Column(
-                  children: [
-                    if (_stats.isNotEmpty)
-                      Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: Card(
-                          child: Padding(
-                            padding: const EdgeInsets.all(16),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceAround,
-                              children: [
-                                Column(
-                                  children: [
-                                    Text(
-                                      '${_stats['activeMedications']}',
-                                      style: Theme.of(context).textTheme.headlineMedium,
-                                    ),
-                                    const Text('Active'),
-                                  ],
-                                ),
-                                Column(
-                                  children: [
-                                    Text(
-                                      '${_medications.where((m) => !m.isActive).length}',
-                                      style: Theme.of(context).textTheme.headlineMedium,
-                                    ),
-                                    const Text('Paused'),
-                                  ],
-                                ),
-                              ],
-                            ),
+                child: Padding(
+                  padding: EdgeInsets.fromLTRB(tokens.spacing.lg, tokens.spacing.lg, tokens.spacing.lg, 0),
+                  child: Column(
+                    children: [
+                      if (_stats.isNotEmpty)
+                        Padding(
+                          padding: EdgeInsets.only(bottom: tokens.spacing.md),
+                          child: StatGrid(
+                            children: [
+                              StatTile(
+                                icon: Icons.check_circle_outline_rounded,
+                                label: 'Active',
+                                value: '${_stats['activeMedications']}',
+                                accentColor: tokens.colors.success,
+                              ),
+                              StatTile(
+                                icon: Icons.pause_circle_outline_rounded,
+                                label: 'Paused',
+                                value: '${_medications.where((m) => !m.isActive).length}',
+                                accentColor: tokens.colors.muted,
+                              ),
+                            ],
                           ),
                         ),
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          'Long press and drag to reorder',
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
                       ),
-                    
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: Text(
-                        'Long press and drag to reorder',
-                        style: Theme.of(context).textTheme.bodySmall,
-                      ),
-                    ),
-                    
-                    const SizedBox(height: 8),
-                  ],
+                      SizedBox(height: tokens.spacing.sm),
+                    ],
+                  ),
                 ),
               ),
-              
               SliverReorderableList(
                 itemCount: _medications.length,
                 onReorderItem: _reorderMedications,
@@ -495,8 +432,8 @@ class _MedicationListScreenState extends ConsumerState<MedicationListScreen> wit
                   final med = _medications[index];
                   return Padding(
                     key: ValueKey(med.id),
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                    child: _MedicationCard(
+                    padding: EdgeInsets.symmetric(horizontal: tokens.spacing.lg, vertical: tokens.spacing.xs),
+                    child: MedicationTile(
                       medication: med,
                       onToggleActive: () async {
                         final result = await _service.toggleActive(med.id);
@@ -563,45 +500,6 @@ class _MedicationListScreenState extends ConsumerState<MedicationListScreen> wit
   }
 }
 
-class _StatCard extends StatelessWidget {
-  final String label;
-  final String value;
-  final IconData icon;
-  final Color color;
-
-  const _StatCard({
-    required this.label,
-    required this.value,
-    required this.icon,
-    required this.color,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          children: [
-            Icon(icon, color: color, size: 24),
-            const SizedBox(height: 4),
-            Text(
-              value,
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
-            ),
-            Text(
-              label,
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
 class _ChecklistItem extends StatelessWidget {
   final DailyMedicationCheck check;
   final VoidCallback onToggle;
@@ -613,8 +511,10 @@ class _ChecklistItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 8),
+    final tokens = AppThemeTokens.of(context);
+    final accent = AppModuleAccents.forModule('health');
+    return AppCard(
+      padding: EdgeInsets.zero,
       child: CheckboxListTile(
         value: check.isChecked,
         onChanged: (_) => onToggle(),
@@ -622,91 +522,7 @@ class _ChecklistItem extends StatelessWidget {
         subtitle: Text('${check.dosage} • ${check.displayTime}'),
         secondary: Icon(
           Icons.medication,
-          color: check.isChecked ? Colors.green : Colors.grey,
-        ),
-      ),
-    );
-  }
-}
-
-class _MedicationCard extends StatelessWidget {
-  final Medication medication;
-  final VoidCallback onToggleActive;
-  final VoidCallback onEdit;
-  final VoidCallback onDelete;
-
-  const _MedicationCard({
-    required this.medication,
-    required this.onToggleActive,
-    required this.onEdit,
-    required this.onDelete,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 8),
-      child: ListTile(
-        leading: Icon(
-          Icons.drag_handle,
-          color: Theme.of(context).colorScheme.outline,
-        ),
-        title: Text(
-          medication.name,
-          style: TextStyle(
-            decoration: medication.isActive ? null : TextDecoration.lineThrough,
-          ),
-        ),
-        subtitle: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('${medication.dosage} • ${medication.frequency}'),
-            Text('Times: ${medication.reminderTimes.join(", ")}'),
-            if (medication.timing != MedicationTiming.anytime)
-              Text('Take: ${medication.timingLabel}', style: TextStyle(fontSize: 12, color: Colors.grey[600])),
-            if (medication.frequency == 'Weekly' && medication.weekDays.isNotEmpty)
-              Text('Days: ${medication.weekDaysLabel}', style: TextStyle(fontSize: 12, color: Colors.grey[600])),
-          ],
-        ),
-        trailing: PopupMenuButton(
-          itemBuilder: (context) => [
-            PopupMenuItem<void>(
-              child: Row(
-                children: [
-                  Icon(medication.isActive ? Icons.pause : Icons.play_arrow),
-                  const SizedBox(width: 8),
-                  Text(medication.isActive ? 'Pause' : 'Resume'),
-                ],
-              ),
-              onTap: () {
-                Future.delayed(Duration.zero, onToggleActive);
-              },
-            ),
-            PopupMenuItem<void>(
-              child: const Row(
-                children: [
-                  Icon(Icons.edit),
-                  SizedBox(width: 8),
-                  Text('Edit'),
-                ],
-              ),
-              onTap: () {
-                Future.delayed(Duration.zero, onEdit);
-              },
-            ),
-            PopupMenuItem<void>(
-              child: const Row(
-                children: [
-                  Icon(Icons.delete, color: Colors.red),
-                  SizedBox(width: 8),
-                  Text('Delete', style: TextStyle(color: Colors.red)),
-                ],
-              ),
-              onTap: () {
-                Future.delayed(Duration.zero, onDelete);
-              },
-            ),
-          ],
+          color: check.isChecked ? tokens.colors.success : accent,
         ),
       ),
     );

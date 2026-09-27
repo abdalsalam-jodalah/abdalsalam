@@ -1,7 +1,13 @@
-// lib/features/religious/widgets/prayer_time_card.dart
 import 'package:flutter/material.dart';
 
+import '../../../core/theme/app_theme_tokens.dart';
+
 class PrayerTimeCard extends StatelessWidget {
+  static const double _width = 84;
+  static const double _iconSize = 18;
+  static const double _mutedOpacity = 0.85;
+  static const double _inactiveTintOpacity = 0.4;
+
   final String prayerName;
   final DateTime time;
   final bool isNext;
@@ -17,16 +23,19 @@ class PrayerTimeCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
+    final tokens = AppThemeTokens.of(context);
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
     final foreground = isNext ? scheme.onPrimary : scheme.onSurface;
-    final muted = isNext ? scheme.onPrimary.withValues(alpha: 0.85) : scheme.onSurfaceVariant;
+    final muted = isNext ? scheme.onPrimary.withValues(alpha: _mutedOpacity) : scheme.onSurfaceVariant;
+    final contentColor = isPast && !isNext ? muted : foreground;
 
     return Container(
-      width: 84,
-      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 8),
+      width: _width,
+      padding: EdgeInsets.symmetric(vertical: tokens.spacing.md, horizontal: tokens.spacing.sm),
       decoration: BoxDecoration(
-        color: isNext ? scheme.primary : scheme.surfaceContainerHighest.withValues(alpha: 0.4),
-        borderRadius: BorderRadius.circular(16),
+        color: isNext ? scheme.primary : scheme.surfaceContainerHighest.withValues(alpha: _inactiveTintOpacity),
+        borderRadius: tokens.radius.largeBorder,
         border: isNext ? null : Border.all(color: scheme.outlineVariant),
       ),
       child: Column(
@@ -34,23 +43,21 @@ class PrayerTimeCard extends StatelessWidget {
         children: [
           Icon(
             isNext ? Icons.notifications_active_outlined : Icons.access_time,
-            size: 18,
-            color: isPast && !isNext ? muted : foreground,
+            size: _iconSize,
+            color: contentColor,
           ),
-          const SizedBox(height: 6),
+          SizedBox(height: tokens.spacing.xs),
           Text(
             prayerName,
-            style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                  color: isPast && !isNext ? muted : foreground,
-                  fontWeight: isNext ? FontWeight.bold : FontWeight.w500,
-                ),
+            style: theme.textTheme.labelMedium?.copyWith(
+              color: contentColor,
+              fontWeight: isNext ? FontWeight.bold : FontWeight.w500,
+            ),
           ),
-          const SizedBox(height: 2),
+          SizedBox(height: tokens.spacing.xs / 2),
           Text(
             TimeOfDay.fromDateTime(time).format(context),
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: isPast && !isNext ? muted : foreground,
-                ),
+            style: theme.textTheme.bodySmall?.copyWith(color: contentColor),
           ),
         ],
       ),

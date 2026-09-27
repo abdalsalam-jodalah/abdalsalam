@@ -4,11 +4,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/errors/app_error.dart';
+import '../../../core/theme/app_theme_tokens.dart';
 import '../../../core/validation/validation_utils.dart';
 import '../../../data/models/religious/athkar_content.dart';
 import '../../../shared/widgets/app_feedback.dart';
 import '../../../shared/widgets/async_error_view.dart';
 import '../../../shared/widgets/empty_state.dart';
+import '../../../shared/widgets/ui/app_card.dart';
+import '../../../shared/widgets/ui/app_form_dialog.dart';
+import '../../../shared/widgets/ui/page_header.dart';
+import '../../../shared/widgets/ui/progress_bar.dart';
 import '../providers/athkar_providers.dart';
 import '../providers/prayer_providers.dart';
 import 'athkar_history_screen.dart';
@@ -26,8 +31,9 @@ class AthkarScreen extends ConsumerStatefulWidget {
   ConsumerState<AthkarScreen> createState() => _AthkarScreenState();
 }
 
-class _AthkarScreenState extends ConsumerState<AthkarScreen>
-    with SingleTickerProviderStateMixin {
+class _AthkarScreenState extends ConsumerState<AthkarScreen> with SingleTickerProviderStateMixin {
+  static const double _historyTabIconSize = 18;
+
   late final TabController _tabController;
 
   static const _categories = AthkarCategory.values;
@@ -55,7 +61,7 @@ class _AthkarScreenState extends ConsumerState<AthkarScreen>
       isScrollable: true,
       tabs: [
         ..._categories.map((c) => Tab(text: athkarCategoryLabel(c))),
-        const Tab(text: 'History', icon: Icon(Icons.history, size: 18)),
+        const Tab(text: 'History', icon: Icon(Icons.history, size: _historyTabIconSize)),
       ],
     );
     final tabBarView = TabBarView(
@@ -69,24 +75,15 @@ class _AthkarScreenState extends ConsumerState<AthkarScreen>
     if (widget.embedded) {
       return Column(
         children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 16, 8, 0),
-            child: Row(
-              children: [
-                Text(
-                  'Athkar',
-                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
-                ),
-                const Spacer(),
-                IconButton(
-                  icon: const Icon(Icons.add),
-                  tooltip: 'Add Custom Athkar',
-                  onPressed: () => _showAddCustomDialog(context, ref),
-                ),
-              ],
-            ),
+          PageHeader(
+            title: 'Athkar',
+            actions: [
+              IconButton(
+                icon: const Icon(Icons.add),
+                tooltip: 'Add Custom Athkar',
+                onPressed: () => _showAddCustomDialog(context, ref),
+              ),
+            ],
           ),
           tabBar,
           Expanded(child: tabBarView),
@@ -199,69 +196,55 @@ class _CustomAthkarDialogContentState extends State<_CustomAthkarDialogContent> 
 
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text('Add Custom Athkar'),
-      content: SingleChildScrollView(
-        child: Form(
-          key: _formKey,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextFormField(
-                controller: arabicController,
-                textDirection: TextDirection.rtl,
-                decoration: const InputDecoration(labelText: 'Arabic text'),
-                maxLines: 3,
-                validator: _validateArabicText,
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: transliterationController,
-                decoration: const InputDecoration(labelText: 'Transliteration (optional)'),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: translationController,
-                decoration: const InputDecoration(labelText: 'Translation (optional)'),
-              ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: targetCountController,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(labelText: 'Target count'),
-                validator: _validateTargetCount,
-              ),
-              const SizedBox(height: 12),
-              DropdownButtonFormField<AthkarCategory>(
-                initialValue: selectedCategory,
-                decoration: const InputDecoration(labelText: 'Category'),
-                items: _categories.map((c) => DropdownMenuItem(value: c, child: Text(athkarCategoryLabel(c)))).toList(),
-                onChanged: (value) {
-                  if (value != null) {
-                    setState(() => selectedCategory = value);
-                  }
-                },
-              ),
-            ],
-          ),
+    final tokens = AppThemeTokens.of(context);
+    return AppFormDialog(
+      title: 'Add Custom Athkar',
+      submitLabel: 'Save',
+      isSubmitting: isSaving,
+      onSubmit: _save,
+      child: Form(
+        key: _formKey,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextFormField(
+              controller: arabicController,
+              textDirection: TextDirection.rtl,
+              decoration: const InputDecoration(labelText: 'Arabic text'),
+              maxLines: 3,
+              validator: _validateArabicText,
+            ),
+            SizedBox(height: tokens.spacing.md),
+            TextField(
+              controller: transliterationController,
+              decoration: const InputDecoration(labelText: 'Transliteration (optional)'),
+            ),
+            SizedBox(height: tokens.spacing.md),
+            TextField(
+              controller: translationController,
+              decoration: const InputDecoration(labelText: 'Translation (optional)'),
+            ),
+            SizedBox(height: tokens.spacing.md),
+            TextFormField(
+              controller: targetCountController,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(labelText: 'Target count'),
+              validator: _validateTargetCount,
+            ),
+            SizedBox(height: tokens.spacing.md),
+            DropdownButtonFormField<AthkarCategory>(
+              initialValue: selectedCategory,
+              decoration: const InputDecoration(labelText: 'Category'),
+              items: _categories.map((c) => DropdownMenuItem(value: c, child: Text(athkarCategoryLabel(c)))).toList(),
+              onChanged: (value) {
+                if (value != null) {
+                  setState(() => selectedCategory = value);
+                }
+              },
+            ),
+          ],
         ),
       ),
-      actions: [
-        TextButton(
-          onPressed: isSaving ? null : () => Navigator.of(context).pop(),
-          child: const Text('Cancel'),
-        ),
-        FilledButton(
-          onPressed: isSaving ? null : _save,
-          child: isSaving
-              ? const SizedBox(
-                  width: 16,
-                  height: 16,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : const Text('Save'),
-        ),
-      ],
     );
   }
 }
@@ -273,6 +256,7 @@ class _CategoryTab extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final tokens = AppThemeTokens.of(context);
     final entriesAsync = ref.watch(athkarCategoryProvider(category));
 
     return entriesAsync.when(
@@ -284,9 +268,12 @@ class _CategoryTab extends ConsumerWidget {
           );
         }
         return ListView.builder(
-          padding: const EdgeInsets.all(16),
+          padding: EdgeInsets.all(tokens.spacing.lg),
           itemCount: entries.length,
-          itemBuilder: (context, index) => _AthkarCard(content: entries[index]),
+          itemBuilder: (context, index) => Padding(
+            padding: EdgeInsets.only(bottom: tokens.spacing.md),
+            child: _AthkarCard(content: entries[index]),
+          ),
         );
       },
       loading: () => const Center(child: CircularProgressIndicator()),
@@ -308,112 +295,97 @@ class _AthkarCard extends ConsumerStatefulWidget {
 }
 
 class _AthkarCardState extends ConsumerState<_AthkarCard> {
+  static const double _arabicLineHeight = 1.6;
+  static const String _loggedMessage = 'Athkar logged';
+
   int _done = 0;
 
   @override
   Widget build(BuildContext context) {
+    final tokens = AppThemeTokens.of(context);
+    final theme = Theme.of(context);
     final content = widget.content;
     final completed = _done >= content.targetCount;
-    final scheme = Theme.of(context).colorScheme;
+    final scheme = theme.colorScheme;
     final progress = content.targetCount == 0 ? 0.0 : (_done / content.targetCount).clamp(0, 1).toDouble();
 
-    return Card(
-      margin: const EdgeInsets.only(bottom: 12),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
+    return AppCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            content.arabicText,
+            textDirection: TextDirection.rtl,
+            textAlign: TextAlign.right,
+            style: theme.textTheme.bodyLarge?.copyWith(height: _arabicLineHeight),
+          ),
+          if (content.transliteration != null) ...[
+            SizedBox(height: tokens.spacing.sm),
             Text(
-              content.arabicText,
-              textDirection: TextDirection.rtl,
-              textAlign: TextAlign.right,
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
-            if (content.transliteration != null) ...[
-              const SizedBox(height: 8),
-              Text(
-                content.transliteration!,
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      fontStyle: FontStyle.italic,
-                    ),
-              ),
-            ],
-            if (content.translation != null) ...[
-              const SizedBox(height: 4),
-              Text(content.translation!, style: Theme.of(context).textTheme.bodySmall),
-            ],
-            const SizedBox(height: 12),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(4),
-              child: LinearProgressIndicator(
-                value: progress,
-                minHeight: 6,
-                backgroundColor: scheme.surfaceContainerHighest,
-                color: completed ? scheme.primary : scheme.tertiary,
-              ),
-            ),
-            const SizedBox(height: 10),
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    '$_done / ${content.targetCount}'
-                    '${content.reference != null ? ' • ${content.reference}' : ''}',
-                    style: Theme.of(context).textTheme.labelMedium,
-                  ),
-                ),
-                IconButton.filledTonal(
-                  onPressed: completed
-                      ? null
-                      : () => setState(() => _done = _done + 1),
-                  icon: const Icon(Icons.add),
-                  tooltip: 'Count one',
-                ),
-                const SizedBox(width: 6),
-                IconButton.filledTonal(
-                  onPressed: !completed
-                      ? null
-                      : () async {
-                          final error = await ref
-                              .read(athkarLogsControllerProvider.notifier)
-                              .logCompletion(content: content, countDone: _done);
-                          if (!context.mounted) return;
-                          if (error != null) {
-                            AppFeedback.showError(context, error);
-                          } else {
-                            AppFeedback.showSuccess(context, 'Athkar logged');
-                            setState(() => _done = 0);
-                          }
-                        },
-                  icon: const Icon(Icons.check),
-                  tooltip: 'Log completion',
-                  style: completed
-                      ? IconButton.styleFrom(
-                          backgroundColor: scheme.primary,
-                          foregroundColor: scheme.onPrimary,
-                        )
-                      : null,
-                ),
-                if (content.isCustom) ...[
-                  const SizedBox(width: 6),
-                  IconButton(
-                    onPressed: () async {
-                      final error = await ref
-                          .read(athkarLogsControllerProvider.notifier)
-                          .deleteCustomAthkar(content.id);
-                      if (error != null && context.mounted) {
-                        AppFeedback.showError(context, error);
-                      }
-                    },
-                    icon: Icon(Icons.delete_outline, color: scheme.error),
-                    tooltip: 'Delete',
-                  ),
-                ],
-              ],
+              content.transliteration!,
+              style: theme.textTheme.bodySmall?.copyWith(fontStyle: FontStyle.italic),
             ),
           ],
-        ),
+          if (content.translation != null) ...[
+            SizedBox(height: tokens.spacing.xs),
+            Text(content.translation!, style: theme.textTheme.bodySmall),
+          ],
+          SizedBox(height: tokens.spacing.md),
+          ProgressBar(value: progress, color: completed ? scheme.primary : scheme.tertiary),
+          SizedBox(height: tokens.spacing.sm),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  '$_done / ${content.targetCount}'
+                  '${content.reference != null ? ' • ${content.reference}' : ''}',
+                  style: theme.textTheme.labelMedium,
+                ),
+              ),
+              IconButton.filledTonal(
+                onPressed: completed ? null : () => setState(() => _done = _done + 1),
+                icon: const Icon(Icons.add),
+                tooltip: 'Count one',
+              ),
+              SizedBox(width: tokens.spacing.xs),
+              IconButton.filledTonal(
+                onPressed: !completed
+                    ? null
+                    : () async {
+                        final error = await ref
+                            .read(athkarLogsControllerProvider.notifier)
+                            .logCompletion(content: content, countDone: _done);
+                        if (!context.mounted) return;
+                        if (error != null) {
+                          AppFeedback.showError(context, error);
+                        } else {
+                          AppFeedback.showSuccess(context, _loggedMessage);
+                          setState(() => _done = 0);
+                        }
+                      },
+                icon: const Icon(Icons.check),
+                tooltip: 'Log completion',
+                style: completed
+                    ? IconButton.styleFrom(backgroundColor: scheme.primary, foregroundColor: scheme.onPrimary)
+                    : null,
+              ),
+              if (content.isCustom) ...[
+                SizedBox(width: tokens.spacing.xs),
+                IconButton(
+                  onPressed: () async {
+                    final error =
+                        await ref.read(athkarLogsControllerProvider.notifier).deleteCustomAthkar(content.id);
+                    if (error != null && context.mounted) {
+                      AppFeedback.showError(context, error);
+                    }
+                  },
+                  icon: Icon(Icons.delete_outline, color: tokens.colors.danger),
+                  tooltip: 'Delete',
+                ),
+              ],
+            ],
+          ),
+        ],
       ),
     );
   }

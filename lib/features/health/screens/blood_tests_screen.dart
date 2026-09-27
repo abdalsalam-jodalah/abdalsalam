@@ -1,9 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/formatting/app_date_formatter.dart';
+import '../../../core/theme/app_module_accents.dart';
+import '../../../core/theme/app_theme_tokens.dart';
 import '../../../data/models/health/blood_test.dart';
 import '../../../shared/widgets/app_feedback.dart';
 import '../../../shared/widgets/async_error_view.dart';
+import '../../../shared/widgets/ui/app_section_header.dart';
+import '../../../shared/widgets/ui/entity_tile.dart';
+import '../../../shared/widgets/ui/page_header.dart';
 import '../providers/health_providers.dart';
 import 'blood_test_form_screen.dart';
 
@@ -45,11 +51,10 @@ class _BloodTestsScreenState extends ConsumerState<BloodTestsScreen> {
     }
   }
 
-  String _formatDate(DateTime date) =>
-      '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
-
   @override
   Widget build(BuildContext context) {
+    final tokens = AppThemeTokens.of(context);
+    final accent = AppModuleAccents.forModule('health');
     final testsAsync = ref.watch(bloodTestsProvider);
     final statsAsync = ref.watch(bloodTestStatisticsProvider);
 
@@ -71,46 +76,69 @@ class _BloodTestsScreenState extends ConsumerState<BloodTestsScreen> {
           ..sort((a, b) => b.completedDate!.compareTo(a.completedDate!));
 
         return ListView(
-          padding: const EdgeInsets.all(16),
           children: [
-            if (widget.embedded)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: Text(
-                  'Blood Tests',
-                  style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
-                ),
+            if (widget.embedded) const PageHeader(title: 'Blood Tests'),
+            Padding(
+              padding: EdgeInsets.fromLTRB(
+                tokens.spacing.lg,
+                widget.embedded ? 0 : tokens.spacing.lg,
+                tokens.spacing.lg,
+                tokens.spacing.lg,
               ),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                Chip(label: Text('Scheduled: ${stats['scheduledCount'] ?? scheduled.length}')),
-                Chip(label: Text('Completed: ${stats['completedCount'] ?? completed.length}')),
-              ],
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Wrap(
+                    spacing: tokens.spacing.sm,
+                    runSpacing: tokens.spacing.sm,
+                    children: [
+                      Chip(label: Text('Scheduled: ${stats['scheduledCount'] ?? scheduled.length}')),
+                      Chip(label: Text('Completed: ${stats['completedCount'] ?? completed.length}')),
+                    ],
+                  ),
+                  if (scheduled.isNotEmpty) ...[
+                    const AppSectionHeader(title: 'Upcoming'),
+                    for (final test in scheduled) ...[
+                      EntityTile(
+                        icon: Icons.science_outlined,
+                        accentColor: accent,
+                        title: test.testType,
+                        subtitle: 'Scheduled: ${AppDateFormatter.date(test.scheduledDate)}'
+                            '${test.facility != null ? '\n${test.facility}' : ''}'
+                            '${test.results.isNotEmpty ? '\n${test.results.length} result(s)' : ''}',
+                        subtitleMaxLines: 3,
+                        onTap: () => _openForm(test: test),
+                        trailing: IconButton(
+                          icon: const Icon(Icons.delete_outline),
+                          onPressed: () => _delete(test),
+                        ),
+                      ),
+                      SizedBox(height: tokens.spacing.sm),
+                    ],
+                  ],
+                  if (completed.isNotEmpty) ...[
+                    const AppSectionHeader(title: 'Completed'),
+                    for (final test in completed) ...[
+                      EntityTile(
+                        icon: Icons.science_outlined,
+                        accentColor: accent,
+                        title: test.testType,
+                        subtitle: 'Completed: ${AppDateFormatter.date(test.completedDate!)}'
+                            '${test.facility != null ? '\n${test.facility}' : ''}'
+                            '${test.results.isNotEmpty ? '\n${test.results.length} result(s)' : ''}',
+                        subtitleMaxLines: 3,
+                        onTap: () => _openForm(test: test),
+                        trailing: IconButton(
+                          icon: const Icon(Icons.delete_outline),
+                          onPressed: () => _delete(test),
+                        ),
+                      ),
+                      SizedBox(height: tokens.spacing.sm),
+                    ],
+                  ],
+                ],
+              ),
             ),
-            const SizedBox(height: 16),
-            if (scheduled.isNotEmpty) ...[
-              Text('Upcoming', style: Theme.of(context).textTheme.titleMedium),
-              const SizedBox(height: 8),
-              ...scheduled.map((test) => _BloodTestCard(
-                    test: test,
-                    dateLabel: 'Scheduled: ${_formatDate(test.scheduledDate)}',
-                    onTap: () => _openForm(test: test),
-                    onDelete: () => _delete(test),
-                  )),
-              const SizedBox(height: 16),
-            ],
-            if (completed.isNotEmpty) ...[
-              Text('Completed', style: Theme.of(context).textTheme.titleMedium),
-              const SizedBox(height: 8),
-              ...completed.map((test) => _BloodTestCard(
-                    test: test,
-                    dateLabel: 'Completed: ${_formatDate(test.completedDate!)}',
-                    onTap: () => _openForm(test: test),
-                    onDelete: () => _delete(test),
-                  )),
-            ],
           ],
         );
       },
@@ -124,7 +152,7 @@ class _BloodTestsScreenState extends ConsumerState<BloodTestsScreen> {
       return Stack(
         children: [
           content,
-          Positioned(right: 16, bottom: 16, child: fab),
+          Positioned(right: tokens.spacing.lg, bottom: tokens.spacing.lg, child: fab),
         ],
       );
     }
@@ -133,41 +161,6 @@ class _BloodTestsScreenState extends ConsumerState<BloodTestsScreen> {
       appBar: AppBar(title: const Text('Blood Tests')),
       floatingActionButton: fab,
       body: content,
-    );
-  }
-}
-
-class _BloodTestCard extends StatelessWidget {
-  final BloodTest test;
-  final String dateLabel;
-  final VoidCallback onTap;
-  final VoidCallback onDelete;
-
-  const _BloodTestCard({
-    required this.test,
-    required this.dateLabel,
-    required this.onTap,
-    required this.onDelete,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      child: ListTile(
-        leading: const Icon(Icons.science_outlined),
-        title: Text(test.testType),
-        subtitle: Text(
-          '$dateLabel'
-          '${test.facility != null ? '\n${test.facility}' : ''}'
-          '${test.results.isNotEmpty ? '\n${test.results.length} result(s)' : ''}',
-        ),
-        isThreeLine: test.facility != null || test.results.isNotEmpty,
-        onTap: onTap,
-        trailing: IconButton(
-          icon: const Icon(Icons.delete_outline),
-          onPressed: onDelete,
-        ),
-      ),
     );
   }
 }

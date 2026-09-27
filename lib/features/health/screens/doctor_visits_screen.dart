@@ -1,9 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/formatting/app_date_formatter.dart';
+import '../../../core/theme/app_module_accents.dart';
+import '../../../core/theme/app_theme_tokens.dart';
 import '../../../data/models/health/doctor_visit.dart';
 import '../../../shared/widgets/app_feedback.dart';
 import '../../../shared/widgets/async_error_view.dart';
+import '../../../shared/widgets/ui/entity_tile.dart';
+import '../../../shared/widgets/ui/page_header.dart';
 import '../providers/health_providers.dart';
 import 'doctor_visit_form_screen.dart';
 
@@ -45,11 +50,10 @@ class _DoctorVisitsScreenState extends ConsumerState<DoctorVisitsScreen> {
     }
   }
 
-  String _formatDate(DateTime date) =>
-      '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
-
   @override
   Widget build(BuildContext context) {
+    final tokens = AppThemeTokens.of(context);
+    final accent = AppModuleAccents.forModule('health');
     final visitsAsync = ref.watch(doctorVisitsProvider);
 
     final content = visitsAsync.when(
@@ -64,33 +68,38 @@ class _DoctorVisitsScreenState extends ConsumerState<DoctorVisitsScreen> {
         }
 
         return ListView(
-          padding: const EdgeInsets.all(16),
           children: [
-            if (widget.embedded)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: Text(
-                  'Doctor Visits',
-                  style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
-                ),
+            if (widget.embedded) const PageHeader(title: 'Doctor Visits'),
+            Padding(
+              padding: EdgeInsets.fromLTRB(
+                tokens.spacing.lg,
+                widget.embedded ? 0 : tokens.spacing.lg,
+                tokens.spacing.lg,
+                tokens.spacing.lg,
               ),
-            ...visits.map((visit) => Card(
-                  child: ListTile(
-                    leading: const Icon(Icons.medical_services_outlined),
-                    title: Text(visit.doctorName),
-                    subtitle: Text(
-                      '${visit.specialty != null ? '${visit.specialty} • ' : ''}${_formatDate(visit.visitDate)}\n'
-                      '${visit.reason}'
-                      '${visit.medicationIds.isNotEmpty ? '\n${visit.medicationIds.length} medication(s) prescribed' : ''}',
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  for (final visit in visits) ...[
+                    EntityTile(
+                      icon: Icons.medical_services_outlined,
+                      accentColor: accent,
+                      title: visit.doctorName,
+                      subtitle: '${visit.specialty != null ? '${visit.specialty} • ' : ''}${AppDateFormatter.date(visit.visitDate)}\n'
+                          '${visit.reason}'
+                          '${visit.medicationIds.isNotEmpty ? '\n${visit.medicationIds.length} medication(s) prescribed' : ''}',
+                      subtitleMaxLines: 3,
+                      onTap: () => _openForm(visit: visit),
+                      trailing: IconButton(
+                        icon: const Icon(Icons.delete_outline),
+                        onPressed: () => _delete(visit),
+                      ),
                     ),
-                    isThreeLine: true,
-                    onTap: () => _openForm(visit: visit),
-                    trailing: IconButton(
-                      icon: const Icon(Icons.delete_outline),
-                      onPressed: () => _delete(visit),
-                    ),
-                  ),
-                )),
+                    SizedBox(height: tokens.spacing.sm),
+                  ],
+                ],
+              ),
+            ),
           ],
         );
       },
@@ -104,7 +113,7 @@ class _DoctorVisitsScreenState extends ConsumerState<DoctorVisitsScreen> {
       return Stack(
         children: [
           content,
-          Positioned(right: 16, bottom: 16, child: fab),
+          Positioned(right: tokens.spacing.lg, bottom: tokens.spacing.lg, child: fab),
         ],
       );
     }

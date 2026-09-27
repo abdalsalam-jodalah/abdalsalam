@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:intl/intl.dart';
 
+import '../../../core/formatting/app_date_formatter.dart';
+import '../../../core/theme/app_theme_tokens.dart';
 import '../../../data/models/religious/athkar_content.dart';
 import '../../../shared/widgets/async_error_view.dart';
 import '../../../shared/widgets/charts/app_bar_chart.dart';
 import '../../../shared/widgets/empty_state.dart';
-import '../../../shared/widgets/section_header.dart';
+import '../../../shared/widgets/ui/app_card.dart';
+import '../../../shared/widgets/ui/app_section_header.dart';
+import '../../../shared/widgets/ui/entity_tile.dart';
 import '../providers/athkar_providers.dart';
 
 class AthkarHistoryScreen extends ConsumerWidget {
@@ -30,6 +33,8 @@ class AthkarHistoryView extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final tokens = AppThemeTokens.of(context);
+    final theme = Theme.of(context);
     final logsState = ref.watch(athkarLogsControllerProvider);
     final weeklyByCategory = ref.watch(athkarWeeklyCompletionsByCategoryProvider);
 
@@ -37,66 +42,47 @@ class AthkarHistoryView extends ConsumerWidget {
       data: (logs) {
         final sorted = [...logs]..sort((a, b) => b.completedAt.compareTo(a.completedAt));
 
-        final scheme = Theme.of(context).colorScheme;
-
         return ListView(
-          padding: const EdgeInsets.all(16),
+          padding: EdgeInsets.all(tokens.spacing.lg),
           children: [
-            const SectionHeader(title: 'Completions this week (by category)'),
-            const SizedBox(height: 8),
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(12),
-                child: Column(
-                  children: [
-                    AppBarChart(values: weeklyByCategory),
-                    const SizedBox(height: 8),
-                    Wrap(
-                      spacing: 12,
-                      children: [
-                        for (final category in AthkarCategory.values)
-                          Text(athkarCategoryLabel(category),
-                              style: Theme.of(context).textTheme.labelSmall),
-                      ],
-                    ),
-                  ],
-                ),
+            AppSectionHeader(title: 'Completions this week (by category)'),
+            AppCard(
+              child: Column(
+                children: [
+                  AppBarChart(values: weeklyByCategory),
+                  SizedBox(height: tokens.spacing.sm),
+                  Wrap(
+                    spacing: tokens.spacing.md,
+                    children: [
+                      for (final category in AthkarCategory.values)
+                        Text(athkarCategoryLabel(category), style: theme.textTheme.labelSmall),
+                    ],
+                  ),
+                ],
               ),
             ),
-            const SizedBox(height: 20),
-            const SectionHeader(title: 'All Completions'),
-            const SizedBox(height: 8),
+            AppSectionHeader(title: 'All Completions'),
             if (sorted.isEmpty)
               const EmptyState(
                 title: 'No athkar completed yet',
                 subtitle: 'Complete an athkar to see your history here.',
               ),
-            ...sorted.map(
-              (log) => Card(
-                margin: const EdgeInsets.only(bottom: 8),
-                child: ListTile(
-                  leading: Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: scheme.tertiary.withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Icon(Icons.favorite_outline, color: scheme.tertiary, size: 20),
-                  ),
-                  title: Text(athkarCategoryLabel(log.category)),
-                  subtitle: Text(
-                    '${log.countDone}/${log.targetCount} • '
-                    '${DateFormat('MMM d, hh:mm a').format(log.completedAt)}'
-                    '${log.notes != null && log.notes!.isNotEmpty ? '\n${log.notes}' : ''}',
-                  ),
-                  isThreeLine: log.notes != null && log.notes!.isNotEmpty,
+            for (final log in sorted)
+              Padding(
+                padding: EdgeInsets.only(bottom: tokens.spacing.sm),
+                child: EntityTile(
+                  icon: Icons.favorite_outline,
+                  accentColor: theme.colorScheme.tertiary,
+                  title: athkarCategoryLabel(log.category),
+                  subtitle: '${log.countDone}/${log.targetCount} • ${AppDateFormatter.dateTime(log.completedAt)}'
+                      '${log.notes != null && log.notes!.isNotEmpty ? '\n${log.notes}' : ''}',
+                  subtitleMaxLines: 3,
                   trailing: Icon(
                     log.countDone >= log.targetCount ? Icons.check_circle : Icons.timelapse,
-                    color: log.countDone >= log.targetCount ? scheme.primary : scheme.tertiary,
+                    color: log.countDone >= log.targetCount ? theme.colorScheme.primary : theme.colorScheme.tertiary,
                   ),
                 ),
               ),
-            ),
           ],
         );
       },

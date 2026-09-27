@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../../core/theme/app_theme_tokens.dart';
 import '../../../data/models/health/medication.dart';
 import '../../../shared/widgets/app_feedback.dart';
+import '../../../shared/widgets/ui/date_time_field.dart';
 import '../providers/health_providers.dart';
 import '../services/health_service.dart';
 import '../services/medication_service.dart';
@@ -148,12 +150,13 @@ class _MedicationFormScreenState extends ConsumerState<MedicationFormScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final tokens = AppThemeTokens.of(context);
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.medication == null ? 'Add Medication' : 'Edit Medication'),
       ),
       body: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: EdgeInsets.all(tokens.spacing.lg),
         child: Form(
           key: _formKey,
           child: ListView(
@@ -163,23 +166,21 @@ class _MedicationFormScreenState extends ConsumerState<MedicationFormScreen> {
                 decoration: const InputDecoration(
                   labelText: 'Medication name',
                   hintText: 'e.g. Vitamin D3',
-                  border: OutlineInputBorder(),
                   prefixIcon: Icon(Icons.medication),
                 ),
                 validator: (value) => (value == null || value.trim().isEmpty) ? 'Required' : null,
               ),
-              const SizedBox(height: 12),
+              SizedBox(height: tokens.spacing.md),
               TextFormField(
                 controller: _dosageController,
                 decoration: const InputDecoration(
                   labelText: 'Dosage',
                   hintText: 'e.g. 1000 IU',
-                  border: OutlineInputBorder(),
                   prefixIcon: Icon(Icons.science),
                 ),
                 validator: (value) => (value == null || value.trim().isEmpty) ? 'Required' : null,
               ),
-              const SizedBox(height: 12),
+              SizedBox(height: tokens.spacing.md),
               DropdownButtonFormField<String>(
                 initialValue: _frequency,
                 items: const ['Daily', 'Twice Daily', 'Three Times Daily', 'Four Times Daily', 'Weekly', 'As Needed']
@@ -196,11 +197,10 @@ class _MedicationFormScreenState extends ConsumerState<MedicationFormScreen> {
                 },
                 decoration: const InputDecoration(
                   labelText: 'Frequency',
-                  border: OutlineInputBorder(),
                   prefixIcon: Icon(Icons.repeat),
                 ),
               ),
-              const SizedBox(height: 12),
+              SizedBox(height: tokens.spacing.md),
               DropdownButtonFormField<MedicationTiming>(
                 initialValue: _timing,
                 items: MedicationTiming.values
@@ -212,17 +212,16 @@ class _MedicationFormScreenState extends ConsumerState<MedicationFormScreen> {
                 onChanged: (value) => setState(() => _timing = value ?? _timing),
                 decoration: const InputDecoration(
                   labelText: 'When to take',
-                  border: OutlineInputBorder(),
                   prefixIcon: Icon(Icons.restaurant),
                 ),
               ),
               if (_frequency == 'Weekly') ...[
-                const SizedBox(height: 12),
+                SizedBox(height: tokens.spacing.md),
                 Text('Select Days', style: Theme.of(context).textTheme.titleMedium),
-                const SizedBox(height: 8),
+                SizedBox(height: tokens.spacing.sm),
                 Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
+                  spacing: tokens.spacing.sm,
+                  runSpacing: tokens.spacing.sm,
                   children: WeekDay.values.map((day) {
                     final isSelected = _selectedWeekDays.contains(day);
                     return FilterChip(
@@ -241,49 +240,53 @@ class _MedicationFormScreenState extends ConsumerState<MedicationFormScreen> {
                   }).toList(),
                 ),
               ],
-              const SizedBox(height: 12),
+              SizedBox(height: tokens.spacing.md),
               SwitchListTile(
                 title: const Text('Active'),
                 subtitle: const Text('Currently taking'),
                 value: _isActive,
                 onChanged: (value) => setState(() => _isActive = value),
               ),
-              const SizedBox(height: 12),
-              _DateField(
+              SizedBox(height: tokens.spacing.md),
+              DateTimeField(
                 label: 'Start Date',
-                date: _startDate,
-                onPick: (date) => setState(() => _startDate = date),
+                value: _startDate,
+                onChanged: (date) {
+                  if (date != null) {
+                    setState(() => _startDate = date);
+                  }
+                },
               ),
-              const SizedBox(height: 8),
-              _DateField(
+              SizedBox(height: tokens.spacing.sm),
+              DateTimeField(
                 label: 'End Date (optional)',
-                date: _endDate,
-                onPick: (date) => setState(() => _endDate = date),
-                onClear: () => setState(() => _endDate = null),
+                value: _endDate,
+                isClearable: true,
+                onChanged: (date) => setState(() => _endDate = date),
               ),
-              const SizedBox(height: 8),
-              _DateField(
+              SizedBox(height: tokens.spacing.sm),
+              DateTimeField(
                 label: 'Refill Date (optional)',
-                date: _refillDate,
-                onPick: (date) => setState(() => _refillDate = date),
-                onClear: () => setState(() => _refillDate = null),
+                value: _refillDate,
+                isClearable: true,
+                onChanged: (date) => setState(() => _refillDate = date),
               ),
-              const SizedBox(height: 16),
+              SizedBox(height: tokens.spacing.lg),
               Text('Reminder Times', style: Theme.of(context).textTheme.titleMedium),
-              const SizedBox(height: 8),
+              SizedBox(height: tokens.spacing.sm),
               Text(
                 'Add multiple times for multiple daily doses',
                 style: Theme.of(context).textTheme.bodySmall,
               ),
-              const SizedBox(height: 8),
+              SizedBox(height: tokens.spacing.sm),
               Wrap(
-                spacing: 8,
-                runSpacing: 8,
+                spacing: tokens.spacing.sm,
+                runSpacing: tokens.spacing.sm,
                 children: [
                   for (var i = 0; i < _times.length; i++)
                     InputChip(
                       label: Text(_times[i].format(context)),
-                      avatar: const Icon(Icons.access_time, size: 18),
+                      avatar: const Icon(Icons.access_time),
                       onPressed: () async {
                         final picked = await showTimePicker(context: context, initialTime: _times[i]);
                         if (picked != null && mounted) {
@@ -299,28 +302,26 @@ class _MedicationFormScreenState extends ConsumerState<MedicationFormScreen> {
                   ),
                 ],
               ),
-              const SizedBox(height: 16),
+              SizedBox(height: tokens.spacing.lg),
               TextFormField(
                 controller: _prescribedByController,
                 decoration: const InputDecoration(
                   labelText: 'Prescribed By (optional)',
                   hintText: 'Doctor name',
-                  border: OutlineInputBorder(),
                   prefixIcon: Icon(Icons.person),
                 ),
               ),
-              const SizedBox(height: 12),
+              SizedBox(height: tokens.spacing.md),
               TextFormField(
                 controller: _notesController,
                 maxLines: 3,
                 decoration: const InputDecoration(
                   labelText: 'Notes (optional)',
                   hintText: 'Additional info',
-                  border: OutlineInputBorder(),
                   prefixIcon: Icon(Icons.notes),
                 ),
               ),
-              const SizedBox(height: 20),
+              SizedBox(height: tokens.spacing.xl),
               FilledButton.icon(
                 onPressed: _saveMedication,
                 icon: const Icon(Icons.save_outlined),
@@ -394,54 +395,5 @@ class _MedicationFormScreenState extends ConsumerState<MedicationFormScreen> {
       default:
         return [const TimeOfDay(hour: 8, minute: 0)];
     }
-  }
-}
-
-class _DateField extends StatelessWidget {
-  final String label;
-  final DateTime? date;
-  final ValueChanged<DateTime> onPick;
-  final VoidCallback? onClear;
-
-  const _DateField({
-    required this.label,
-    required this.date,
-    required this.onPick,
-    this.onClear,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final text = date == null
-        ? 'Not set'
-        : '${date!.year}-${date!.month.toString().padLeft(2, '0')}-${date!.day.toString().padLeft(2, '0')}';
-
-    return ListTile(
-      contentPadding: const EdgeInsets.symmetric(horizontal: 8),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(8),
-        side: BorderSide(color: Theme.of(context).dividerColor),
-      ),
-      leading: const Icon(Icons.calendar_today_outlined),
-      title: Text(label),
-      subtitle: Text(text),
-      trailing: date != null && onClear != null
-          ? IconButton(
-              icon: const Icon(Icons.clear),
-              onPressed: onClear,
-            )
-          : null,
-      onTap: () async {
-        final picked = await showDatePicker(
-          context: context,
-          initialDate: date ?? DateTime.now(),
-          firstDate: DateTime(2020),
-          lastDate: DateTime(2100),
-        );
-        if (picked != null) {
-          onPick(picked);
-        }
-      },
-    );
   }
 }

@@ -3,10 +3,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../../core/theme/app_module_accents.dart';
+import '../../../core/theme/app_theme_tokens.dart';
 import '../../../data/models/health/doctor_visit.dart';
 import '../../../providers/app_providers.dart';
 import '../../../shared/widgets/app_feedback.dart';
 import '../../../shared/widgets/async_error_view.dart';
+import '../../../shared/widgets/ui/date_time_field.dart';
+import '../../../shared/widgets/ui/entity_tile.dart';
 import '../providers/health_providers.dart';
 import '../services/doctor_visit_service.dart';
 
@@ -21,6 +25,9 @@ class DoctorVisitFormScreen extends ConsumerStatefulWidget {
 }
 
 class _DoctorVisitFormScreenState extends ConsumerState<DoctorVisitFormScreen> {
+  static const double _spinnerSize = 16;
+  static const double _spinnerStrokeWidth = 2;
+
   final _formKey = GlobalKey<FormState>();
   final _doctorNameController = TextEditingController();
   final _specialtyController = TextEditingController();
@@ -127,6 +134,8 @@ class _DoctorVisitFormScreenState extends ConsumerState<DoctorVisitFormScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final tokens = AppThemeTokens.of(context);
+    final accent = AppModuleAccents.forModule('health');
     final medicationsAsync = ref.watch(sortedMedicationsProvider);
 
     return Scaffold(
@@ -134,7 +143,7 @@ class _DoctorVisitFormScreenState extends ConsumerState<DoctorVisitFormScreen> {
         title: Text(widget.visit == null ? 'Add Doctor Visit' : 'Edit Doctor Visit'),
       ),
       body: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: EdgeInsets.all(tokens.spacing.lg),
         child: Form(
           key: _formKey,
           child: ListView(
@@ -143,55 +152,55 @@ class _DoctorVisitFormScreenState extends ConsumerState<DoctorVisitFormScreen> {
                 controller: _doctorNameController,
                 decoration: const InputDecoration(
                   labelText: 'Doctor name',
-                  border: OutlineInputBorder(),
                   prefixIcon: Icon(Icons.person_outline),
                 ),
                 validator: (value) => (value == null || value.trim().isEmpty) ? 'Required' : null,
               ),
-              const SizedBox(height: 12),
+              SizedBox(height: tokens.spacing.md),
               TextFormField(
                 controller: _specialtyController,
                 decoration: const InputDecoration(
                   labelText: 'Specialty (optional)',
-                  border: OutlineInputBorder(),
                   prefixIcon: Icon(Icons.local_hospital_outlined),
                 ),
               ),
-              const SizedBox(height: 12),
-              _DateField(
+              SizedBox(height: tokens.spacing.md),
+              DateTimeField(
                 label: 'Visit date',
-                date: _visitDate,
-                onPick: (date) => setState(() => _visitDate = date),
+                value: _visitDate,
+                onChanged: (date) {
+                  if (date != null) {
+                    setState(() => _visitDate = date);
+                  }
+                },
               ),
-              const SizedBox(height: 8),
-              _DateField(
+              SizedBox(height: tokens.spacing.sm),
+              DateTimeField(
                 label: 'Follow-up date (optional)',
-                date: _followUpDate,
-                onPick: (date) => setState(() => _followUpDate = date),
-                onClear: () => setState(() => _followUpDate = null),
+                value: _followUpDate,
+                isClearable: true,
+                onChanged: (date) => setState(() => _followUpDate = date),
               ),
-              const SizedBox(height: 12),
+              SizedBox(height: tokens.spacing.md),
               TextFormField(
                 controller: _reasonController,
                 decoration: const InputDecoration(
                   labelText: 'Reason for visit',
-                  border: OutlineInputBorder(),
                   prefixIcon: Icon(Icons.help_outline),
                 ),
                 validator: (value) => (value == null || value.trim().isEmpty) ? 'Required' : null,
               ),
-              const SizedBox(height: 12),
+              SizedBox(height: tokens.spacing.md),
               TextFormField(
                 controller: _diagnosisController,
                 decoration: const InputDecoration(
                   labelText: 'Diagnosis (optional)',
-                  border: OutlineInputBorder(),
                   prefixIcon: Icon(Icons.assignment_outlined),
                 ),
               ),
-              const SizedBox(height: 16),
+              SizedBox(height: tokens.spacing.lg),
               Text('Prescribed medications', style: Theme.of(context).textTheme.titleMedium),
-              const SizedBox(height: 8),
+              SizedBox(height: tokens.spacing.sm),
               medicationsAsync.when(
                 loading: () => const Center(child: CircularProgressIndicator()),
                 error: (error, _) => AsyncErrorView(
@@ -204,8 +213,8 @@ class _DoctorVisitFormScreenState extends ConsumerState<DoctorVisitFormScreen> {
                     return const Text('No medications recorded yet.');
                   }
                   return Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
+                    spacing: tokens.spacing.sm,
+                    runSpacing: tokens.spacing.sm,
                     children: medications.map((medication) {
                       final isSelected = _selectedMedicationIds.contains(medication.id);
                       return FilterChip(
@@ -225,41 +234,42 @@ class _DoctorVisitFormScreenState extends ConsumerState<DoctorVisitFormScreen> {
                   );
                 },
               ),
-              const SizedBox(height: 16),
+              SizedBox(height: tokens.spacing.lg),
               Text('Attachments', style: Theme.of(context).textTheme.titleMedium),
-              const SizedBox(height: 8),
-              ..._attachmentPaths.map((path) => Card(
-                    child: ListTile(
-                      leading: const Icon(Icons.attach_file),
-                      title: Text(path.split('/').last),
-                      trailing: IconButton(
-                        icon: const Icon(Icons.remove_circle_outline),
-                        onPressed: () => _removeAttachment(path),
-                      ),
-                    ),
-                  )),
+              SizedBox(height: tokens.spacing.sm),
+              for (final path in _attachmentPaths) ...[
+                EntityTile(
+                  icon: Icons.attach_file,
+                  accentColor: accent,
+                  title: path.split('/').last,
+                  trailing: IconButton(
+                    icon: const Icon(Icons.remove_circle_outline),
+                    onPressed: () => _removeAttachment(path),
+                  ),
+                ),
+                SizedBox(height: tokens.spacing.sm),
+              ],
               OutlinedButton.icon(
                 onPressed: _isSavingAttachment ? null : _pickAttachment,
                 icon: _isSavingAttachment
                     ? const SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2),
+                        width: _spinnerSize,
+                        height: _spinnerSize,
+                        child: CircularProgressIndicator(strokeWidth: _spinnerStrokeWidth),
                       )
                     : const Icon(Icons.add),
                 label: const Text('Add attachment'),
               ),
-              const SizedBox(height: 16),
+              SizedBox(height: tokens.spacing.lg),
               TextFormField(
                 controller: _notesController,
                 maxLines: 3,
                 decoration: const InputDecoration(
                   labelText: 'Notes (optional)',
-                  border: OutlineInputBorder(),
                   prefixIcon: Icon(Icons.notes),
                 ),
               ),
-              const SizedBox(height: 20),
+              SizedBox(height: tokens.spacing.xl),
               FilledButton.icon(
                 onPressed: _save,
                 icon: const Icon(Icons.save_outlined),
@@ -269,55 +279,6 @@ class _DoctorVisitFormScreenState extends ConsumerState<DoctorVisitFormScreen> {
           ),
         ),
       ),
-    );
-  }
-}
-
-class _DateField extends StatelessWidget {
-  final String label;
-  final DateTime? date;
-  final ValueChanged<DateTime> onPick;
-  final VoidCallback? onClear;
-
-  const _DateField({
-    required this.label,
-    required this.date,
-    required this.onPick,
-    this.onClear,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final text = date == null
-        ? 'Not set'
-        : '${date!.year}-${date!.month.toString().padLeft(2, '0')}-${date!.day.toString().padLeft(2, '0')}';
-
-    return ListTile(
-      contentPadding: const EdgeInsets.symmetric(horizontal: 8),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(8),
-        side: BorderSide(color: Theme.of(context).dividerColor),
-      ),
-      leading: const Icon(Icons.calendar_today_outlined),
-      title: Text(label),
-      subtitle: Text(text),
-      trailing: date != null && onClear != null
-          ? IconButton(
-              icon: const Icon(Icons.clear),
-              onPressed: onClear,
-            )
-          : null,
-      onTap: () async {
-        final picked = await showDatePicker(
-          context: context,
-          initialDate: date ?? DateTime.now(),
-          firstDate: DateTime(2020),
-          lastDate: DateTime(2100),
-        );
-        if (picked != null) {
-          onPick(picked);
-        }
-      },
     );
   }
 }

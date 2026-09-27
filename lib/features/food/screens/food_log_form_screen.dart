@@ -5,9 +5,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../../core/theme/app_theme_tokens.dart';
 import '../../../data/models/food/food_log.dart';
 import '../../../providers/app_providers.dart';
 import '../../../shared/widgets/app_feedback.dart';
+import '../../../shared/widgets/ui/date_time_field.dart';
+import '../../../shared/widgets/ui/entity_tile.dart';
 import '../providers/food_providers.dart';
 import '../services/food_log_service.dart';
 
@@ -26,6 +29,10 @@ class FoodLogFormScreen extends ConsumerStatefulWidget {
 }
 
 class _FoodLogFormScreenState extends ConsumerState<FoodLogFormScreen> {
+  static const double _spinnerSize = 16;
+  static const double _spinnerStrokeWidth = 2;
+  static const double _thumbnailSize = 48;
+
   final _formKey = GlobalKey<FormState>();
   final _dishNameController = TextEditingController();
   final _quantityController = TextEditingController();
@@ -159,12 +166,13 @@ class _FoodLogFormScreenState extends ConsumerState<FoodLogFormScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final tokens = AppThemeTokens.of(context);
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.log == null ? 'Add Food Log' : 'Edit Food Log'),
       ),
       body: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: EdgeInsets.all(tokens.spacing.lg),
         child: Form(
           key: _formKey,
           child: ListView(
@@ -180,147 +188,118 @@ class _FoodLogFormScreenState extends ConsumerState<FoodLogFormScreen> {
                 },
                 decoration: const InputDecoration(
                   labelText: 'Category',
-                  border: OutlineInputBorder(),
                   prefixIcon: Icon(Icons.restaurant_outlined),
                 ),
               ),
-              const SizedBox(height: 12),
+              SizedBox(height: tokens.spacing.md),
               TextFormField(
                 controller: _dishNameController,
                 decoration: const InputDecoration(
                   labelText: 'Dish name',
-                  border: OutlineInputBorder(),
                   prefixIcon: Icon(Icons.ramen_dining_outlined),
                 ),
                 validator: (value) => (value == null || value.trim().isEmpty) ? 'Required' : null,
               ),
-              const SizedBox(height: 12),
+              SizedBox(height: tokens.spacing.md),
               TextFormField(
                 controller: _quantityController,
                 decoration: const InputDecoration(
                   labelText: 'Quantity (e.g. "1 bowl", "250g")',
-                  border: OutlineInputBorder(),
                   prefixIcon: Icon(Icons.scale_outlined),
                 ),
               ),
-              const SizedBox(height: 12),
-              ListTile(
-                contentPadding: const EdgeInsets.symmetric(horizontal: 8),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                  side: BorderSide(color: Theme.of(context).dividerColor),
-                ),
-                leading: const Icon(Icons.calendar_today_outlined),
-                title: const Text('Logged at'),
-                subtitle: Text(
-                  '${_loggedAt.year}-${_loggedAt.month.toString().padLeft(2, '0')}-${_loggedAt.day.toString().padLeft(2, '0')} '
-                  '${_loggedAt.hour.toString().padLeft(2, '0')}:${_loggedAt.minute.toString().padLeft(2, '0')}',
-                ),
-                onTap: () async {
-                  final date = await showDatePicker(
-                    context: context,
-                    initialDate: _loggedAt,
-                    firstDate: DateTime(2020),
-                    lastDate: DateTime(2100),
-                  );
-                  if (date == null || !context.mounted) return;
-                  final time = await showTimePicker(
-                    context: context,
-                    initialTime: TimeOfDay.fromDateTime(_loggedAt),
-                  );
-                  if (time == null) return;
-                  setState(() {
-                    _loggedAt = DateTime(date.year, date.month, date.day, time.hour, time.minute);
-                  });
+              SizedBox(height: tokens.spacing.md),
+              DateTimeField(
+                label: 'Logged at',
+                value: _loggedAt,
+                mode: DateTimeFieldMode.dateTime,
+                onChanged: (value) {
+                  if (value != null) {
+                    setState(() => _loggedAt = value);
+                  }
                 },
               ),
-              const SizedBox(height: 16),
+              SizedBox(height: tokens.spacing.lg),
               Text('Image', style: Theme.of(context).textTheme.titleMedium),
-              const SizedBox(height: 8),
-              if (_imagePath != null)
-                Card(
-                  child: ListTile(
-                    leading: Image.file(File(_imagePath!), width: 48, height: 48, fit: BoxFit.cover),
-                    title: Text(_imagePath!.split('/').last),
-                    trailing: IconButton(
-                      icon: const Icon(Icons.remove_circle_outline),
-                      onPressed: _removeImage,
+              SizedBox(height: tokens.spacing.sm),
+              if (_imagePath != null) ...[
+                EntityTile(
+                  leading: ClipRRect(
+                    borderRadius: tokens.radius.smallBorder,
+                    child: Image.file(
+                      File(_imagePath!),
+                      width: _thumbnailSize,
+                      height: _thumbnailSize,
+                      fit: BoxFit.cover,
                     ),
                   ),
+                  title: _imagePath!.split('/').last,
+                  trailing: IconButton(
+                    icon: const Icon(Icons.remove_circle_outline),
+                    onPressed: _removeImage,
+                  ),
                 ),
+                SizedBox(height: tokens.spacing.sm),
+              ],
               OutlinedButton.icon(
                 onPressed: _isSavingImage ? null : _pickImage,
                 icon: _isSavingImage
                     ? const SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2),
+                        width: _spinnerSize,
+                        height: _spinnerSize,
+                        child: CircularProgressIndicator(strokeWidth: _spinnerStrokeWidth),
                       )
                     : const Icon(Icons.add_a_photo_outlined),
                 label: const Text('Add image'),
               ),
-              const SizedBox(height: 16),
+              SizedBox(height: tokens.spacing.lg),
               TextFormField(
                 controller: _componentsController,
                 decoration: const InputDecoration(
                   labelText: 'Components (optional, e.g. "rice, chicken, salad")',
-                  border: OutlineInputBorder(),
                   prefixIcon: Icon(Icons.list_outlined),
                 ),
               ),
-              const SizedBox(height: 12),
+              SizedBox(height: tokens.spacing.md),
               TextFormField(
                 controller: _descriptionController,
                 maxLines: 3,
                 decoration: const InputDecoration(
                   labelText: 'Description (optional)',
-                  border: OutlineInputBorder(),
                   prefixIcon: Icon(Icons.notes),
                 ),
               ),
-              const SizedBox(height: 16),
+              SizedBox(height: tokens.spacing.lg),
               Text('Nutrition (optional)', style: Theme.of(context).textTheme.titleMedium),
-              const SizedBox(height: 8),
+              SizedBox(height: tokens.spacing.sm),
               TextFormField(
                 controller: _caloriesController,
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
                 validator: _validateOptionalNumber,
-                decoration: const InputDecoration(
-                  labelText: 'Calories',
-                  border: OutlineInputBorder(),
-                ),
+                decoration: const InputDecoration(labelText: 'Calories'),
               ),
-              const SizedBox(height: 12),
+              SizedBox(height: tokens.spacing.md),
               TextFormField(
                 controller: _proteinController,
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
                 validator: _validateOptionalNumber,
-                decoration: const InputDecoration(
-                  labelText: 'Protein (g)',
-                  border: OutlineInputBorder(),
-                ),
+                decoration: const InputDecoration(labelText: 'Protein (g)'),
               ),
-              const SizedBox(height: 12),
+              SizedBox(height: tokens.spacing.md),
               TextFormField(
                 controller: _fatController,
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
                 validator: _validateOptionalNumber,
-                decoration: const InputDecoration(
-                  labelText: 'Fat (g)',
-                  border: OutlineInputBorder(),
-                ),
+                decoration: const InputDecoration(labelText: 'Fat (g)'),
               ),
-              const SizedBox(height: 12),
+              SizedBox(height: tokens.spacing.md),
               TextFormField(
                 controller: _carbController,
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
                 validator: _validateOptionalNumber,
-                decoration: const InputDecoration(
-                  labelText: 'Carbs (g)',
-                  border: OutlineInputBorder(),
-                ),
+                decoration: const InputDecoration(labelText: 'Carbs (g)'),
               ),
-              const SizedBox(height: 20),
+              SizedBox(height: tokens.spacing.xl),
               FilledButton.icon(
                 onPressed: _save,
                 icon: const Icon(Icons.save_outlined),

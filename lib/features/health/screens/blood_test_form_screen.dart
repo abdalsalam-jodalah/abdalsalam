@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../../core/theme/app_theme_tokens.dart';
 import '../../../data/models/health/blood_test.dart';
 import '../../../shared/widgets/app_feedback.dart';
+import '../../../shared/widgets/ui/date_time_field.dart';
 import '../providers/health_providers.dart';
 import '../services/blood_test_service.dart';
 
@@ -101,12 +103,13 @@ class _BloodTestFormScreenState extends ConsumerState<BloodTestFormScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final tokens = AppThemeTokens.of(context);
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.test == null ? 'Add Blood Test' : 'Edit Blood Test'),
       ),
       body: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: EdgeInsets.all(tokens.spacing.lg),
         child: Form(
           key: _formKey,
           child: ListView(
@@ -116,61 +119,63 @@ class _BloodTestFormScreenState extends ConsumerState<BloodTestFormScreen> {
                 decoration: const InputDecoration(
                   labelText: 'Test type',
                   hintText: 'e.g. CBC, Lipid Panel',
-                  border: OutlineInputBorder(),
                   prefixIcon: Icon(Icons.science),
                 ),
                 validator: (value) => (value == null || value.trim().isEmpty) ? 'Required' : null,
               ),
-              const SizedBox(height: 12),
-              _DateField(
+              SizedBox(height: tokens.spacing.md),
+              DateTimeField(
                 label: 'Scheduled date',
-                date: _scheduledDate,
-                onPick: (date) => setState(() => _scheduledDate = date),
+                value: _scheduledDate,
+                onChanged: (date) {
+                  if (date != null) {
+                    setState(() => _scheduledDate = date);
+                  }
+                },
               ),
-              const SizedBox(height: 8),
-              _DateField(
+              SizedBox(height: tokens.spacing.sm),
+              DateTimeField(
                 label: 'Completed date (optional)',
-                date: _completedDate,
-                onPick: (date) => setState(() => _completedDate = date),
-                onClear: () => setState(() => _completedDate = null),
+                value: _completedDate,
+                isClearable: true,
+                onChanged: (date) => setState(() => _completedDate = date),
               ),
-              const SizedBox(height: 8),
-              _DateField(
+              SizedBox(height: tokens.spacing.sm),
+              DateTimeField(
                 label: 'Next test date (optional)',
-                date: _nextTestDate,
-                onPick: (date) => setState(() => _nextTestDate = date),
-                onClear: () => setState(() => _nextTestDate = null),
+                value: _nextTestDate,
+                isClearable: true,
+                onChanged: (date) => setState(() => _nextTestDate = date),
               ),
-              const SizedBox(height: 12),
+              SizedBox(height: tokens.spacing.md),
               TextFormField(
                 controller: _facilityController,
                 decoration: const InputDecoration(
                   labelText: 'Facility (optional)',
-                  border: OutlineInputBorder(),
                   prefixIcon: Icon(Icons.local_hospital_outlined),
                 ),
               ),
-              const SizedBox(height: 16),
+              SizedBox(height: tokens.spacing.lg),
               Text('Results', style: Theme.of(context).textTheme.titleMedium),
-              const SizedBox(height: 8),
+              SizedBox(height: tokens.spacing.sm),
               ..._results.asMap().entries.map((entry) {
                 final index = entry.key;
                 final result = entry.value;
                 return Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
+                  padding: EdgeInsets.only(bottom: tokens.spacing.sm),
                   child: Row(
                     children: [
                       Expanded(
                         child: TextFormField(
                           controller: result.keyController,
-                          decoration: const InputDecoration(labelText: 'Test name', border: OutlineInputBorder()),
+                          decoration: const InputDecoration(labelText: 'Test name'),
                         ),
                       ),
-                      const SizedBox(width: 8),
+                      SizedBox(width: tokens.spacing.sm),
                       Expanded(
                         child: TextFormField(
                           controller: result.valueController,
-                          decoration: const InputDecoration(labelText: 'Value', border: OutlineInputBorder()),
+                          decoration: const InputDecoration(labelText: 'Value'),
                           validator: (value) =>
                               result.keyController.text.trim().isNotEmpty && (value == null || value.trim().isEmpty)
                                   ? _resultValueRequiredMessage
@@ -193,17 +198,16 @@ class _BloodTestFormScreenState extends ConsumerState<BloodTestFormScreen> {
                 icon: const Icon(Icons.add),
                 label: const Text('Add result'),
               ),
-              const SizedBox(height: 16),
+              SizedBox(height: tokens.spacing.lg),
               TextFormField(
                 controller: _notesController,
                 maxLines: 3,
                 decoration: const InputDecoration(
                   labelText: 'Notes (optional)',
-                  border: OutlineInputBorder(),
                   prefixIcon: Icon(Icons.notes),
                 ),
               ),
-              const SizedBox(height: 20),
+              SizedBox(height: tokens.spacing.xl),
               FilledButton.icon(
                 onPressed: _save,
                 icon: const Icon(Icons.save_outlined),
@@ -228,54 +232,5 @@ class _ResultEntry {
   void dispose() {
     keyController.dispose();
     valueController.dispose();
-  }
-}
-
-class _DateField extends StatelessWidget {
-  final String label;
-  final DateTime? date;
-  final ValueChanged<DateTime> onPick;
-  final VoidCallback? onClear;
-
-  const _DateField({
-    required this.label,
-    required this.date,
-    required this.onPick,
-    this.onClear,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final text = date == null
-        ? 'Not set'
-        : '${date!.year}-${date!.month.toString().padLeft(2, '0')}-${date!.day.toString().padLeft(2, '0')}';
-
-    return ListTile(
-      contentPadding: const EdgeInsets.symmetric(horizontal: 8),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(8),
-        side: BorderSide(color: Theme.of(context).dividerColor),
-      ),
-      leading: const Icon(Icons.calendar_today_outlined),
-      title: Text(label),
-      subtitle: Text(text),
-      trailing: date != null && onClear != null
-          ? IconButton(
-              icon: const Icon(Icons.clear),
-              onPressed: onClear,
-            )
-          : null,
-      onTap: () async {
-        final picked = await showDatePicker(
-          context: context,
-          initialDate: date ?? DateTime.now(),
-          firstDate: DateTime(2020),
-          lastDate: DateTime(2100),
-        );
-        if (picked != null) {
-          onPick(picked);
-        }
-      },
-    );
   }
 }
