@@ -2,8 +2,8 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:intl/intl.dart';
 import 'package:uuid/uuid.dart';
+import '../../../core/theme/app_theme_tokens.dart';
 import '../../../data/models/financial/transaction_model.dart';
 import '../../../data/models/financial/category_model.dart';
 import '../../../data/models/financial/recurrence_pattern.dart';
@@ -12,8 +12,16 @@ import '../services/recurring_transaction_generator.dart';
 import '../providers/financial_providers.dart';
 import '../../../providers/app_providers.dart';
 import '../../../core/validation/validation_utils.dart';
-import '../../../shared/widgets/async_error_view.dart';
 import '../../../shared/widgets/app_feedback.dart';
+import '../../../shared/widgets/ui/app_card.dart';
+import '../../../shared/widgets/ui/date_time_field.dart';
+import '../widgets/transaction_advanced_options.dart';
+import '../widgets/transaction_amount_input.dart';
+import '../widgets/transaction_amount_preview.dart';
+import '../widgets/transaction_category_selector.dart';
+import '../widgets/transaction_delete_dialog.dart';
+import '../widgets/transaction_payment_method_selector.dart';
+import '../widgets/transaction_tags_input.dart';
 
 class TransactionFormScreen extends ConsumerStatefulWidget {
   static const routeName = '/financial/transaction-form';
@@ -33,10 +41,18 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
   static const String _selectCategoryMessage = 'Please select a category';
   static const String _transactionCreatedMessage = 'Transaction created successfully';
   static const String _transactionUpdatedMessage = 'Transaction updated successfully';
-  static const String _deleteDialogTitle = 'Delete Transaction';
-  static const String _deleteDialogMessage = 'Are you sure you want to delete this transaction?';
-  static const String _cancelLabel = 'Cancel';
-  static const String _deleteLabel = 'Delete';
+  static const Duration _validationSnackBarDuration = Duration(seconds: 2);
+  static const double _emptyPreviewAmount = 0;
+  static final DateTime _minimumTransactionDate = DateTime(2020);
+
+  static const List<TransactionPaymentMethodOption> _paymentMethods = [
+    TransactionPaymentMethodOption('Cash', Icons.money),
+    TransactionPaymentMethodOption('Credit Card', Icons.credit_card),
+    TransactionPaymentMethodOption('Debit Card', Icons.credit_card),
+    TransactionPaymentMethodOption('Bank Transfer', Icons.account_balance),
+    TransactionPaymentMethodOption('Mobile Payment', Icons.phone_android),
+    TransactionPaymentMethodOption('Check', Icons.receipt),
+  ];
 
   final _formKey = GlobalKey<FormState>();
   late final TextEditingController _descriptionController;
@@ -52,15 +68,6 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
   bool _isRecurring = false;
   RecurrencePattern _recurringPattern = RecurrencePattern.monthly;
   bool _showAdvanced = false;
-
-  final _paymentMethods = [
-    ('Cash', Icons.money),
-    ('Credit Card', Icons.credit_card),
-    ('Debit Card', Icons.credit_card),
-    ('Bank Transfer', Icons.account_balance),
-    ('Mobile Payment', Icons.phone_android),
-    ('Check', Icons.receipt),
-  ];
 
   @override
   void initState() {
@@ -79,7 +86,6 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
     _isRecurring = widget.transaction?.isRecurring ?? false;
     _recurringPattern = widget.transaction?.recurrence ?? RecurrencePattern.monthly;
 
-    // Parse currency from transaction
     if (widget.transaction != null) {
       _selectedCurrency = Currency.values.firstWhere(
         (c) => c.code == widget.transaction!.currency,
@@ -110,726 +116,139 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final tokens = AppThemeTokens.of(context);
+    final theme = Theme.of(context);
+    final amount = double.tryParse(_amountController.text) ?? _emptyPreviewAmount;
+
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.transaction == null ? 'Add Transaction' : 'Edit Transaction'),
-        elevation: 0,
         actions: [
           if (widget.transaction != null)
-            IconButton(
-              icon: const Icon(Icons.delete),
-              onPressed: _deleteTransaction,
-            ),
+            IconButton(icon: const Icon(Icons.delete), onPressed: _deleteTransaction),
         ],
       ),
-      body: Stack(
-        children: [
-          // Background gradient
-          Container(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
-                  Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.3),
-                  Theme.of(context).colorScheme.surface,
-                ],
-              ),
-            ),
-          ),
-          // Form content
-          SingleChildScrollView(
-            padding: const EdgeInsets.all(16),
-            child: Form(
-              key: _formKey,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Quick amount display
-                  _buildAmountPreview(),
-                  const SizedBox(height: 24),
-
-                  // Transaction Type Selector
-                  _buildTypeSelector(),
-                  const SizedBox(height: 24),
-
-                  // Amount Input
-                  _buildAmountInput(),
-                  const SizedBox(height: 20),
-
-                  // Description Input
-                  _buildDescriptionInput(),
-                  const SizedBox(height: 20),
-
-                  // Category Selector with icons
-                  _buildCategorySelector(),
-                  const SizedBox(height: 20),
-
-                  // Date Picker
-                  _buildDatePicker(),
-                  const SizedBox(height: 20),
-
-                  // Payment Method with icons
-                  _buildPaymentMethodSelector(),
-                  const SizedBox(height: 20),
-
-                  // Tags
-                  _buildTagsInput(),
-                  const SizedBox(height: 20),
-
-                  // Advanced Options
-                  _buildAdvancedOptions(),
-                  const SizedBox(height: 24),
-
-                  // Action Buttons
-                  _buildActionButtons(),
-                  const SizedBox(height: 20),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  static const double _emptyPreviewAmount = 0;
-
-  Widget _buildAmountPreview() {
-    final amount = double.tryParse(_amountController.text) ?? _emptyPreviewAmount;
-    final isIncome = _type == TransactionType.income;
-
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            isIncome
-                ? Colors.green.withValues(alpha: 0.8)
-                : Colors.red.withValues(alpha: 0.8),
-            isIncome
-                ? Colors.green.withValues(alpha: 0.6)
-                : Colors.red.withValues(alpha: 0.6),
-          ],
-        ),
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: (isIncome ? Colors.green : Colors.red).withValues(alpha: 0.3),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            isIncome ? 'Income' : 'Expense',
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 12,
-              fontWeight: FontWeight.w500,
-              letterSpacing: 1,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.baseline,
-            textBaseline: TextBaseline.alphabetic,
+      body: SingleChildScrollView(
+        padding: EdgeInsets.all(tokens.spacing.lg),
+        child: Form(
+          key: _formKey,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Text(
-                isIncome ? '+' : '-',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 28,
-                  fontWeight: FontWeight.bold,
-                ),
+              TransactionAmountPreview(
+                amount: amount,
+                isIncome: _type == TransactionType.income,
+                currencyCode: _selectedCurrency.code,
+                currencySymbol: _selectedCurrency.symbol,
               ),
-              const SizedBox(width: 4),
-              Text(
-                '${_selectedCurrency.symbol}${amount.toStringAsFixed(2)}',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 36,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(width: 8),
-              Text(
-                _selectedCurrency.code,
-                style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.8),
-                  fontSize: 16,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildTypeSelector() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          'Transaction Type',
-          style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        const SizedBox(height: 12),
-        Container(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(12),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.05),
-                blurRadius: 8,
-                offset: const Offset(0, 2),
-              ),
-            ],
-          ),
-          child: SegmentedButton<TransactionType>(
-            segments: const [
-              ButtonSegment(
-                value: TransactionType.expense,
-                label: Text('Expense'),
-                icon: Icon(Icons.arrow_upward),
-              ),
-              ButtonSegment(
-                value: TransactionType.income,
-                label: Text('Income'),
-                icon: Icon(Icons.arrow_downward),
-              ),
-            ],
-            selected: {_type},
-            onSelectionChanged: (Set<TransactionType> newSelection) {
-              setState(() {
-                _type = newSelection.first;
-                _selectedCategoryId = null;
-              });
-            },
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildAmountInput() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          'Amount',
-          style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        const SizedBox(height: 12),
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Currency Selector
-            Container(
-              width: 100,
-              decoration: BoxDecoration(
-                border: Border.all(
-                  color: Colors.grey.withValues(alpha: 0.2),
-                ),
-                borderRadius: BorderRadius.circular(12),
-                color: Colors.grey.withValues(alpha: 0.05),
-              ),
-              child: DropdownButtonFormField<Currency>(
-                initialValue: _selectedCurrency,
-                decoration: const InputDecoration(
-                  border: InputBorder.none,
-                  contentPadding: EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 16,
-                  ),
-                ),
-                items: Currency.values.map((currency) {
-                  return DropdownMenuItem(
-                    value: currency,
-                    child: Text(
-                      currency.code,
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  );
-                }).toList(),
-                onChanged: (value) {
-                  if (value != null) {
-                    setState(() => _selectedCurrency = value);
-                  }
-                },
-              ),
-            ),
-            const SizedBox(width: 12),
-            // Amount Input
-            Expanded(
-              child: TextFormField(
-                controller: _amountController,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                onChanged: (_) => setState(() {}),
-                validator: _validateAmount,
-                decoration: InputDecoration(
-                  hintText: '0.00',
-                  prefixText: '${_selectedCurrency.symbol} ',
-                  prefixStyle: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(
-                      color: Colors.grey.withValues(alpha: 0.2),
-                    ),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(
-                      color: Colors.grey.withValues(alpha: 0.2),
-                    ),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(
-                      color: Theme.of(context).colorScheme.primary,
-                      width: 2,
-                    ),
-                  ),
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 16,
-                  ),
-                  filled: true,
-                  fillColor: Colors.grey.withValues(alpha: 0.05),
-                ),
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-
-  Widget _buildDescriptionInput() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          'Description',
-          style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        const SizedBox(height: 12),
-        TextFormField(
-          controller: _descriptionController,
-          validator: _validateDescription,
-          decoration: InputDecoration(
-            hintText: 'What did you spend on?',
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(
-                color: Colors.grey.withValues(alpha: 0.2),
-              ),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(
-                color: Colors.grey.withValues(alpha: 0.2),
-              ),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(
-                color: Theme.of(context).colorScheme.primary,
-                width: 2,
-              ),
-            ),
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 16,
-              vertical: 16,
-            ),
-            filled: true,
-            fillColor: Colors.grey.withValues(alpha: 0.05),
-          ),
-          maxLines: 2,
-        ),
-      ],
-    );
-  }
-
-  Widget _buildCategorySelector() {
-    final categoriesAsync = ref.watch(allCategoriesProvider);
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          'Category',
-          style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        const SizedBox(height: 12),
-        categoriesAsync.when(
-          loading: () => const LinearProgressIndicator(),
-          error: (error, stack) => AsyncErrorView(
-            error: error,
-            isCompact: true,
-            onRetry: () => ref.invalidate(allCategoriesProvider),
-          ),
-          data: (allCategories) {
-            final matchingType =
-                allCategories.where((c) => c.type == _matchingCategoryType).toList();
-
-            if (matchingType.isEmpty) {
-              return Text(
-                'No categories yet — add one from the Categories tab first.',
-                style: TextStyle(color: Theme.of(context).colorScheme.error),
-              );
-            }
-
-            final selectedId = matchingType.any((c) => c.id == _selectedCategoryId)
-                ? _selectedCategoryId
-                : (matchingType.isEmpty ? null : matchingType.first.id);
-            if (selectedId != _selectedCategoryId) {
-              WidgetsBinding.instance.addPostFrameCallback((_) {
-                if (mounted) setState(() => _selectedCategoryId = selectedId);
-              });
-            }
-            final selectedCategory = matchingType.firstWhere((c) => c.id == selectedId);
-
-            return Container(
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: Colors.grey.withValues(alpha: 0.2),
-                ),
-                color: Colors.grey.withValues(alpha: 0.05),
-              ),
-              child: DropdownButtonFormField<String>(
-                initialValue: selectedId,
-                decoration: InputDecoration(
-                  border: InputBorder.none,
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 12,
-                  ),
-                  prefixIcon: Padding(
-                    padding: const EdgeInsets.only(left: 12, right: 8),
-                    child: Icon(
-                      selectedCategory.icon,
-                      color: Theme.of(context).colorScheme.primary,
-                    ),
-                  ),
-                ),
-                items: matchingType
-                    .map((category) => DropdownMenuItem(
-                          value: category.id,
-                          child: Row(
-                            children: [
-                              Icon(category.icon, size: 20),
-                              const SizedBox(width: 12),
-                              Text(category.name),
-                            ],
-                          ),
-                        ))
-                    .toList(),
-                onChanged: (value) {
-                  if (value != null) {
-                    setState(() => _selectedCategoryId = value);
-                  }
-                },
-              ),
-            );
-          },
-        ),
-      ],
-    );
-  }
-
-  CategoryType get _matchingCategoryType =>
-      _type == TransactionType.income ? CategoryType.income : CategoryType.expense;
-
-  Widget _buildDatePicker() {
-    final formatter = DateFormat('MMM dd, yyyy');
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          'Date',
-          style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        const SizedBox(height: 12),
-        InkWell(
-          onTap: _selectDate,
-          child: Container(
-            padding: const EdgeInsets.symmetric(
-              horizontal: 16,
-              vertical: 16,
-            ),
-            decoration: BoxDecoration(
-              border: Border.all(
-                color: Colors.grey.withValues(alpha: 0.2),
-              ),
-              borderRadius: BorderRadius.circular(12),
-              color: Colors.grey.withValues(alpha: 0.05),
-            ),
-            child: Row(
-              children: [
-                Icon(
-                  Icons.calendar_today,
-                  color: Theme.of(context).colorScheme.primary,
-                ),
-                const SizedBox(width: 12),
-                Text(
-                  formatter.format(_selectedDate),
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                const Spacer(),
-                Icon(
-                  Icons.edit,
-                  size: 18,
-                  color: Colors.grey[400],
-                ),
-              ],
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildPaymentMethodSelector() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          'Payment Method',
-          style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        const SizedBox(height: 12),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: _paymentMethods.map((method) {
-            final isSelected = _selectedPaymentMethod == method.$1;
-            return FilterChip(
-              selected: isSelected,
-              onSelected: (selected) {
-                setState(() => _selectedPaymentMethod = method.$1);
-              },
-              avatar: Icon(method.$2, size: 18),
-              label: Text(method.$1),
-              backgroundColor: Colors.grey.withValues(alpha: 0.1),
-              selectedColor: Theme.of(context).colorScheme.primaryContainer,
-              labelStyle: TextStyle(
-                color: isSelected
-                    ? Theme.of(context).colorScheme.onPrimaryContainer
-                    : Colors.black87,
-                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-              ),
-            );
-          }).toList(),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildTagsInput() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          'Tags (Optional)',
-          style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        const SizedBox(height: 12),
-        if (_tags.isNotEmpty)
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: _tags
-                .map((tag) => Chip(
-                      label: Text(tag),
-                      onDeleted: () {
-                        setState(() => _tags.remove(tag));
-                      },
-                      backgroundColor: Theme.of(context)
-                          .colorScheme
-                          .secondaryContainer
-                          .withValues(alpha: 0.5),
-                    ))
-                .toList(),
-          ),
-        if (_tags.isNotEmpty) const SizedBox(height: 12),
-        Row(
-          children: [
-            Expanded(
-              child: TextField(
-                controller: _tagController,
-                decoration: InputDecoration(
-                  hintText: 'Add a tag',
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(
-                      color: Colors.grey.withValues(alpha: 0.2),
-                    ),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(
-                      color: Colors.grey.withValues(alpha: 0.2),
-                    ),
-                  ),
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 12,
-                  ),
-                  filled: true,
-                  fillColor: Colors.grey.withValues(alpha: 0.05),
-                ),
-              ),
-            ),
-            const SizedBox(width: 8),
-            FilledButton.icon(
-              onPressed: _addTag,
-              icon: const Icon(Icons.add),
-              label: const Text('Add'),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-
-  Widget _buildAdvancedOptions() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        GestureDetector(
-          onTap: () => setState(() => _showAdvanced = !_showAdvanced),
-          child: Container(
-            padding: const EdgeInsets.symmetric(vertical: 12),
-            child: Row(
-              children: [
-                Icon(
-                  _showAdvanced ? Icons.expand_less : Icons.expand_more,
-                  color: Theme.of(context).colorScheme.primary,
-                ),
-                const SizedBox(width: 8),
-                const Text(
-                  'Advanced Options',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-        if (_showAdvanced) ...[
-          const SizedBox(height: 16),
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              border: Border.all(
-                color: Colors.grey.withValues(alpha: 0.2),
-              ),
-              borderRadius: BorderRadius.circular(12),
-              color: Colors.grey.withValues(alpha: 0.05),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
+              SizedBox(height: tokens.spacing.lg),
+              AppCard(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Expanded(
-                      child: const Text(
-                        'Recurring Transaction',
-                        style: TextStyle(
-                          fontWeight: FontWeight.w600,
+                    Text('Transaction Type', style: theme.textTheme.titleSmall),
+                    SizedBox(height: tokens.spacing.sm),
+                    SegmentedButton<TransactionType>(
+                      segments: const [
+                        ButtonSegment(
+                          value: TransactionType.expense,
+                          label: Text('Expense'),
+                          icon: Icon(Icons.arrow_upward),
                         ),
-                      ),
-                    ),
-                    Switch(
-                      value: _isRecurring,
-                      onChanged: (value) {
-                        setState(() => _isRecurring = value);
+                        ButtonSegment(
+                          value: TransactionType.income,
+                          label: Text('Income'),
+                          icon: Icon(Icons.arrow_downward),
+                        ),
+                      ],
+                      selected: {_type},
+                      onSelectionChanged: (newSelection) {
+                        setState(() {
+                          _type = newSelection.first;
+                          _selectedCategoryId = null;
+                        });
                       },
+                    ),
+                    SizedBox(height: tokens.spacing.lg),
+                    Text('Amount', style: theme.textTheme.titleSmall),
+                    SizedBox(height: tokens.spacing.sm),
+                    TransactionAmountInput(
+                      selectedCurrency: _selectedCurrency,
+                      onCurrencyChanged: (currency) => setState(() => _selectedCurrency = currency),
+                      amountController: _amountController,
+                      onAmountChanged: (_) => setState(() {}),
+                      validator: _validateAmount,
+                    ),
+                    SizedBox(height: tokens.spacing.lg),
+                    Text('Description', style: theme.textTheme.titleSmall),
+                    SizedBox(height: tokens.spacing.sm),
+                    TextFormField(
+                      controller: _descriptionController,
+                      validator: _validateDescription,
+                      maxLines: 2,
+                      decoration: const InputDecoration(hintText: 'What did you spend on?'),
+                    ),
+                    SizedBox(height: tokens.spacing.lg),
+                    Text('Category', style: theme.textTheme.titleSmall),
+                    SizedBox(height: tokens.spacing.sm),
+                    TransactionCategorySelector(
+                      categoryType: _matchingCategoryType,
+                      selectedCategoryId: _selectedCategoryId,
+                      onChanged: (value) {
+                        if (mounted) setState(() => _selectedCategoryId = value);
+                      },
+                    ),
+                    SizedBox(height: tokens.spacing.lg),
+                    DateTimeField(
+                      label: 'Date',
+                      value: _selectedDate,
+                      mode: DateTimeFieldMode.date,
+                      firstDate: _minimumTransactionDate,
+                      lastDate: DateTime.now(),
+                      onChanged: (date) {
+                        if (date != null) setState(() => _selectedDate = date);
+                      },
+                    ),
+                    SizedBox(height: tokens.spacing.lg),
+                    Text('Payment Method', style: theme.textTheme.titleSmall),
+                    SizedBox(height: tokens.spacing.sm),
+                    TransactionPaymentMethodSelector(
+                      options: _paymentMethods,
+                      selected: _selectedPaymentMethod,
+                      onSelected: (method) => setState(() => _selectedPaymentMethod = method),
+                    ),
+                    SizedBox(height: tokens.spacing.lg),
+                    Text('Tags (Optional)', style: theme.textTheme.titleSmall),
+                    SizedBox(height: tokens.spacing.sm),
+                    TransactionTagsInput(
+                      tags: _tags,
+                      controller: _tagController,
+                      onAdd: _addTag,
+                      onRemove: (tag) => setState(() => _tags.remove(tag)),
+                    ),
+                    SizedBox(height: tokens.spacing.lg),
+                    TransactionAdvancedOptions(
+                      isExpanded: _showAdvanced,
+                      onToggleExpanded: () => setState(() => _showAdvanced = !_showAdvanced),
+                      isRecurring: _isRecurring,
+                      onRecurringChanged: (value) => setState(() => _isRecurring = value),
+                      recurrencePattern: _recurringPattern,
+                      onPatternChanged: (value) => setState(() => _recurringPattern = value),
                     ),
                   ],
                 ),
-                if (_isRecurring) ...[
-                  const SizedBox(height: 12),
-                  DropdownButtonFormField<RecurrencePattern>(
-                    initialValue: _recurringPattern,
-                    decoration: InputDecoration(
-                      labelText: 'Repeat',
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 12,
-                      ),
-                    ),
-                    items: RecurrencePattern.values
-                        .map((option) => DropdownMenuItem(
-                              value: option,
-                              child: Text(
-                                option.name[0].toUpperCase() + option.name.substring(1),
-                              ),
-                            ))
-                        .toList(),
-                    onChanged: (value) {
-                      if (value != null) {
-                        setState(() => _recurringPattern = value);
-                      }
-                    },
-                  ),
-                ],
-              ],
-            ),
+              ),
+              SizedBox(height: tokens.spacing.xl),
+              _buildActionButtons(),
+            ],
           ),
-        ],
-      ],
+        ),
+      ),
     );
   }
 
   Widget _buildActionButtons() {
+    final tokens = AppThemeTokens.of(context);
     return Row(
       children: [
         Expanded(
@@ -838,7 +257,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
             child: const Text('Cancel'),
           ),
         ),
-        const SizedBox(width: 12),
+        SizedBox(width: tokens.spacing.md),
         Expanded(
           child: FilledButton(
             onPressed: _saveTransaction,
@@ -847,19 +266,6 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
         ),
       ],
     );
-  }
-
-  Future<void> _selectDate() async {
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: _selectedDate,
-      firstDate: DateTime(2020),
-      lastDate: DateTime.now(),
-    );
-
-    if (picked != null && mounted) {
-      setState(() => _selectedDate = picked);
-    }
   }
 
   void _addTag() {
@@ -871,6 +277,9 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
       });
     }
   }
+
+  CategoryType get _matchingCategoryType =>
+      _type == TransactionType.income ? CategoryType.income : CategoryType.expense;
 
   String? _validateAmount(String? value) {
     final requiredError = ValidationUtils.requiredField(value, 'Amount');
@@ -942,34 +351,18 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
   void _deleteTransaction() {
     unawaited(showDialog<void>(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text(_deleteDialogTitle),
-        content: const Text(_deleteDialogMessage),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext),
-            child: const Text(_cancelLabel),
-          ),
-          FilledButton(
-            onPressed: () async {
-              final result = await ref
-                  .read(financialServiceProvider)
-                  .deleteTransaction(widget.transaction!.id);
-              if (!dialogContext.mounted) return;
+      builder: (dialogContext) => TransactionDeleteDialog(
+        onConfirm: () async {
+          final result = await ref.read(financialServiceProvider).deleteTransaction(widget.transaction!.id);
+          if (!dialogContext.mounted) return;
 
-              if (result.isSuccess) {
-                Navigator.pop(dialogContext);
-                if (mounted) Navigator.pop(context, 'deleted');
-              } else {
-                AppFeedback.showError(dialogContext, result.error!);
-              }
-            },
-            style: FilledButton.styleFrom(
-              backgroundColor: Colors.red,
-            ),
-            child: const Text(_deleteLabel),
-          ),
-        ],
+          if (result.isSuccess) {
+            Navigator.pop(dialogContext);
+            if (mounted) Navigator.pop(context, 'deleted');
+          } else {
+            AppFeedback.showError(dialogContext, result.error!);
+          }
+        },
       ),
     ));
   }
@@ -979,7 +372,7 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> {
       SnackBar(
         content: Text(message),
         backgroundColor: Theme.of(context).colorScheme.error,
-        duration: const Duration(seconds: 2),
+        duration: _validationSnackBarDuration,
         behavior: SnackBarBehavior.floating,
       ),
     );

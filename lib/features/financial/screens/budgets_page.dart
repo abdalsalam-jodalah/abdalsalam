@@ -2,14 +2,23 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:intl/intl.dart';
 import 'package:uuid/uuid.dart';
+import '../../../core/formatting/app_date_formatter.dart';
+import '../../../core/theme/app_theme_tokens.dart';
 import '../../../data/models/financial/budget_model.dart';
 import '../../../data/models/financial/category_model.dart';
-import '../../../shared/widgets/async_error_view.dart';
-import '../../../shared/widgets/app_feedback.dart';
-import '../providers/financial_providers.dart';
 import '../../../providers/app_providers.dart';
+import '../../../shared/widgets/app_feedback.dart';
+import '../../../shared/widgets/async_error_view.dart';
+import '../../../shared/widgets/empty_state.dart';
+import '../../../shared/widgets/loading_skeleton.dart';
+import '../../../shared/widgets/ui/app_form_dialog.dart';
+import '../../../shared/widgets/ui/filter_bar.dart';
+import '../../../shared/widgets/ui/filter_option.dart';
+import '../../../shared/widgets/ui/page_header.dart';
+import '../providers/financial_providers.dart';
+import '../widgets/budget_card.dart';
+import '../widgets/financial_delete_confirm_dialog.dart';
 
 class BudgetsPage extends ConsumerStatefulWidget {
   static const routeName = '/financial/budgets';
@@ -34,6 +43,13 @@ class _BudgetsPageState extends ConsumerState<BudgetsPage> {
   static const String _cancelLabel = 'Cancel';
   static const String _deleteLabel = 'Delete';
   static const String _createCategoryFirstMessage = 'Create a category first';
+  static const List<FilterOption<BudgetPeriod>> _periodOptions = [
+    FilterOption(BudgetPeriod.daily, 'Day'),
+    FilterOption(BudgetPeriod.weekly, 'Week'),
+    FilterOption(BudgetPeriod.monthly, 'Month'),
+    FilterOption(BudgetPeriod.yearly, 'Year'),
+    FilterOption(BudgetPeriod.custom, 'Custom'),
+  ];
 
   BudgetPeriod _selectedPeriod = BudgetPeriod.monthly;
   final _uuid = const Uuid();
@@ -43,7 +59,12 @@ class _BudgetsPageState extends ConsumerState<BudgetsPage> {
     if (widget.embedded) {
       return Column(
         children: [
-          _buildEmbeddedHeader(),
+          PageHeader(
+            title: 'Budgets',
+            actions: [
+              IconButton(icon: const Icon(Icons.add), onPressed: _showBudgetDialog),
+            ],
+          ),
           _buildPeriodFilter(),
           Expanded(child: _buildBudgetsList()),
         ],
@@ -71,72 +92,25 @@ class _BudgetsPageState extends ConsumerState<BudgetsPage> {
     );
   }
 
-  Widget _buildEmbeddedHeader() {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 16, 8, 8),
-      child: Row(
-        children: [
-          Text(
-            'Budgets',
-            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
-          ),
-          const Spacer(),
-          IconButton(
-            icon: const Icon(Icons.add),
-            onPressed: _showBudgetDialog,
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _buildPeriodFilter() {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: SegmentedButton<BudgetPeriod>(
-          segments: const [
-            ButtonSegment(
-              value: BudgetPeriod.daily,
-              label: Text('Day'),
-            ),
-            ButtonSegment(
-              value: BudgetPeriod.weekly,
-              label: Text('Week'),
-            ),
-            ButtonSegment(
-              value: BudgetPeriod.monthly,
-              label: Text('Month'),
-            ),
-            ButtonSegment(
-              value: BudgetPeriod.yearly,
-              label: Text('Year'),
-            ),
-            ButtonSegment(
-              value: BudgetPeriod.custom,
-              label: Text('Custom'),
-            ),
-          ],
-          selected: {_selectedPeriod},
-          onSelectionChanged: (Set<BudgetPeriod> newSelection) {
-            setState(() {
-              _selectedPeriod = newSelection.first;
-            });
-          },
-        ),
+    final tokens = AppThemeTokens.of(context);
+    return Padding(
+      padding: EdgeInsets.all(tokens.spacing.lg),
+      child: FilterBar<BudgetPeriod>(
+        options: _periodOptions,
+        selected: _selectedPeriod,
+        onSelected: (value) => setState(() => _selectedPeriod = value),
       ),
     );
   }
 
   Widget _buildBudgetsList() {
+    final tokens = AppThemeTokens.of(context);
     final budgetsAsync = ref.watch(activeBudgetsProvider);
     final categoriesAsync = ref.watch(allCategoriesProvider);
 
     return budgetsAsync.when(
-      loading: () => const Center(child: CircularProgressIndicator()),
+      loading: () => const LoadingSkeleton(),
       error: (error, stack) => AsyncErrorView(
         error: error,
         onRetry: () => ref.invalidate(activeBudgetsProvider),
@@ -147,24 +121,10 @@ class _BudgetsPageState extends ConsumerState<BudgetsPage> {
             .toList();
 
         if (filtered.isEmpty) {
-          return Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  Icons.savings_outlined,
-                  size: 64,
-                  color: Theme.of(context).colorScheme.outline,
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  'No ${_selectedPeriod.name} budgets yet',
-                  style: Theme.of(context).textTheme.bodyLarge,
-                ),
-                const SizedBox(height: 8),
-                const Text('Tap + to create your first budget'),
-              ],
-            ),
+          return EmptyState(
+            title: 'No ${_selectedPeriod.name} budgets yet',
+            subtitle: 'Tap + to create your first budget',
+            icon: Icons.savings_outlined,
           );
         }
 
@@ -175,12 +135,21 @@ class _BudgetsPageState extends ConsumerState<BudgetsPage> {
 
         return RefreshIndicator(
           onRefresh: () async => ref.invalidate(activeBudgetsProvider),
-          child: ListView.builder(
-            padding: const EdgeInsets.all(16),
+          child: ListView.separated(
+            padding: EdgeInsets.all(tokens.spacing.lg),
             itemCount: filtered.length,
+            separatorBuilder: (_, _) => SizedBox(height: tokens.spacing.md),
             itemBuilder: (context, index) {
               final budget = filtered[index];
-              return _buildBudgetCard(budget, _categoryFor(categories, budget.categoryId));
+              final category = _categoryFor(categories, budget.categoryId);
+              return BudgetCard(
+                budget: budget,
+                category: category,
+                progress: ref.watch(budgetProgressProvider(budget)),
+                onRetryProgress: () => ref.invalidate(budgetProgressProvider(budget)),
+                onEdit: () => _showBudgetDialog(budget: budget),
+                onDelete: () => _deleteBudget(budget),
+              );
             },
           ),
         );
@@ -195,205 +164,6 @@ class _BudgetsPageState extends ConsumerState<BudgetsPage> {
       }
     }
     return null;
-  }
-
-  Widget _buildBudgetCard(BudgetModel budget, CategoryModel? category) {
-    final progressAsync = ref.watch(budgetProgressProvider(budget));
-    final spent = progressAsync.maybeWhen(
-      data: (progress) => (progress['spent'] as num?)?.toDouble() ?? 0.0,
-      orElse: () => 0.0,
-    );
-    final percentage = budget.amount == 0 ? 0.0 : (spent / budget.amount) * 100;
-    final remaining = budget.amount - spent;
-    final isOverBudget = spent > budget.amount;
-    final isNearLimit = percentage >= budget.alertThreshold;
-    final categoryColor = category?.color ?? Colors.grey;
-    final categoryIcon = category?.icon ?? Icons.category;
-    final categoryName = category?.name ?? 'Unknown category';
-
-    return Card(
-      margin: const EdgeInsets.only(bottom: 16),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (progressAsync.hasError)
-              AsyncErrorView(
-                error: progressAsync.error!,
-                isCompact: true,
-                onRetry: () => ref.invalidate(budgetProgressProvider(budget)),
-              ),
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: categoryColor.withValues(alpha: 0.2),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Icon(
-                    categoryIcon,
-                    color: categoryColor,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        categoryName,
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      Text(
-                        budget.period.name.toUpperCase(),
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey[600],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Text(
-                      '${percentage.toStringAsFixed(0)}%',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: isOverBudget
-                            ? Colors.red
-                            : isNearLimit
-                                ? Colors.orange
-                                : Colors.green,
-                      ),
-                    ),
-                    if (isOverBudget)
-                      const Text(
-                        'Over Budget',
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: Colors.red,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                  ],
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(8),
-              child: LinearProgressIndicator(
-                value: (percentage / 100).clamp(0.0, 1.0),
-                minHeight: 8,
-                backgroundColor: Colors.grey.withValues(alpha: 0.2),
-                valueColor: AlwaysStoppedAnimation<Color>(
-                  isOverBudget
-                      ? Colors.red
-                      : isNearLimit
-                          ? Colors.orange
-                          : Colors.green,
-                ),
-              ),
-            ),
-            const SizedBox(height: 12),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Spent',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.grey[600],
-                      ),
-                    ),
-                    Text(
-                      '₪${spent.toStringAsFixed(2)}',
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ],
-                ),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Text(
-                      'Remaining',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.grey[600],
-                      ),
-                    ),
-                    Text(
-                      '₪${remaining.toStringAsFixed(2)}',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: remaining < 0 ? Colors.red : Colors.green,
-                      ),
-                    ),
-                  ],
-                ),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Text(
-                      'Budget',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.grey[600],
-                      ),
-                    ),
-                    Text(
-                      '₪${budget.amount.toStringAsFixed(2)}',
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: () => _showBudgetDialog(budget: budget),
-                    icon: const Icon(Icons.edit, size: 18),
-                    label: const Text('Edit'),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: () => _deleteBudget(budget),
-                    icon: const Icon(Icons.delete, size: 18),
-                    label: const Text('Delete'),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: Colors.red,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
   }
 
   ({DateTime start, DateTime end}) _rangeForPeriod(BudgetPeriod period) {
@@ -504,39 +274,18 @@ class _BudgetsPageState extends ConsumerState<BudgetsPage> {
   }
 
   void _deleteBudget(BudgetModel budget) {
-    unawaited(showDialog<void>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text(_deleteBudgetTitle),
-        content: const Text(_deleteBudgetMessage),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext),
-            child: const Text(_cancelLabel),
-          ),
-          FilledButton(
-            onPressed: () async {
-              final result =
-                  await ref.read(financialServiceProvider).deleteBudget(budget);
-              if (!dialogContext.mounted) return;
-
-              if (result.isSuccess) {
-                Navigator.pop(dialogContext);
-                if (mounted) {
-                  ref.invalidate(activeBudgetsProvider);
-                  AppFeedback.showSuccess(context, _budgetDeletedMessage);
-                }
-              } else {
-                AppFeedback.showError(dialogContext, result.error!);
-              }
-            },
-            style: FilledButton.styleFrom(
-              backgroundColor: Colors.red,
-            ),
-            child: const Text(_deleteLabel),
-          ),
-        ],
-      ),
+    unawaited(showFinancialDeleteConfirmDialog(
+      context,
+      title: _deleteBudgetTitle,
+      message: _deleteBudgetMessage,
+      cancelLabel: _cancelLabel,
+      deleteLabel: _deleteLabel,
+      onConfirm: () => ref.read(financialServiceProvider).deleteBudget(budget),
+      onDeleted: () {
+        if (!mounted) return;
+        ref.invalidate(activeBudgetsProvider);
+        AppFeedback.showSuccess(context, _budgetDeletedMessage);
+      },
     ));
   }
 }
@@ -571,6 +320,8 @@ class _BudgetDialogContent extends StatefulWidget {
 }
 
 class _BudgetDialogContentState extends State<_BudgetDialogContent> {
+  static const String _amountCurrencySymbol = '₪';
+
   final formKey = GlobalKey<FormState>();
   late final TextEditingController amountController;
   String? selectedCategoryId;
@@ -598,106 +349,89 @@ class _BudgetDialogContentState extends State<_BudgetDialogContent> {
 
   @override
   Widget build(BuildContext context) {
+    final tokens = AppThemeTokens.of(context);
     final budget = widget.budget;
-    return AlertDialog(
-      title: Text(budget == null ? 'Create Budget' : 'Edit Budget'),
-      content: SingleChildScrollView(
-        child: Form(
-          key: formKey,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              DropdownButtonFormField<String>(
-                decoration: const InputDecoration(
-                  labelText: 'Category',
-                  border: OutlineInputBorder(),
-                ),
-                initialValue: selectedCategoryId,
-                items: widget.categories
-                    .map((category) => DropdownMenuItem(value: category.id, child: Text(category.name)))
-                    .toList(),
-                onChanged: (value) => setState(() => selectedCategoryId = value),
+    return AppFormDialog(
+      title: budget == null ? 'Create Budget' : 'Edit Budget',
+      submitLabel: budget == null ? 'Create' : 'Save',
+      onSubmit: () {
+        if ((formKey.currentState?.validate() ?? false) && selectedCategoryId != null) {
+          Navigator.pop(
+            context,
+            _BudgetDialogResult(
+              categoryId: selectedCategoryId!,
+              amount: double.parse(amountController.text),
+              period: selectedPeriod,
+              customRange: customRange,
+            ),
+          );
+        }
+      },
+      child: Form(
+        key: formKey,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            DropdownButtonFormField<String>(
+              decoration: const InputDecoration(labelText: 'Category'),
+              initialValue: selectedCategoryId,
+              items: widget.categories
+                  .map((category) => DropdownMenuItem(value: category.id, child: Text(category.name)))
+                  .toList(),
+              onChanged: (value) => setState(() => selectedCategoryId = value),
+            ),
+            SizedBox(height: tokens.spacing.md),
+            TextFormField(
+              controller: amountController,
+              decoration: const InputDecoration(
+                labelText: 'Amount',
+                prefixText: _amountCurrencySymbol,
               ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: amountController,
-                decoration: const InputDecoration(
-                  labelText: 'Amount',
-                  border: OutlineInputBorder(),
-                  prefixText: '₪',
+              keyboardType: TextInputType.number,
+              validator: (value) {
+                final parsed = double.tryParse(value ?? '');
+                if (parsed == null || parsed <= 0) {
+                  return 'Enter a valid amount';
+                }
+                return null;
+              },
+            ),
+            SizedBox(height: tokens.spacing.md),
+            DropdownButtonFormField<BudgetPeriod>(
+              decoration: const InputDecoration(labelText: 'Period'),
+              initialValue: selectedPeriod,
+              items: const [
+                DropdownMenuItem(value: BudgetPeriod.daily, child: Text('Daily')),
+                DropdownMenuItem(value: BudgetPeriod.weekly, child: Text('Weekly')),
+                DropdownMenuItem(value: BudgetPeriod.monthly, child: Text('Monthly')),
+                DropdownMenuItem(value: BudgetPeriod.yearly, child: Text('Yearly')),
+                DropdownMenuItem(value: BudgetPeriod.custom, child: Text('Custom range')),
+              ],
+              onChanged: (value) => setState(() => selectedPeriod = value ?? selectedPeriod),
+            ),
+            if (selectedPeriod == BudgetPeriod.custom) ...[
+              SizedBox(height: tokens.spacing.md),
+              OutlinedButton.icon(
+                icon: const Icon(Icons.date_range),
+                label: Text(
+                  '${AppDateFormatter.date(customRange.start)} – ${AppDateFormatter.date(customRange.end)}',
                 ),
-                keyboardType: TextInputType.number,
-                validator: (value) {
-                  final parsed = double.tryParse(value ?? '');
-                  if (parsed == null || parsed <= 0) {
-                    return 'Enter a valid amount';
+                onPressed: () async {
+                  final picked = await showDateRangePicker(
+                    context: context,
+                    firstDate: DateTime(2020),
+                    lastDate: DateTime(2100),
+                    initialDateRange: customRange,
+                  );
+                  if (picked != null && mounted) {
+                    setState(() => customRange = picked);
                   }
-                  return null;
                 },
               ),
-              const SizedBox(height: 16),
-              DropdownButtonFormField<BudgetPeriod>(
-                decoration: const InputDecoration(
-                  labelText: 'Period',
-                  border: OutlineInputBorder(),
-                ),
-                initialValue: selectedPeriod,
-                items: const [
-                  DropdownMenuItem(value: BudgetPeriod.daily, child: Text('Daily')),
-                  DropdownMenuItem(value: BudgetPeriod.weekly, child: Text('Weekly')),
-                  DropdownMenuItem(value: BudgetPeriod.monthly, child: Text('Monthly')),
-                  DropdownMenuItem(value: BudgetPeriod.yearly, child: Text('Yearly')),
-                  DropdownMenuItem(value: BudgetPeriod.custom, child: Text('Custom range')),
-                ],
-                onChanged: (value) => setState(() => selectedPeriod = value ?? selectedPeriod),
-              ),
-              if (selectedPeriod == BudgetPeriod.custom) ...[
-                const SizedBox(height: 16),
-                OutlinedButton.icon(
-                  icon: const Icon(Icons.date_range),
-                  label: Text(
-                    '${DateFormat('MMM d, yyyy').format(customRange.start)} – '
-                    '${DateFormat('MMM d, yyyy').format(customRange.end)}',
-                  ),
-                  onPressed: () async {
-                    final picked = await showDateRangePicker(
-                      context: context,
-                      firstDate: DateTime(2020),
-                      lastDate: DateTime(2100),
-                      initialDateRange: customRange,
-                    );
-                    if (picked != null && mounted) {
-                      setState(() => customRange = picked);
-                    }
-                  },
-                ),
-              ],
             ],
-          ),
+          ],
         ),
       ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('Cancel'),
-        ),
-        FilledButton(
-          onPressed: () {
-            if ((formKey.currentState?.validate() ?? false) && selectedCategoryId != null) {
-              Navigator.pop(
-                context,
-                _BudgetDialogResult(
-                  categoryId: selectedCategoryId!,
-                  amount: double.parse(amountController.text),
-                  period: selectedPeriod,
-                  customRange: customRange,
-                ),
-              );
-            }
-          },
-          child: Text(budget == null ? 'Create' : 'Save'),
-        ),
-      ],
     );
   }
 }

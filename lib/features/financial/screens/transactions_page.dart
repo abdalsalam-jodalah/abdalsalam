@@ -2,11 +2,21 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:intl/intl.dart';
+
+import '../../../core/theme/app_theme_tokens.dart';
 import '../../../data/models/financial/transaction_model.dart';
-import '../../../shared/widgets/async_error_view.dart';
 import '../../../shared/widgets/app_feedback.dart';
+import '../../../shared/widgets/async_error_view.dart';
+import '../../../shared/widgets/empty_state.dart';
+import '../../../shared/widgets/loading_skeleton.dart';
+import '../../../shared/widgets/ui/app_form_dialog.dart';
+import '../../../shared/widgets/ui/page_header.dart';
+import '../../../shared/widgets/ui/show_app_bottom_sheet.dart';
 import '../providers/financial_providers.dart';
+import '../widgets/financial_delete_confirm_dialog.dart';
+import '../widgets/transaction_detail_sheet.dart';
+import '../widgets/transaction_tile.dart';
+import 'transaction_form_screen.dart';
 
 class TransactionsPage extends ConsumerStatefulWidget {
   static const routeName = '/financial/transactions';
@@ -34,13 +44,21 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
 
   @override
   Widget build(BuildContext context) {
+    final tokens = AppThemeTokens.of(context);
     if (widget.embedded) {
       return Column(
         children: [
-          _buildEmbeddedHeader(),
-          if (_selectedCategory != null || _selectedType != null)
-            _buildActiveFilters(),
-          Expanded(child: _buildTransactionsList()),
+          PageHeader(
+            title: 'Transactions',
+            actions: [
+              IconButton(
+                icon: const Icon(Icons.filter_list),
+                onPressed: _showFilterDialog,
+              ),
+            ],
+          ),
+          if (_selectedCategory != null || _selectedType != null) _buildActiveFilters(tokens),
+          Expanded(child: _buildTransactionsList(tokens)),
         ],
       );
     }
@@ -61,31 +79,9 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
       ),
       body: Column(
         children: [
-          if (_selectedCategory != null || _selectedType != null)
-            _buildActiveFilters(),
+          if (_selectedCategory != null || _selectedType != null) _buildActiveFilters(tokens),
           Expanded(
-            child: _buildTransactionsList(),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildEmbeddedHeader() {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 16, 8, 8),
-      child: Row(
-        children: [
-          Text(
-            'Transactions',
-            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
-          ),
-          const Spacer(),
-          IconButton(
-            icon: const Icon(Icons.filter_list),
-            onPressed: _showFilterDialog,
+            child: _buildTransactionsList(tokens),
           ),
         ],
       ),
@@ -95,7 +91,7 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
   Future<void> _addTransaction() async {
     final result = await Navigator.pushNamed(
       context,
-      '/financial/transaction-form',
+      TransactionFormScreen.routeName,
     );
 
     if (result != null && mounted) {
@@ -103,12 +99,12 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
     }
   }
 
-  Widget _buildActiveFilters() {
+  Widget _buildActiveFilters(AppThemeTokens tokens) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: EdgeInsets.all(tokens.spacing.lg),
       color: Theme.of(context).colorScheme.surfaceContainerHighest,
       child: Wrap(
-        spacing: 8,
+        spacing: tokens.spacing.sm,
         children: [
           if (_selectedCategory != null)
             Chip(
@@ -129,43 +125,19 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
     );
   }
 
-  Widget _buildTransactionsList() {
+  Widget _buildTransactionsList(AppThemeTokens tokens) {
     final transactionsAsync = ref.watch(allTransactionsProvider);
 
     return transactionsAsync.when(
       data: (transactions) {
         if (transactions.isEmpty) {
-          return Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  Icons.receipt_long_outlined,
-                  size: 64,
-                  color: Colors.grey[400],
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  'No transactions yet',
-                  style: TextStyle(
-                    fontSize: 18,
-                    color: Colors.grey[600],
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Tap + to add your first transaction',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: Colors.grey[500],
-                  ),
-                ),
-              ],
-            ),
+          return const EmptyState(
+            title: 'No transactions yet',
+            subtitle: 'Tap + to add your first transaction',
+            icon: Icons.receipt_long_outlined,
           );
         }
 
-        // Apply filters
         var filtered = transactions;
         if (_selectedType != null) {
           filtered = filtered.where((t) => t.type == _selectedType).toList();
@@ -175,96 +147,31 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
         }
 
         if (filtered.isEmpty) {
-          return Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  Icons.filter_list_off,
-                  size: 64,
-                  color: Colors.grey[400],
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  'No transactions match filters',
-                  style: TextStyle(
-                    fontSize: 18,
-                    color: Colors.grey[600],
-                  ),
-                ),
-              ],
-            ),
+          return const EmptyState(
+            title: 'No transactions match filters',
+            subtitle: 'Try clearing a filter to see more transactions',
+            icon: Icons.filter_list_off,
+            isCompact: true,
           );
         }
 
-        return ListView.builder(
-          padding: const EdgeInsets.all(16),
+        return ListView.separated(
+          padding: EdgeInsets.all(tokens.spacing.lg),
           itemCount: filtered.length,
+          separatorBuilder: (_, _) => SizedBox(height: tokens.spacing.md),
           itemBuilder: (context, index) {
             final transaction = filtered[index];
-            return _buildTransactionCard(transaction);
+            return TransactionTile(
+              transaction: transaction,
+              onTap: () => _showTransactionDetails(transaction),
+            );
           },
         );
       },
-      loading: () => const Center(child: CircularProgressIndicator()),
+      loading: () => const LoadingSkeleton(),
       error: (error, stack) => AsyncErrorView(
         error: error,
         onRetry: () => ref.invalidate(allTransactionsProvider),
-      ),
-    );
-  }
-
-  Widget _buildTransactionCard(TransactionModel transaction) {
-    final isIncome = transaction.type == TransactionType.income;
-    final formatter = DateFormat('MMM dd, yyyy • HH:mm');
-
-    return Card(
-      margin: const EdgeInsets.only(bottom: 12),
-      child: ListTile(
-        leading: Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: (isIncome ? Colors.green : Colors.red).withValues(alpha: 0.2),
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Icon(
-            isIncome ? Icons.arrow_downward : Icons.arrow_upward,
-            color: isIncome ? Colors.green : Colors.red,
-          ),
-        ),
-        title: Text(
-          transaction.description,
-          style: const TextStyle(
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        subtitle: Text(
-          formatter.format(transaction.date),
-          style: const TextStyle(fontSize: 12),
-        ),
-        trailing: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.end,
-          children: [
-            Text(
-              '${isIncome ? '+' : '-'}\$${transaction.amount.toStringAsFixed(2)}',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-                color: isIncome ? Colors.green : Colors.red,
-              ),
-            ),
-            if (transaction.paymentMethod != null)
-              Text(
-                transaction.paymentMethod!,
-                style: TextStyle(
-                  fontSize: 11,
-                  color: Colors.grey[600],
-                ),
-              ),
-          ],
-        ),
-        onTap: () => _showTransactionDetails(transaction),
       ),
     );
   }
@@ -274,226 +181,120 @@ class _TransactionsPageState extends ConsumerState<TransactionsPage> {
 
     unawaited(showDialog<void>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Filter Transactions'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            categoriesAsync.when(
-              data: (categories) {
-                if (categories.isEmpty) {
-                  return const Text('No categories available');
-                }
-                return DropdownButtonFormField<String>(
-                  decoration: const InputDecoration(
-                    labelText: 'Category',
-                    border: OutlineInputBorder(),
-                  ),
-                  initialValue: _selectedCategory,
-                  items: categories.map((cat) {
-                    return DropdownMenuItem(
-                      value: cat.id,
-                      child: Text(cat.name),
-                    );
-                  }).toList(),
-                  onChanged: (value) {
-                    setState(() => _selectedCategory = value);
-                  },
-                );
+      builder: (dialogContext) {
+        final tokens = AppThemeTokens.of(dialogContext);
+        return AppFormDialog(
+          title: 'Filter Transactions',
+          submitLabel: 'Apply',
+          onSubmit: () => Navigator.pop(dialogContext),
+          extraActions: [
+            TextButton(
+              onPressed: () {
+                setState(() {
+                  _selectedCategory = null;
+                  _selectedType = null;
+                });
+                Navigator.pop(dialogContext);
               },
-              loading: () => const CircularProgressIndicator(),
-              error: (error, stack) => AsyncErrorView(
-                error: error,
-                isCompact: true,
-                onRetry: () => ref.invalidate(allCategoriesProvider),
-              ),
-            ),
-            const SizedBox(height: 16),
-            DropdownButtonFormField<TransactionType>(
-              decoration: const InputDecoration(
-                labelText: 'Type',
-                border: OutlineInputBorder(),
-              ),
-              initialValue: _selectedType,
-              items: const [
-                DropdownMenuItem(
-                  value: TransactionType.income,
-                  child: Text('Income'),
-                ),
-                DropdownMenuItem(
-                  value: TransactionType.expense,
-                  child: Text('Expense'),
-                ),
-              ],
-              onChanged: (value) {
-                setState(() => _selectedType = value);
-              },
+              child: const Text('Clear'),
             ),
           ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              setState(() {
-                _selectedCategory = null;
-                _selectedType = null;
-              });
-              Navigator.pop(context);
-            },
-            child: const Text('Clear'),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              categoriesAsync.when(
+                data: (categories) {
+                  if (categories.isEmpty) {
+                    return const Text('No categories available');
+                  }
+                  return DropdownButtonFormField<String>(
+                    decoration: const InputDecoration(labelText: 'Category'),
+                    initialValue: _selectedCategory,
+                    items: categories.map((cat) {
+                      return DropdownMenuItem(
+                        value: cat.id,
+                        child: Text(cat.name),
+                      );
+                    }).toList(),
+                    onChanged: (value) {
+                      setState(() => _selectedCategory = value);
+                    },
+                  );
+                },
+                loading: () => const CircularProgressIndicator(),
+                error: (error, stack) => AsyncErrorView(
+                  error: error,
+                  isCompact: true,
+                  onRetry: () => ref.invalidate(allCategoriesProvider),
+                ),
+              ),
+              SizedBox(height: tokens.spacing.md),
+              DropdownButtonFormField<TransactionType>(
+                decoration: const InputDecoration(labelText: 'Type'),
+                initialValue: _selectedType,
+                items: const [
+                  DropdownMenuItem(
+                    value: TransactionType.income,
+                    child: Text('Income'),
+                  ),
+                  DropdownMenuItem(
+                    value: TransactionType.expense,
+                    child: Text('Expense'),
+                  ),
+                ],
+                onChanged: (value) {
+                  setState(() => _selectedType = value);
+                },
+              ),
+            ],
           ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Apply'),
-          ),
-        ],
-      ),
+        );
+      },
     ));
   }
 
   void _showTransactionDetails(TransactionModel transaction) {
-    unawaited(showModalBottomSheet<void>(
-      context: context,
-      builder: (sheetContext) => Container(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text(
-                  'Transaction Details',
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                IconButton(
-                  icon: const Icon(Icons.close),
-                  onPressed: () => Navigator.pop(sheetContext),
-                ),
-              ],
-            ),
-            const SizedBox(height: 24),
-            _buildDetailRow('Amount', '\$${transaction.amount.toStringAsFixed(2)}'),
-            _buildDetailRow('Type', transaction.type.name),
-            _buildDetailRow('Description', transaction.description),
-            _buildDetailRow('Date', DateFormat('MMM dd, yyyy').format(transaction.date)),
-            if (transaction.paymentMethod != null)
-              _buildDetailRow('Payment Method', transaction.paymentMethod!),
-            if (transaction.tags.isNotEmpty)
-              _buildDetailRow('Tags', transaction.tags.join(', ')),
-            const SizedBox(height: 24),
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: () async {
-                      Navigator.pop(sheetContext);
-                      final result = await Navigator.pushNamed(
-                        context,
-                        '/financial/transaction-form',
-                        arguments: transaction,
-                      );
-                      if (!mounted) return;
-                      if (result != null) {
-                        ref.invalidate(allTransactionsProvider);
-                      }
-                    },
-                    icon: const Icon(Icons.edit),
-                    label: const Text('Edit'),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: FilledButton.icon(
-                    onPressed: () {
-                      Navigator.pop(sheetContext);
-                      _deleteTransaction(transaction);
-                    },
-                    icon: const Icon(Icons.delete),
-                    label: const Text('Delete'),
-                    style: FilledButton.styleFrom(
-                      backgroundColor: Colors.red,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
+    unawaited(showAppBottomSheet<void>(
+      context,
+      title: 'Transaction Details',
+      builder: (sheetContext) => TransactionDetailSheet(
+        transaction: transaction,
+        onEdit: () async {
+          Navigator.pop(sheetContext);
+          final result = await Navigator.pushNamed(
+            context,
+            TransactionFormScreen.routeName,
+            arguments: transaction,
+          );
+          if (!mounted) return;
+          if (result != null) {
+            ref.invalidate(allTransactionsProvider);
+          }
+        },
+        onDelete: () {
+          Navigator.pop(sheetContext);
+          _deleteTransaction(transaction);
+        },
       ),
     ));
   }
 
-  Widget _buildDetailRow(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            width: 120,
-            child: Text(
-              label,
-              style: TextStyle(
-                color: Colors.grey[600],
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ),
-          Expanded(
-            child: Text(
-              value,
-              style: const TextStyle(
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   void _deleteTransaction(TransactionModel transaction) {
-    unawaited(showDialog<void>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text(_deleteDialogTitle),
-        content: const Text(_deleteDialogMessage),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext),
-            child: const Text(_cancelLabel),
-          ),
-          FilledButton(
-            onPressed: () async {
-              final result =
-                  await ref.read(financialServiceProvider).deleteTransaction(transaction.id);
-              if (!dialogContext.mounted) return;
-
-              if (result.isSuccess) {
-                Navigator.pop(dialogContext);
-                if (mounted) {
-                  ref.invalidate(allTransactionsProvider);
-                  ref.invalidate(recentTransactionsProvider);
-                  ref.invalidate(financialSummaryProvider);
-                  ref.invalidate(categoryTotalsProvider);
-                  AppFeedback.showSuccess(context, _transactionDeletedMessage);
-                }
-              } else {
-                AppFeedback.showError(dialogContext, result.error!);
-              }
-            },
-            style: FilledButton.styleFrom(
-              backgroundColor: Colors.red,
-            ),
-            child: const Text(_deleteLabel),
-          ),
-        ],
-      ),
+    unawaited(showFinancialDeleteConfirmDialog(
+      context,
+      title: _deleteDialogTitle,
+      message: _deleteDialogMessage,
+      cancelLabel: _cancelLabel,
+      deleteLabel: _deleteLabel,
+      onConfirm: () => ref.read(financialServiceProvider).deleteTransaction(transaction.id),
+      onDeleted: () {
+        if (!mounted) return;
+        ref.invalidate(allTransactionsProvider);
+        ref.invalidate(recentTransactionsProvider);
+        ref.invalidate(financialSummaryProvider);
+        ref.invalidate(categoryTotalsProvider);
+        AppFeedback.showSuccess(context, _transactionDeletedMessage);
+      },
     ));
   }
 }

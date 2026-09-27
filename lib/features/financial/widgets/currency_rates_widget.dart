@@ -1,9 +1,23 @@
 import 'package:flutter/material.dart';
-import 'package:fl_chart/fl_chart.dart';
-import 'package:intl/intl.dart';
+
+import '../../../core/formatting/app_date_formatter.dart';
+import '../../../core/theme/app_theme_tokens.dart';
 import '../../../data/models/financial/exchange_rate_model.dart';
+import '../../../shared/widgets/charts/app_line_chart.dart';
+import '../../../shared/widgets/charts/chart_frame.dart';
+import '../../../shared/widgets/charts/chart_palette.dart';
+import '../../../shared/widgets/ui/app_card.dart';
+import '../../../shared/widgets/ui/app_section_header.dart';
+import '../../../shared/widgets/ui/icon_badge.dart';
 
 class CurrencyRatesWidget extends StatelessWidget {
+  static const IconData _usdIcon = Icons.attach_money_rounded;
+  static const IconData _jodIcon = Icons.account_balance_rounded;
+  static const String _sectionTitle = 'Exchange Rates';
+  static const String _historyTitle = 'Last 30 Days';
+  static const int _rateDecimalDigits = 4;
+  static const int _inverseRateDecimalDigits = 2;
+
   final Map<String, double> currentRates;
   final List<ExchangeRateModel> usdHistory;
   final List<ExchangeRateModel> jodHistory;
@@ -19,245 +33,108 @@ class CurrencyRatesWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Header
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Row(
-                  children: [
-                    Icon(Icons.currency_exchange, size: 20),
-                    SizedBox(width: 8),
-                    Text(
-                      'Exchange Rates',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ],
-                ),
-                if (onRefresh != null)
-                  IconButton(
-                    icon: const Icon(Icons.refresh),
-                    onPressed: onRefresh,
-                  ),
-              ],
-            ),
+    final tokens = AppThemeTokens.of(context);
+    final palette = ChartPalette.of(context);
+    final usdColor = palette[0];
+    final jodColor = palette[1];
+    final hasHistory = usdHistory.isNotEmpty || jodHistory.isNotEmpty;
 
-            const SizedBox(height: 16),
-
-            // Current Rates
-            Row(
-              children: [
-                Expanded(
-                  child: _buildRateCard(
-                    'USD',
-                    '\$',
-                    currentRates['USD'] ?? 0.0,
-                    Colors.green,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: _buildRateCard(
-                    'JOD',
-                    'JD',
-                    currentRates['JOD'] ?? 0.0,
-                    Colors.blue,
-                  ),
-                ),
-              ],
-            ),
-
-            const SizedBox(height: 16),
-
-            // Chart
-            if (usdHistory.isNotEmpty || jodHistory.isNotEmpty) ...[
-              const Text(
-                'Last 30 Days',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const SizedBox(height: 12),
-              SizedBox(
-                height: 200,
-                child: _buildChart(),
-              ),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildRateCard(String currency, String symbol, double rate, Color color) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color.withValues(alpha: 0.3)),
-      ),
+    return AppCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          AppSectionHeader(
+            title: _sectionTitle,
+            padding: EdgeInsets.zero,
+            action: onRefresh == null
+                ? null
+                : IconButton(icon: const Icon(Icons.refresh_rounded), onPressed: onRefresh),
+          ),
           Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                symbol,
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: color,
+              Expanded(
+                child: _RateInfo(
+                  icon: _usdIcon,
+                  code: 'USD',
+                  rate: currentRates['USD'] ?? 0.0,
+                  accentColor: usdColor,
                 ),
               ),
-              const SizedBox(width: 4),
-              Text(
-                currency,
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: color,
+              SizedBox(width: tokens.spacing.md),
+              Expanded(
+                child: _RateInfo(
+                  icon: _jodIcon,
+                  code: 'JOD',
+                  rate: currentRates['JOD'] ?? 0.0,
+                  accentColor: jodColor,
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 8),
-          Text(
-            '1 ILS = ${rate.toStringAsFixed(4)}',
-            style: const TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          Text(
-            '1 $currency = ${(1 / rate).toStringAsFixed(2)} ILS',
-            style: TextStyle(
-              fontSize: 11,
-              color: Colors.grey[600],
-            ),
-          ),
+          if (hasHistory) ...[
+            SizedBox(height: tokens.spacing.lg),
+            Text(_historyTitle, style: Theme.of(context).textTheme.labelLarge),
+            SizedBox(height: tokens.spacing.sm),
+            _buildChart(context, usdColor, jodColor),
+          ],
         ],
       ),
     );
   }
 
-  Widget _buildChart() {
-    if (usdHistory.isEmpty && jodHistory.isEmpty) {
-      return const Center(child: Text('No historical data'));
-    }
+  Widget _buildChart(BuildContext context, Color usdColor, Color jodColor) {
+    final labelSource = usdHistory.isNotEmpty ? usdHistory : jodHistory;
+    final labels = [for (final entry in labelSource) AppDateFormatter.shortDate(entry.date)];
+    return AppLineChart(
+      height: ChartFrame.defaultHeight,
+      points: [for (final entry in usdHistory) entry.rate],
+      color: usdColor,
+      extraSeries: [
+        if (jodHistory.isNotEmpty) AppChartSeries(points: [for (final entry in jodHistory) entry.rate], color: jodColor),
+      ],
+      axisLabels: labels,
+      yAxisLabelBuilder: (value) => value.toStringAsFixed(3),
+    );
+  }
+}
 
-    final usdSpots = usdHistory
-        .asMap()
-        .entries
-        .map((e) => FlSpot(e.key.toDouble(), e.value.rate))
-        .toList();
+class _RateInfo extends StatelessWidget {
+  final IconData icon;
+  final String code;
+  final double rate;
+  final Color accentColor;
 
-    final jodSpots = jodHistory
-        .asMap()
-        .entries
-        .map((e) => FlSpot(e.key.toDouble(), e.value.rate))
-        .toList();
+  const _RateInfo({required this.icon, required this.code, required this.rate, required this.accentColor});
 
-    final allRates = [
-      ...usdHistory.map((r) => r.rate),
-      ...jodHistory.map((r) => r.rate),
-    ];
-
-    final minY = allRates.isEmpty ? 0.0 : allRates.reduce((a, b) => a < b ? a : b) * 0.95;
-    final maxY = allRates.isEmpty ? 1.0 : allRates.reduce((a, b) => a > b ? a : b) * 1.05;
-
-    return LineChart(
-      LineChartData(
-        gridData: FlGridData(
-          show: true,
-          drawVerticalLine: false,
-          getDrawingHorizontalLine: (value) {
-            return FlLine(
-              color: Colors.grey.withValues(alpha: 0.2),
-              strokeWidth: 1,
-            );
-          },
+  @override
+  Widget build(BuildContext context) {
+    final tokens = AppThemeTokens.of(context);
+    final theme = Theme.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            IconBadge(icon: icon, color: accentColor, size: IconBadge.defaultSize),
+            SizedBox(width: tokens.spacing.sm),
+            Text(code, style: theme.textTheme.titleMedium?.copyWith(color: accentColor)),
+          ],
         ),
-        titlesData: FlTitlesData(
-          show: true,
-          rightTitles: const AxisTitles(
-            sideTitles: SideTitles(showTitles: false),
-          ),
-          topTitles: const AxisTitles(
-            sideTitles: SideTitles(showTitles: false),
-          ),
-          bottomTitles: AxisTitles(
-            sideTitles: SideTitles(
-              showTitles: true,
-              reservedSize: 30,
-              getTitlesWidget: (double value, TitleMeta meta) {
-                if (value.toInt() >= usdHistory.length) return const Text('');
-                final date = usdHistory[value.toInt()].date;
-                return Padding(
-                  padding: const EdgeInsets.only(top: 8.0),
-                  child: Text(
-                    DateFormat('MM/dd').format(date),
-                    style: const TextStyle(fontSize: 10),
-                  ),
-                );
-              },
-            ),
-          ),
-          leftTitles: AxisTitles(
-            sideTitles: SideTitles(
-              showTitles: true,
-              reservedSize: 40,
-              getTitlesWidget: (double value, TitleMeta meta) {
-                return Text(
-                  value.toStringAsFixed(3),
-                  style: const TextStyle(fontSize: 10),
-                );
-              },
-            ),
-          ),
+        SizedBox(height: tokens.spacing.sm),
+        Text(
+          '1 ILS = ${rate.toStringAsFixed(CurrencyRatesWidget._rateDecimalDigits)}',
+          style: theme.textTheme.titleSmall,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
         ),
-        borderData: FlBorderData(
-          show: true,
-          border: Border.all(color: Colors.grey.withValues(alpha: 0.2)),
+        Text(
+          '1 $code = ${(1 / rate).toStringAsFixed(CurrencyRatesWidget._inverseRateDecimalDigits)} ILS',
+          style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
         ),
-        minY: minY,
-        maxY: maxY,
-        lineBarsData: [
-          if (usdSpots.isNotEmpty)
-            LineChartBarData(
-              spots: usdSpots,
-              isCurved: true,
-              color: Colors.green,
-              barWidth: 2,
-              dotData: const FlDotData(show: false),
-              belowBarData: BarAreaData(
-                show: true,
-                color: Colors.green.withValues(alpha: 0.1),
-              ),
-            ),
-          if (jodSpots.isNotEmpty)
-            LineChartBarData(
-              spots: jodSpots,
-              isCurved: true,
-              color: Colors.blue,
-              barWidth: 2,
-              dotData: const FlDotData(show: false),
-              belowBarData: BarAreaData(
-                show: true,
-                color: Colors.blue.withValues(alpha: 0.1),
-              ),
-            ),
-        ],
-      ),
+      ],
     );
   }
 }
