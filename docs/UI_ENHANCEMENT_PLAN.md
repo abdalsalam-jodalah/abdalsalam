@@ -9,30 +9,34 @@
 | 2 | Live appearance customization — Settings → Appearance | ✅ Done | `b6c7552` |
 | 3 | Shared component library + gallery + goldens | ✅ Done | `971c7cb` |
 | 4 | App shell + dashboard | ✅ Done | `134d5bb` |
-| 5 | Financial module | 🔄 In progress | |
-| 6 | Religious + Health + Sleep + Food | ⬜ Todo | |
-| 7 | Sports + Planning + Habits + Notes | ⬜ Todo | |
-| 8 | Settings, Calendar, Security, Analytics, Weather, dev screens | ⬜ Todo | |
-| 9 | Motion & polish | ⬜ Todo | |
-| 10 | Verification & final scorecard | ⬜ Todo | |
+| 5 | Financial module | ✅ Done | `e4fd7a2` |
+| 6 | Religious + Health + Sleep + Food | ✅ Done | `5129cf9` |
+| 7 | Sports + Planning + Habits + Notes | ✅ Done | `0abe5c4` |
+| 8 | Settings, Calendar, Security, Analytics, Weather, dev screens | ✅ Done | `9a6c11b` |
+| 9 | Motion & polish | ✅ Done | `4d7955a` |
+| 10 | Verification & final scorecard | ✅ Done | `<pending>` |
 
 Legend: ⬜ Todo · 🔄 In progress · ✅ Done. A phase is Done only after `flutter analyze` = 0, `flutter test` green, `tool/ui_audit.sh` targets met for its scope, and `tool/robustness_audit.sh` still at 0 — and it's committed.
 
 ## Scorecard History
 
-| Metric | Baseline (P0) | P0 | P1 | P2 | P3 | P4 |
-|---|---|---|---|---|---|---|
-| U1 Hardcoded colors | 207 | 207 | 207 | 207 | 200 | 195 |
-| U2 Literal radii | 79 | 79 | 79 | 79 | 78 | 75 |
-| U3 fontSize literals | 109 | 109 | 109 | 109 | 109 | 108 |
-| U3 TextStyle literals | 147 | 147 | 147 | 147 | 147 | 141 |
-| U4 Literal spacing | 857 | 857 | 857 | 857 | 853 | 831 |
-| U5 Redundant input borders | 119 | 119 | 119 | 119 | 119 | 119 |
-| U6 Duplicated UI (private stat/date widgets, raw dialogs/sheets) | 48 | 48 | 48 | 48 | 48 | 48 |
-| U10 Direct fl_chart imports | 4 | 4 | 4 | 4 | 3 | 3 |
-| Design-system checks passing | 1 / 10 | 1 / 10 | 5 / 10 | 7 / 10 | 10 / 10 | 10 / 10 |
-| `flutter analyze` issues | 0 | 0 | 0 | 0 | 0 | 0 |
-| `flutter test` | 1019 · all pass | 1019 · all pass | 1034 · all pass | 1045 · all pass | 1062 · all pass | 1064 · all pass |
+| Metric | Baseline (P0) | P0 | P1 | P2 | P3 | P4 | P5-10 (final) |
+|---|---|---|---|---|---|---|---|
+| U1 Hardcoded colors | 207 | 207 | 207 | 207 | 200 | 195 | 2 (app-only, see exception) |
+| U2 Literal radii | 79 | 79 | 79 | 79 | 78 | 75 | 0 |
+| U3 fontSize literals | 109 | 109 | 109 | 109 | 109 | 108 | 0 |
+| U3 TextStyle literals | 147 | 147 | 147 | 147 | 147 | 141 | 2 (app-only, see exception) |
+| U4 Literal spacing | 857 | 857 | 857 | 857 | 853 | 831 | 0 |
+| U5 Redundant input borders | 119 | 119 | 119 | 119 | 119 | 119 | 0 |
+| U6 Duplicated UI (private stat/date widgets, raw dialogs/sheets) | 48 | 48 | 48 | 48 | 48 | 48 | 2 (documented exceptions) |
+| U10 Direct fl_chart imports | 4 | 4 | 4 | 4 | 3 | 3 | 0 |
+| Design-system checks passing | 1 / 10 | 1 / 10 | 5 / 10 | 7 / 10 | 10 / 10 | 10 / 10 | 10 / 10 |
+| `flutter analyze` issues | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+| `flutter test` | 1019 · all pass | 1019 · all pass | 1034 · all pass | 1045 · all pass | 1062 · all pass | 1064 · all pass | 1096 · all pass |
+
+### Accepted exceptions (Phase 10 review)
+- `lib/features/financial/widgets/financial_delete_confirm_dialog.dart` and `lib/shared/widgets/log_viewer_screen.dart` each build a raw `AlertDialog` instead of the shared helpers. The financial one needs "stay open and show the error on failure" semantics `showConfirmDialog()` doesn't support, and the log viewer one is a dev-only detail viewer (badge + selectable monospace log text), not a confirm/form dialog. Both are single-use, not copy-pasted elsewhere, so a shared abstraction isn't earned yet (YAGNI) — revisit if a second consumer needs the same shape.
+- `lib/app/error_handling/friendly_error_widget.dart` hardcodes its colours and text styles on purpose: it's the `ErrorWidget.builder` replacement, so it must keep rendering even if the widget tree above it (including the app's `Theme`) is what's broken.
 
 ## Context
 The app works and is robust (the previous hardening plan is done), but the UI is inconsistent, dated and hard to maintain:
