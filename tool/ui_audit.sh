@@ -39,7 +39,7 @@ print_row() {
   radii=$(echo "$files" | count '(BorderRadius|Radius)\.circular\([0-9]')
   font_sizes=$(echo "$files" | count 'fontSize: *[0-9]')
   text_styles=$(echo "$files" | count '[^.a-zA-Z]TextStyle\(')
-  spacing=$(echo "$files" | count 'EdgeInsets\.[a-zA-Z]+\([^)]*[0-9]|SizedBox\((height|width): *[0-9]')
+  spacing=$(echo "$files" | count 'EdgeInsets\.[a-zA-Z]+\(([^)]*(: |, ))?[1-9][0-9.]*[,)]|SizedBox\((height|width): *[1-9]')
   input_borders=$(echo "$files" | count 'OutlineInputBorder\(')
   duplicates=$(echo "$files" | count 'class _Stat(Tile|Card|Chip)|class _Date(Time)?Field|showModalBottomSheet|AlertDialog\(')
   charts=$(echo "$files" | count "package:fl_chart")

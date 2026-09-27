@@ -2,14 +2,19 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../core/theme/app_theme_tokens.dart';
+
 class DebouncedSearchBar extends StatefulWidget {
+  static const Duration debounceDelay = Duration(milliseconds: 300);
+  static const String defaultHint = 'Search';
+
   final ValueChanged<String> onQueryChanged;
   final String hint;
 
   const DebouncedSearchBar({
     super.key,
     required this.onQueryChanged,
-    this.hint = 'Search',
+    this.hint = defaultHint,
   });
 
   @override
@@ -30,11 +35,11 @@ class _DebouncedSearchBarState extends State<DebouncedSearchBar> {
     return TextField(
       decoration: InputDecoration(
         hintText: widget.hint,
-        prefixIcon: const Icon(Icons.search),
+        prefixIcon: const Icon(Icons.search_rounded),
       ),
       onChanged: (value) {
         _timer?.cancel();
-        _timer = Timer(const Duration(milliseconds: 300), () {
+        _timer = Timer(DebouncedSearchBar.debounceDelay, () {
           widget.onQueryChanged(value);
         });
       },
@@ -43,6 +48,8 @@ class _DebouncedSearchBarState extends State<DebouncedSearchBar> {
 }
 
 class HighlightedText extends StatelessWidget {
+  static const double _highlightOpacity = 0.45;
+
   final String text;
   final String query;
 
@@ -65,6 +72,7 @@ class HighlightedText extends StatelessWidget {
       return Text(text);
     }
 
+    final tokens = AppThemeTokens.of(context);
     return RichText(
       text: TextSpan(
         style: DefaultTextStyle.of(context).style,
@@ -72,7 +80,10 @@ class HighlightedText extends StatelessWidget {
           TextSpan(text: text.substring(0, index)),
           TextSpan(
             text: text.substring(index, index + query.length),
-            style: const TextStyle(fontWeight: FontWeight.w700, backgroundColor: Color(0xFFFFFF99)),
+            style: DefaultTextStyle.of(context).style.copyWith(
+                  fontWeight: FontWeight.w700,
+                  backgroundColor: tokens.colors.warning.withValues(alpha: _highlightOpacity),
+                ),
           ),
           TextSpan(text: text.substring(index + query.length)),
         ],
@@ -82,6 +93,8 @@ class HighlightedText extends StatelessWidget {
 }
 
 class FilterSheet extends StatelessWidget {
+  static const String _title = 'Filters';
+
   final List<String> statuses;
   final ValueChanged<String> onStatusSelected;
 
@@ -97,7 +110,7 @@ class FilterSheet extends StatelessWidget {
       child: ListView(
         shrinkWrap: true,
         children: [
-          const ListTile(title: Text('Filters')),
+          const ListTile(title: Text(_title)),
           for (final status in statuses)
             ListTile(
               title: Text(status),

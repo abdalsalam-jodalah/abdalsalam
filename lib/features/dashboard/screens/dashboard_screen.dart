@@ -75,7 +75,7 @@ class DashboardScreen extends ConsumerWidget {
       body: RefreshIndicator(
         onRefresh: () async => _refreshAll(ref),
         child: ListView(
-          padding: EdgeInsets.fromLTRB(0, 0, 0, _fabClearance),
+          padding: const EdgeInsets.only(bottom: _fabClearance),
           children: [
             PageHeader(
               title: DashboardGreeting.forTime(now),

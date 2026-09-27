@@ -37,7 +37,7 @@ class AppFeedback {
       ..hideCurrentSnackBar()
       ..showSnackBar(
         SnackBar(
-          content: Text(message, style: TextStyle(color: foregroundColor)),
+          content: Text(message, style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: foregroundColor)),
           backgroundColor: backgroundColor,
         ),
       );

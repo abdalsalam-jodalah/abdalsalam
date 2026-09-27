@@ -1,5 +1,14 @@
 import 'package:flutter/material.dart';
 
+import '../../core/theme/app_theme_tokens.dart';
+import 'ui/app_card.dart';
+import 'ui/app_form_dialog.dart';
+import 'ui/app_section_header.dart';
+import 'ui/icon_badge.dart';
+import 'ui/stat_grid.dart';
+import 'ui/stat_tile.dart';
+import 'empty_state.dart';
+
 class SectionMetric {
   final String label;
   final String value;
@@ -8,6 +17,8 @@ class SectionMetric {
 }
 
 class SectionPlaceholderScreen extends StatefulWidget {
+  static const String defaultQuickAddHint = 'Add a new activity';
+
   final String title;
   final String description;
   final IconData icon;
@@ -24,7 +35,7 @@ class SectionPlaceholderScreen extends StatefulWidget {
     required this.metrics,
     required this.focusItems,
     required this.initialActivities,
-    this.quickAddHint = 'Add a new activity',
+    this.quickAddHint = defaultQuickAddHint,
   });
 
   @override
@@ -32,6 +43,17 @@ class SectionPlaceholderScreen extends StatefulWidget {
 }
 
 class _SectionPlaceholderScreenState extends State<SectionPlaceholderScreen> {
+  static const String _metricsTitle = 'Quick Metrics';
+  static const String _focusTitle = 'Today Focus';
+  static const String _activityTitle = 'Recent Activity';
+  static const String _emptyActivityTitle = 'No activity yet';
+  static const String _emptyActivitySubtitle = 'Logged activity will show up here.';
+  static const String _quickAddTitle = 'Quick Add';
+  static const String _quickAddLabel = 'Add';
+  static const String _quickAddButtonLabel = 'Quick Add Activity';
+  static const IconData _metricIcon = Icons.insights_rounded;
+  static const IconData _activityIcon = Icons.bolt_rounded;
+
   late final List<bool> _focusChecks;
   late final List<String> _activities;
 
@@ -44,74 +66,45 @@ class _SectionPlaceholderScreenState extends State<SectionPlaceholderScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final tokens = AppThemeTokens.of(context);
+    final theme = Theme.of(context);
     return Scaffold(
       appBar: AppBar(title: Text(widget.title)),
       body: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: EdgeInsets.all(tokens.spacing.lg),
         children: [
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Icon(widget.icon, size: 34),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          widget.title,
-                          style: Theme.of(context).textTheme.titleLarge,
-                        ),
-                        const SizedBox(height: 6),
-                        Text(widget.description),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 12),
-          Text('Quick Metrics', style: Theme.of(context).textTheme.titleMedium),
-          const SizedBox(height: 8),
-          GridView.builder(
-            itemCount: widget.metrics.length,
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 2,
-              crossAxisSpacing: 8,
-              mainAxisSpacing: 8,
-              childAspectRatio: 1.6,
-            ),
-            itemBuilder: (context, index) {
-              final metric = widget.metrics[index];
-              return Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(12),
+          AppCard(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                IconBadge(icon: widget.icon),
+                SizedBox(width: tokens.spacing.md),
+                Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisAlignment: MainAxisAlignment.center,
                     children: [
+                      Text(widget.title, style: theme.textTheme.titleLarge),
+                      SizedBox(height: tokens.spacing.xs),
                       Text(
-                        metric.value,
-                        style: Theme.of(context).textTheme.titleLarge,
+                        widget.description,
+                        style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant),
                       ),
-                      const SizedBox(height: 2),
-                      Text(metric.label),
                     ],
                   ),
                 ),
-              );
-            },
+              ],
+            ),
           ),
-          const SizedBox(height: 12),
-          Text('Today Focus', style: Theme.of(context).textTheme.titleMedium),
-          const SizedBox(height: 8),
-          Card(
+          AppSectionHeader(title: _metricsTitle),
+          StatGrid(
+            children: [
+              for (final metric in widget.metrics)
+                StatTile(icon: _metricIcon, label: metric.label, value: metric.value),
+            ],
+          ),
+          AppSectionHeader(title: _focusTitle),
+          AppCard(
+            padding: EdgeInsets.zero,
             child: Column(
               children: List.generate(widget.focusItems.length, (index) {
                 return CheckboxListTile(
@@ -126,29 +119,29 @@ class _SectionPlaceholderScreenState extends State<SectionPlaceholderScreen> {
               }),
             ),
           ),
-          const SizedBox(height: 12),
-          Text('Recent Activity', style: Theme.of(context).textTheme.titleMedium),
-          const SizedBox(height: 8),
-          Card(
-            child: _activities.isEmpty
-                ? const ListTile(title: Text('No activity yet'))
-                : Column(
-                    children: _activities
-                        .map(
-                          (entry) => ListTile(
-                            dense: true,
-                            leading: const Icon(Icons.bolt_outlined),
-                            title: Text(entry),
-                          ),
-                        )
-                        .toList(growable: false),
-                  ),
-          ),
-          const SizedBox(height: 16),
+          AppSectionHeader(title: _activityTitle),
+          if (_activities.isEmpty)
+            EmptyState(title: _emptyActivityTitle, subtitle: _emptyActivitySubtitle, isCompact: true)
+          else
+            AppCard(
+              padding: EdgeInsets.zero,
+              child: Column(
+                children: _activities
+                    .map(
+                      (entry) => ListTile(
+                        dense: true,
+                        leading: Icon(_activityIcon),
+                        title: Text(entry),
+                      ),
+                    )
+                    .toList(growable: false),
+              ),
+            ),
+          SizedBox(height: tokens.spacing.lg),
           FilledButton.icon(
             onPressed: _showQuickAddDialog,
-            icon: const Icon(Icons.add),
-            label: const Text('Quick Add Activity'),
+            icon: const Icon(Icons.add_rounded),
+            label: const Text(_quickAddButtonLabel),
           ),
         ],
       ),
@@ -158,32 +151,24 @@ class _SectionPlaceholderScreenState extends State<SectionPlaceholderScreen> {
   Future<void> _showQuickAddDialog() async {
     final controller = TextEditingController();
 
-    final shouldSave = await showDialog<bool>(
+    final entry = await showDialog<String>(
       context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text('Quick Add'),
-          content: TextField(
+      builder: (dialogContext) {
+        return AppFormDialog(
+          title: _quickAddTitle,
+          submitLabel: _quickAddLabel,
+          onSubmit: () => Navigator.of(dialogContext).pop(controller.text.trim()),
+          child: TextField(
             controller: controller,
             decoration: InputDecoration(hintText: widget.quickAddHint),
           ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(false),
-              child: const Text('Cancel'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.of(context).pop(true),
-              child: const Text('Add'),
-            ),
-          ],
         );
       },
     );
 
-    if (shouldSave == true && controller.text.trim().isNotEmpty && mounted) {
+    if (entry != null && entry.isNotEmpty && mounted) {
       setState(() {
-        _activities.insert(0, controller.text.trim());
+        _activities.insert(0, entry);
       });
     }
 

@@ -39,7 +39,7 @@ class _StartupStatusBannerState extends ConsumerState<StartupStatusBanner> {
               Expanded(
                 child: Text(
                   '$_messagePrefix${report.degradedStepNames.join(', ')}',
-                  style: TextStyle(color: colorScheme.onErrorContainer),
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: colorScheme.onErrorContainer),
                 ),
               ),
               IconButton(

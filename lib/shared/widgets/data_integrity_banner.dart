@@ -40,7 +40,7 @@ class DataIntegrityBanner extends ConsumerWidget {
               Expanded(
                 child: Text(
                   messageFor(corruptRecordCount),
-                  style: TextStyle(color: colorScheme.onTertiaryContainer),
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: colorScheme.onTertiaryContainer),
                 ),
               ),
               TextButton(
