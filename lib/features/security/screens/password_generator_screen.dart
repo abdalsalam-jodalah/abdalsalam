@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/theme/app_theme_tokens.dart';
 import '../widgets/security_widgets.dart';
 
 class PasswordGeneratorScreen extends StatefulWidget {
@@ -12,20 +13,28 @@ class PasswordGeneratorScreen extends StatefulWidget {
 }
 
 class _PasswordGeneratorScreenState extends State<PasswordGeneratorScreen> {
-  String _generated = 'Tap generate to create a password';
+  static const String _initialMessage = 'Tap generate to create a password';
+  static const int _passwordLength = 16;
+  static const String _characterSource =
+      'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#%^&*';
+
+  String _generated = _initialMessage;
 
   String _generate() {
-    const source = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#%^&*';
-    final chars = List<String>.generate(16, (index) => source[(DateTime.now().microsecondsSinceEpoch + index) % source.length]);
+    final chars = List<String>.generate(
+      _passwordLength,
+      (index) => _characterSource[(DateTime.now().microsecondsSinceEpoch + index) % _characterSource.length],
+    );
     return chars.join();
   }
 
   @override
   Widget build(BuildContext context) {
+    final tokens = AppThemeTokens.of(context);
     return Scaffold(
       appBar: AppBar(title: const Text('Password Generator')),
       body: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: EdgeInsets.all(tokens.spacing.lg),
         child: PasswordGeneratorWidget(
           password: _generated,
           onGenerate: () => setState(() => _generated = _generate()),

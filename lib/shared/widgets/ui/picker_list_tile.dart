@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/theme/app_theme_tokens.dart';
+
 class PickerOption<T> {
   final T value;
   final String label;
@@ -8,6 +10,8 @@ class PickerOption<T> {
 }
 
 class PickerListTile<T> extends StatelessWidget {
+  static const double _checkIconSize = 18;
+
   final String title;
   final T value;
   final List<PickerOption<T>> options;
@@ -31,6 +35,7 @@ class PickerListTile<T> extends StatelessWidget {
       .label;
 
   Future<void> _openPicker(BuildContext context) async {
+    final spacing = AppThemeTokens.of(context).spacing;
     final selected = await showDialog<T>(
       context: context,
       builder: (dialogContext) {
@@ -43,10 +48,10 @@ class PickerListTile<T> extends StatelessWidget {
                 child: Row(
                   children: [
                     if (option.value == value)
-                      const Icon(Icons.check, size: 18)
+                      const Icon(Icons.check_rounded, size: _checkIconSize)
                     else
-                      const SizedBox(width: 18),
-                    const SizedBox(width: 8),
+                      const SizedBox(width: _checkIconSize),
+                    SizedBox(width: spacing.sm),
                     Text(option.label),
                   ],
                 ),
@@ -65,7 +70,7 @@ class PickerListTile<T> extends StatelessWidget {
     return ListTile(
       title: Text(title),
       subtitle: Text(_currentLabel),
-      trailing: Icon(icon ?? Icons.chevron_right),
+      trailing: Icon(icon ?? Icons.chevron_right_rounded),
       onTap: () => _openPicker(context),
     );
   }

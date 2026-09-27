@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/theme/app_theme_tokens.dart';
 import '../widgets/calendar_widgets.dart';
 
 class GoogleCalendarSyncScreen extends StatefulWidget {
@@ -16,23 +17,21 @@ class _GoogleCalendarSyncScreenState extends State<GoogleCalendarSyncScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final tokens = AppThemeTokens.of(context);
     return Scaffold(
       appBar: AppBar(title: const Text('Google Calendar Sync')),
-      body: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            SyncStatusIndicator(enabled: _enabled),
-            const SizedBox(height: 12),
-            SwitchListTile(
-              value: _enabled,
-              title: const Text('Enable Google Calendar Sync'),
-              subtitle: const Text('Pull and push events from/to Google Calendar.'),
-              onChanged: (value) => setState(() => _enabled = value),
-            ),
-          ],
-        ),
+      body: ListView(
+        padding: EdgeInsets.all(tokens.spacing.lg),
+        children: [
+          SyncStatusIndicator(enabled: _enabled),
+          SizedBox(height: tokens.spacing.md),
+          SwitchListTile(
+            value: _enabled,
+            title: const Text('Enable Google Calendar Sync'),
+            subtitle: const Text('Pull and push events from/to Google Calendar.'),
+            onChanged: (value) => setState(() => _enabled = value),
+          ),
+        ],
       ),
     );
   }

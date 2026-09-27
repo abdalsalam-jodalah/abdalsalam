@@ -2,6 +2,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/theme/app_theme_tokens.dart';
 import '../../../providers/app_providers.dart';
 import '../../../shared/services/restore_report.dart';
 import '../../../shared/widgets/app_feedback.dart';
@@ -34,10 +35,11 @@ class _RestoreScreenState extends ConsumerState<RestoreScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final spacing = AppThemeTokens.of(context).spacing;
     return Scaffold(
       appBar: AppBar(title: const Text('Restore')),
       body: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: EdgeInsets.all(spacing.lg),
         child: Column(
           children: [
             Expanded(
@@ -51,19 +53,19 @@ class _RestoreScreenState extends ConsumerState<RestoreScreen> {
                 ),
               ),
             ),
-            const SizedBox(height: 10),
+            SizedBox(height: spacing.sm),
             Align(alignment: Alignment.centerLeft, child: Text(_status)),
-            const SizedBox(height: 10),
+            SizedBox(height: spacing.sm),
             Row(
               children: [
                 Expanded(
                   child: OutlinedButton.icon(
                     onPressed: _isRestoring ? null : _restoreFromFile,
-                    icon: const Icon(Icons.folder_open),
+                    icon: const Icon(Icons.folder_open_rounded),
                     label: const Text(_chooseFileLabel),
                   ),
                 ),
-                const SizedBox(width: 10),
+                SizedBox(width: spacing.sm),
                 Expanded(
                   child: FilledButton(
                     onPressed: _isRestoring ? null : () => _restore(_controller.text),

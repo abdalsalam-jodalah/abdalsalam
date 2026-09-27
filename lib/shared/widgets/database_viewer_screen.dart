@@ -1,12 +1,14 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import '../../core/theme/app_theme_tokens.dart';
 import '../infrastructure/logger_service.dart';
 import '../infrastructure/storage_gateway.dart';
 import '../services/error_handler.dart';
 import 'app_feedback.dart';
+import 'empty_state.dart';
+import 'ui/app_card.dart';
 
-/// Database Viewer Screen for inspecting SQLite data
 class DatabaseViewerScreen extends StatefulWidget {
   const DatabaseViewerScreen({super.key});
 
@@ -18,7 +20,22 @@ class _DatabaseViewerScreenState extends State<DatabaseViewerScreen> {
   static final LoggerService _logger = LoggerService.forModule('DatabaseViewerScreen');
   static final ErrorHandler _errorHandler = ErrorHandler(_logger);
 
-  // Known tables in the app
+  static const double _tablesListWidth = 220;
+  static const String _title = 'Database Viewer';
+  static const String _refreshTooltip = 'Refresh Tables';
+  static const String _noTablesTitle = 'No tables found';
+  static const String _noTablesSubtitle = 'Nothing has been written to storage yet.';
+  static const String _selectTableTitle = 'Select a table';
+  static const String _selectTableSubtitle = 'Pick a table from the list to view its rows.';
+  static const String _noDataTitle = 'No data';
+  static const String _noDataSubtitleTemplate = 'The table has no rows yet.';
+  static const String _rowsSuffix = 'rows';
+  static const String _columnsSuffix = 'columns';
+  static const String _nullValue = 'NULL';
+  static const String _trueValue = 'true';
+  static const String _falseValue = 'false';
+  static const int _cellMaxLines = 3;
+
   static const List<String> _knownTables = [
     'prayers',
     'quran_readings',
@@ -61,12 +78,10 @@ class _DatabaseViewerScreenState extends State<DatabaseViewerScreen> {
   Future<void> _loadTables() async {
     setState(() => _isLoading = true);
     try {
-      // Try to load data from known tables to see which ones exist
       final existingTables = <String>[];
       for (final table in _knownTables) {
         try {
           await StorageGateway.instance.query(table: table);
-          // Show table even if empty (removed the isNotEmpty check)
           existingTables.add(table);
         } catch (error) {
           _logger.debug('Table $table is not available: $error');
@@ -115,88 +130,74 @@ class _DatabaseViewerScreenState extends State<DatabaseViewerScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final tokens = AppThemeTokens.of(context);
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Database Viewer'),
+        title: const Text(_title),
         actions: [
           IconButton(
-            icon: const Icon(Icons.refresh),
+            icon: const Icon(Icons.refresh_rounded),
             onPressed: _loadTables,
-            tooltip: 'Refresh Tables',
+            tooltip: _refreshTooltip,
           ),
         ],
       ),
-      body: Row(
-        children: [
-          // Tables list
-          SizedBox(
-            width: 200,
-            child: _buildTablesList(),
-          ),
-          const VerticalDivider(width: 1),
-          // Table data
-          Expanded(
-            child: _buildTableData(),
-          ),
-        ],
+      body: Padding(
+        padding: EdgeInsets.all(tokens.spacing.lg),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            SizedBox(width: _tablesListWidth, child: _buildTablesList(tokens)),
+            SizedBox(width: tokens.spacing.lg),
+            Expanded(child: _buildTableData(tokens)),
+          ],
+        ),
       ),
     );
   }
 
-  Widget _buildTablesList() {
+  Widget _buildTablesList(AppThemeTokens tokens) {
     if (_isLoading && _tables.isEmpty) {
       return const Center(child: CircularProgressIndicator());
     }
 
     if (_tables.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.storage_outlined, size: 48, color: Colors.grey[400]),
-            const SizedBox(height: 16),
-            Text(
-              'No tables found',
-              style: TextStyle(color: Colors.grey[600]),
-            ),
-          ],
-        ),
+      return const EmptyState(
+        title: _noTablesTitle,
+        subtitle: _noTablesSubtitle,
+        icon: Icons.storage_rounded,
+        isCompact: true,
       );
     }
 
-    return ListView.builder(
-      itemCount: _tables.length,
-      itemBuilder: (context, index) {
-        final table = _tables[index];
-        final isSelected = _selectedTable == table;
+    return AppCard(
+      padding: EdgeInsets.zero,
+      child: ListView.builder(
+        itemCount: _tables.length,
+        itemBuilder: (context, index) {
+          final table = _tables[index];
+          final isSelected = _selectedTable == table;
 
-        return ListTile(
-          title: Text(table),
-          selected: isSelected,
-          selectedTileColor: Colors.blue.withValues(alpha: 0.2),
-          onTap: () => _loadTableData(table),
-          trailing: isSelected
-              ? Icon(Icons.check, color: Colors.blue[700])
-              : null,
-        );
-      },
+          return ListTile(
+            title: Text(table),
+            selected: isSelected,
+            onTap: () => _loadTableData(table),
+            trailing: isSelected
+                ? Icon(Icons.check_rounded, color: Theme.of(context).colorScheme.primary)
+                : null,
+          );
+        },
+      ),
     );
   }
 
-  Widget _buildTableData() {
+  Widget _buildTableData(AppThemeTokens tokens) {
     if (_selectedTable == null) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.table_chart_outlined, size: 48, color: Colors.grey[400]),
-            const SizedBox(height: 16),
-            Text(
-              'Select a table to view data',
-              style: TextStyle(color: Colors.grey[600]),
-            ),
-          ],
-        ),
+      return const EmptyState(
+        title: _selectTableTitle,
+        subtitle: _selectTableSubtitle,
+        icon: Icons.table_chart_rounded,
+        isCompact: true,
       );
     }
 
@@ -205,56 +206,39 @@ class _DatabaseViewerScreenState extends State<DatabaseViewerScreen> {
     }
 
     if (_tableData.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.inbox_outlined, size: 48, color: Colors.grey[400]),
-            const SizedBox(height: 16),
-            Text(
-              'No data in $_selectedTable',
-              style: TextStyle(color: Colors.grey[600]),
-            ),
-          ],
-        ),
+      return const EmptyState(
+        title: _noDataTitle,
+        subtitle: _noDataSubtitleTemplate,
+        icon: Icons.inbox_rounded,
+        isCompact: true,
       );
     }
 
-    // Get column names from first row
+    final theme = Theme.of(context);
     final columns = _tableData.first.keys.toList();
 
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // Header with table info
-        Container(
-          padding: const EdgeInsets.all(16),
-          color: Colors.grey[100],
+        AppCard(
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
+              Text('$_selectedTable (${_tableData.length} $_rowsSuffix)', style: theme.textTheme.titleMedium),
               Text(
-                '$_selectedTable (${_tableData.length} rows)',
-                style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 16,
-                ),
-              ),
-              Text(
-                '${columns.length} columns',
-                style: TextStyle(color: Colors.grey[600]),
+                '${columns.length} $_columnsSuffix',
+                style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
               ),
             ],
           ),
         ),
-        // Data table
+        SizedBox(height: tokens.spacing.md),
         Expanded(
           child: SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             child: SingleChildScrollView(
               child: DataTable(
-                columns: columns
-                    .map((col) => DataColumn(label: Text(col)))
-                    .toList(),
+                columns: columns.map((col) => DataColumn(label: Text(col))).toList(),
                 rows: _tableData
                     .map(
                       (row) => DataRow(
@@ -263,7 +247,7 @@ class _DatabaseViewerScreenState extends State<DatabaseViewerScreen> {
                               (col) => DataCell(
                                 Text(
                                   _formatValue(row[col]),
-                                  maxLines: 3,
+                                  maxLines: _cellMaxLines,
                                   overflow: TextOverflow.ellipsis,
                                 ),
                               ),
@@ -281,9 +265,9 @@ class _DatabaseViewerScreenState extends State<DatabaseViewerScreen> {
   }
 
   String _formatValue(dynamic value) {
-    if (value == null) return 'NULL';
+    if (value == null) return _nullValue;
     if (value is String) return value;
-    if (value is bool) return value ? 'true' : 'false';
+    if (value is bool) return value ? _trueValue : _falseValue;
     if (value is DateTime) return value.toIso8601String();
     return value.toString();
   }

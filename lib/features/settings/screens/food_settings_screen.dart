@@ -3,11 +3,13 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/theme/app_theme_tokens.dart';
 import '../../../providers/app_providers.dart';
-import '../../../shared/widgets/app_feedback.dart';
 import '../../../shared/services/reminder_service.dart';
+import '../../../shared/widgets/app_feedback.dart';
+import '../../../shared/widgets/ui/app_card.dart';
+import '../../../shared/widgets/ui/picker_list_tile.dart';
 import '../widgets/module_reminder_toggle_list.dart';
-import '../widgets/picker_list_tile.dart';
 import '../widgets/settings_section_header.dart';
 
 class FoodSettingsScreen extends ConsumerStatefulWidget {
@@ -64,41 +66,53 @@ class _FoodSettingsScreenState extends ConsumerState<FoodSettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final spacing = AppThemeTokens.of(context).spacing;
     final calorieTarget = (_settings['foodDailyCalorieTarget'] as int?) ?? 2000;
     final proteinTarget = (_settings['foodDailyProteinTargetGrams'] as int?) ?? 100;
 
     return Scaffold(
       appBar: AppBar(title: const Text('Food')),
       body: ListView(
+        padding: EdgeInsets.all(spacing.lg),
         children: [
           const SettingsSectionHeader('Reminders'),
-          const ModuleReminderToggleList(module: ReminderModule.food, label: 'Enable food logging reminders'),
-          const SettingsSectionHeader('Daily targets'),
-          PickerListTile<int>(
-            title: 'Daily calorie target',
-            value: calorieTarget,
-            icon: Icons.local_fire_department_outlined,
-            options: const [
-              PickerOption(1500, '1500 kcal'),
-              PickerOption(1800, '1800 kcal'),
-              PickerOption(2000, '2000 kcal'),
-              PickerOption(2200, '2200 kcal'),
-              PickerOption(2500, '2500 kcal'),
-            ],
-            onChanged: (value) => _update('foodDailyCalorieTarget', value),
+          const AppCard(
+            padding: EdgeInsets.zero,
+            child: ModuleReminderToggleList(module: ReminderModule.food, label: 'Enable food logging reminders'),
           ),
-          PickerListTile<int>(
-            title: 'Daily protein target',
-            value: proteinTarget,
-            icon: Icons.egg_outlined,
-            options: const [
-              PickerOption(60, '60 g'),
-              PickerOption(80, '80 g'),
-              PickerOption(100, '100 g'),
-              PickerOption(120, '120 g'),
-              PickerOption(150, '150 g'),
-            ],
-            onChanged: (value) => _update('foodDailyProteinTargetGrams', value),
+          const SettingsSectionHeader('Daily targets'),
+          AppCard(
+            padding: EdgeInsets.zero,
+            child: Column(
+              children: [
+                PickerListTile<int>(
+                  title: 'Daily calorie target',
+                  value: calorieTarget,
+                  icon: Icons.local_fire_department_outlined,
+                  options: const [
+                    PickerOption(1500, '1500 kcal'),
+                    PickerOption(1800, '1800 kcal'),
+                    PickerOption(2000, '2000 kcal'),
+                    PickerOption(2200, '2200 kcal'),
+                    PickerOption(2500, '2500 kcal'),
+                  ],
+                  onChanged: (value) => _update('foodDailyCalorieTarget', value),
+                ),
+                PickerListTile<int>(
+                  title: 'Daily protein target',
+                  value: proteinTarget,
+                  icon: Icons.egg_outlined,
+                  options: const [
+                    PickerOption(60, '60 g'),
+                    PickerOption(80, '80 g'),
+                    PickerOption(100, '100 g'),
+                    PickerOption(120, '120 g'),
+                    PickerOption(150, '150 g'),
+                  ],
+                  onChanged: (value) => _update('foodDailyProteinTargetGrams', value),
+                ),
+              ],
+            ),
           ),
         ],
       ),

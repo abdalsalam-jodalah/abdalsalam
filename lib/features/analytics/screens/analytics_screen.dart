@@ -1,73 +1,78 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/theme/app_theme_tokens.dart';
 import '../../../providers/app_providers.dart';
-import '../../../shared/widgets/charts/app_line_chart.dart';
 import '../../../shared/widgets/charts/app_bar_chart.dart';
+import '../../../shared/widgets/charts/app_line_chart.dart';
 import '../../../shared/widgets/charts/app_pie_chart.dart';
+import '../../../shared/widgets/ui/app_card.dart';
+import '../../../shared/widgets/ui/app_section_header.dart';
+import '../../../shared/widgets/ui/progress_bar.dart';
+import '../../../shared/widgets/ui/stat_grid.dart';
+import '../../../shared/widgets/ui/stat_tile.dart';
 
 class AnalyticsScreen extends ConsumerWidget {
   static const routeName = '/analytics';
+
+  static const List<double> _weeklyTrendPoints = [62, 64, 68, 66, 72, 74, 75];
+  static const Map<String, double> _spendingShare = {
+    'Needs': 58,
+    'Learning': 19,
+    'Leisure': 13,
+    'Other': 10,
+  };
+  static const List<double> _monthlyBars = [42, 50, 46, 58, 62];
+  static const List<String> _crossModuleInsights = [
+    'Workout days align with better mood scores.',
+    'Prayer completion consistency improved focus streak.',
+    'Higher spending appears on missed habit days.',
+  ];
 
   const AnalyticsScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final tokens = AppThemeTokens.of(context);
+    final theme = Theme.of(context);
     final achievements = ref.watch(achievementServiceProvider).milestones();
     return Scaffold(
       appBar: AppBar(title: const Text('Dashboard & Analytics')),
       body: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: EdgeInsets.all(tokens.spacing.lg),
         children: [
-          const _InsightCard(
-            title: 'Weekly Consistency',
-            value: '74%',
-            detail: 'Up 6% from last week',
-            icon: Icons.trending_up,
+          StatGrid(
+            children: [
+              StatTile(
+                icon: Icons.trending_up,
+                label: 'Weekly Consistency',
+                value: '74%',
+                caption: 'Up 6% from last week',
+                accentColor: tokens.colors.success,
+              ),
+              StatTile(
+                icon: Icons.monitor_heart_outlined,
+                label: 'Mood vs Workout Correlation',
+                value: '0.61',
+                caption: 'Positive relationship detected',
+                accentColor: tokens.colors.info,
+              ),
+              StatTile(
+                icon: Icons.account_balance_wallet_outlined,
+                label: 'Spending vs Income',
+                value: '81%',
+                caption: 'Current monthly expense ratio',
+                accentColor: tokens.colors.expense,
+              ),
+            ],
           ),
-          const SizedBox(height: 10),
-          const _InsightCard(
-            title: 'Mood vs Workout Correlation',
-            value: '0.61',
-            detail: 'Positive relationship detected',
-            icon: Icons.monitor_heart_outlined,
-          ),
-          const SizedBox(height: 10),
-          const _InsightCard(
-            title: 'Spending vs Income',
-            value: '81%',
-            detail: 'Current monthly expense ratio',
-            icon: Icons.account_balance_wallet_outlined,
-          ),
-          const SizedBox(height: 14),
-          Text('Trend Charts', style: Theme.of(context).textTheme.titleMedium),
-          const SizedBox(height: 8),
-          const Card(
-            child: Padding(
-              padding: EdgeInsets.all(12),
-              child: AppLineChart(points: [62, 64, 68, 66, 72, 74, 75]),
-            ),
-          ),
-          const SizedBox(height: 8),
-          const Card(
-            child: Padding(
-              padding: EdgeInsets.all(12),
-              child: AppPieChart(values: {
-                'Needs': 58,
-                'Learning': 19,
-                'Leisure': 13,
-                'Other': 10,
-              }),
-            ),
-          ),
-          const SizedBox(height: 8),
-          const Card(
-            child: Padding(
-              padding: EdgeInsets.all(12),
-              child: AppBarChart(values: [42, 50, 46, 58, 62]),
-            ),
-          ),
-          const SizedBox(height: 8),
+          AppSectionHeader(title: 'Trend Charts', padding: EdgeInsets.only(top: tokens.spacing.lg, bottom: tokens.spacing.sm)),
+          AppCard(child: AppLineChart(points: _weeklyTrendPoints)),
+          SizedBox(height: tokens.spacing.sm),
+          AppCard(child: AppPieChart(values: _spendingShare)),
+          SizedBox(height: tokens.spacing.sm),
+          AppCard(child: AppBarChart(values: _monthlyBars)),
+          SizedBox(height: tokens.spacing.sm),
           Align(
             alignment: Alignment.centerLeft,
             child: TextButton.icon(
@@ -80,64 +85,59 @@ class AnalyticsScreen extends ConsumerWidget {
               label: const Text('View chart details'),
             ),
           ),
-          const SizedBox(height: 14),
-          Text('Cross-module Insights', style: Theme.of(context).textTheme.titleMedium),
-          const SizedBox(height: 8),
-          const Card(
-            child: Padding(
-              padding: EdgeInsets.all(12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('• Workout days align with better mood scores.'),
-                  SizedBox(height: 6),
-                  Text('• Prayer completion consistency improved focus streak.'),
-                  SizedBox(height: 6),
-                  Text('• Higher spending appears on missed habit days.'),
+          AppSectionHeader(title: 'Cross-module Insights', padding: EdgeInsets.only(top: tokens.spacing.lg, bottom: tokens.spacing.sm)),
+          AppCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                for (var index = 0; index < _crossModuleInsights.length; index++) ...[
+                  if (index > 0) SizedBox(height: tokens.spacing.xs),
+                  Text('• ${_crossModuleInsights[index]}', style: theme.textTheme.bodyMedium),
                 ],
-              ),
+              ],
             ),
           ),
-          const SizedBox(height: 14),
-          Text('Achievements', style: Theme.of(context).textTheme.titleMedium),
-          const SizedBox(height: 8),
-          ...achievements.map(
-            (entry) => ListTile(
-              dense: true,
-              title: Text(entry['title'] as String),
-              subtitle: LinearProgressIndicator(
-                value: ((entry['current'] as int) / (entry['target'] as int)).clamp(0.0, 1.0),
-              ),
-              trailing: Text('${entry['current']}/${entry['target']}'),
+          AppSectionHeader(title: 'Achievements', padding: EdgeInsets.only(top: tokens.spacing.lg, bottom: tokens.spacing.sm)),
+          for (final achievement in achievements) ...[
+            _AchievementCard(
+              title: achievement['title'] as String,
+              current: achievement['current'] as int,
+              target: achievement['target'] as int,
             ),
-          ),
+            SizedBox(height: tokens.spacing.sm),
+          ],
         ],
       ),
     );
   }
 }
 
-class _InsightCard extends StatelessWidget {
+class _AchievementCard extends StatelessWidget {
   final String title;
-  final String value;
-  final String detail;
-  final IconData icon;
+  final int current;
+  final int target;
 
-  const _InsightCard({
-    required this.title,
-    required this.value,
-    required this.detail,
-    required this.icon,
-  });
+  const _AchievementCard({required this.title, required this.current, required this.target});
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      child: ListTile(
-        leading: Icon(icon),
-        title: Text(title),
-        subtitle: Text(detail),
-        trailing: Text(value, style: Theme.of(context).textTheme.titleMedium),
+    final tokens = AppThemeTokens.of(context);
+    final theme = Theme.of(context);
+    return AppCard(
+      padding: EdgeInsets.all(tokens.spacing.md),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(child: Text(title, style: theme.textTheme.titleSmall)),
+              Text('$current/$target', style: theme.textTheme.labelLarge),
+            ],
+          ),
+          SizedBox(height: tokens.spacing.sm),
+          ProgressBar(value: target == 0 ? 0.0 : (current / target).clamp(0.0, 1.0)),
+        ],
       ),
     );
   }

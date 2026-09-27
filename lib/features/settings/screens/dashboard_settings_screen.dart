@@ -4,8 +4,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/constants/dashboard_card_catalog.dart';
+import '../../../core/theme/app_theme_tokens.dart';
 import '../../../providers/app_providers.dart';
 import '../../../shared/widgets/app_feedback.dart';
+import '../../../shared/widgets/ui/app_card.dart';
+import '../../../shared/widgets/ui/app_section_header.dart';
 import '../widgets/settings_section_header.dart';
 
 
@@ -75,66 +78,74 @@ class _DashboardSettingsScreenState extends ConsumerState<DashboardSettingsScree
         .map((item) => item.toString())
         .toList(growable: false);
 
+    final spacing = AppThemeTokens.of(context).spacing;
+
     return Scaffold(
       appBar: AppBar(title: const Text('Dashboard & Analytics')),
       body: ListView(
+        padding: EdgeInsets.all(spacing.lg),
         children: [
           const SettingsSectionHeader('Card visibility'),
-          for (final cardId in DashboardCardCatalog.defaultOrder)
-            SwitchListTile(
-              title: Text(DashboardCardCatalog.labels[cardId]!),
-              value: !dashboardHidden.contains(cardId),
-              onChanged: (value) async {
-                final next = {...dashboardHidden};
-                if (value) {
-                  next.remove(cardId);
-                } else {
-                  next.add(cardId);
-                }
-                await _update(DashboardCardCatalog.hiddenCardsSetting, next.toList(growable: false));
+          AppCard(
+            padding: EdgeInsets.zero,
+            child: Column(
+              children: [
+                for (final cardId in DashboardCardCatalog.defaultOrder)
+                  SwitchListTile(
+                    title: Text(DashboardCardCatalog.labels[cardId]!),
+                    value: !dashboardHidden.contains(cardId),
+                    onChanged: (value) async {
+                      final next = {...dashboardHidden};
+                      if (value) {
+                        next.remove(cardId);
+                      } else {
+                        next.add(cardId);
+                      }
+                      await _update(DashboardCardCatalog.hiddenCardsSetting, next.toList(growable: false));
+                    },
+                  ),
+              ],
+            ),
+          ),
+          const AppSectionHeader(title: 'Card order', subtitle: 'Drag to reorder dashboard cards'),
+          AppCard(
+            padding: EdgeInsets.zero,
+            child: ReorderableListView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: cardOrder.length,
+              itemBuilder: (context, index) => ListTile(
+                key: ValueKey('card-${cardOrder[index]}'),
+                title: Text(DashboardCardCatalog.labels[cardOrder[index]]!),
+                trailing: const Icon(Icons.drag_handle_rounded),
+              ),
+              onReorderItem: (oldIndex, newIndex) async {
+                final reordered = [...cardOrder];
+                final moved = reordered.removeAt(oldIndex);
+                reordered.insert(newIndex, moved);
+                await _update(DashboardCardCatalog.cardOrderSetting, reordered);
               },
             ),
-          const SettingsSectionHeader('Card order'),
-          const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 16),
-            child: Text('Drag to reorder dashboard cards'),
           ),
-          ReorderableListView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            itemCount: cardOrder.length,
-            itemBuilder: (context, index) => ListTile(
-              key: ValueKey('card-${cardOrder[index]}'),
-              title: Text(DashboardCardCatalog.labels[cardOrder[index]]!),
-              trailing: const Icon(Icons.drag_handle),
+          const AppSectionHeader(title: 'Sidebar order', subtitle: 'Drag to reorder the navigation sidebar'),
+          AppCard(
+            padding: EdgeInsets.zero,
+            child: ReorderableListView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: sidebarOrder.length,
+              itemBuilder: (context, index) => ListTile(
+                key: ValueKey('sidebar-${sidebarOrder[index]}'),
+                title: Text(_readableKey(sidebarOrder[index])),
+                trailing: const Icon(Icons.drag_handle_rounded),
+              ),
+              onReorderItem: (oldIndex, newIndex) async {
+                final reordered = [...sidebarOrder];
+                final moved = reordered.removeAt(oldIndex);
+                reordered.insert(newIndex, moved);
+                await _update('sidebarOrder', reordered);
+              },
             ),
-            onReorderItem: (oldIndex, newIndex) async {
-              final reordered = [...cardOrder];
-              final moved = reordered.removeAt(oldIndex);
-              reordered.insert(newIndex, moved);
-              await _update(DashboardCardCatalog.cardOrderSetting, reordered);
-            },
-          ),
-          const SettingsSectionHeader('Sidebar order'),
-          const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 16),
-            child: Text('Drag to reorder the navigation sidebar'),
-          ),
-          ReorderableListView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            itemCount: sidebarOrder.length,
-            itemBuilder: (context, index) => ListTile(
-              key: ValueKey('sidebar-${sidebarOrder[index]}'),
-              title: Text(_readableKey(sidebarOrder[index])),
-              trailing: const Icon(Icons.drag_handle),
-            ),
-            onReorderItem: (oldIndex, newIndex) async {
-              final reordered = [...sidebarOrder];
-              final moved = reordered.removeAt(oldIndex);
-              reordered.insert(newIndex, moved);
-              await _update('sidebarOrder', reordered);
-            },
           ),
         ],
       ),

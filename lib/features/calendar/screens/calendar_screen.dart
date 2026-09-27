@@ -1,6 +1,11 @@
 import 'package:flutter/material.dart';
 
-import '../widgets/calendar_widgets.dart';
+import '../../../core/formatting/app_date_formatter.dart';
+import '../../../core/theme/app_module_accents.dart';
+import '../../../core/theme/app_theme_tokens.dart';
+import '../../../shared/widgets/ui/app_card.dart';
+import '../../../shared/widgets/ui/entity_tile.dart';
+import '../../../shared/widgets/ui/month_heatmap.dart';
 import 'event_form_screen.dart';
 import 'event_list_screen.dart';
 import 'google_calendar_sync_screen.dart';
@@ -17,6 +22,8 @@ class CalendarScreen extends StatefulWidget {
 
 class _CalendarScreenState extends State<CalendarScreen>
     with SingleTickerProviderStateMixin {
+  static const String _moduleKey = 'calendar';
+
   late final TabController _tabController;
   final DateTime _selectedMonth = DateTime.now();
   DateTime _selectedDay = DateTime.now();
@@ -33,8 +40,17 @@ class _CalendarScreenState extends State<CalendarScreen>
     super.dispose();
   }
 
+  bool _hasEvent(DateTime day, Set<DateTime> daysWithEvents) {
+    return daysWithEvents.any(
+      (item) => item.year == day.year && item.month == day.month && item.day == day.day,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final tokens = AppThemeTokens.of(context);
+    final accent = AppModuleAccents.forModule(_moduleKey);
+    final textTheme = Theme.of(context).textTheme;
     final sampleDays = <DateTime>{
       DateTime.now(),
       DateTime.now().add(const Duration(days: 1)),
@@ -62,19 +78,26 @@ class _CalendarScreenState extends State<CalendarScreen>
         controller: _tabController,
         children: [
           ListView(
-            padding: const EdgeInsets.all(16),
+            padding: EdgeInsets.all(tokens.spacing.lg),
             children: [
-              CalendarGrid(
-                selectedMonth: _selectedMonth,
-                daysWithEvents: sampleDays,
-                onDaySelected: (day) => setState(() => _selectedDay = day),
+              AppCard(
+                accentColor: accent,
+                child: MonthHeatmap(
+                  month: _selectedMonth,
+                  intensityForDay: (day) => _hasEvent(day, sampleDays) ? 1.0 : 0.0,
+                  onDayTap: (day) => setState(() => _selectedDay = day),
+                  color: accent,
+                ),
               ),
-              const SizedBox(height: 12),
-              Text('Selected: ${_selectedDay.toLocal()}'.split(' ').first),
-              const SizedBox(height: 12),
+              SizedBox(height: tokens.spacing.md),
+              Text(
+                'Selected: ${AppDateFormatter.date(_selectedDay)}',
+                style: textTheme.bodyMedium,
+              ),
+              SizedBox(height: tokens.spacing.md),
               Wrap(
-                spacing: 8,
-                runSpacing: 8,
+                spacing: tokens.spacing.sm,
+                runSpacing: tokens.spacing.sm,
                 children: [
                   ActionChip(
                     label: const Text('Agenda View'),
@@ -93,23 +116,59 @@ class _CalendarScreenState extends State<CalendarScreen>
             ],
           ),
           ListView(
-            padding: const EdgeInsets.all(16),
-            children: const [
-              EventCard(title: 'Team Sync', subtitle: 'Weekly planning', time: 'Mon 10:00'),
-              SizedBox(height: 8),
-              EventCard(title: 'Workout', subtitle: 'Leg day session', time: 'Tue 19:00'),
-              SizedBox(height: 8),
-              EventCard(title: 'Family Visit', subtitle: 'Dinner', time: 'Thu 20:00'),
+            padding: EdgeInsets.all(tokens.spacing.lg),
+            children: [
+              EntityTile(
+                icon: Icons.event_rounded,
+                accentColor: accent,
+                title: 'Team Sync',
+                subtitle: 'Weekly planning',
+                trailing: Text('Mon 10:00', style: textTheme.labelLarge),
+              ),
+              SizedBox(height: tokens.spacing.sm),
+              EntityTile(
+                icon: Icons.event_rounded,
+                accentColor: accent,
+                title: 'Workout',
+                subtitle: 'Leg day session',
+                trailing: Text('Tue 19:00', style: textTheme.labelLarge),
+              ),
+              SizedBox(height: tokens.spacing.sm),
+              EntityTile(
+                icon: Icons.event_rounded,
+                accentColor: accent,
+                title: 'Family Visit',
+                subtitle: 'Dinner',
+                trailing: Text('Thu 20:00', style: textTheme.labelLarge),
+              ),
             ],
           ),
           ListView(
-            padding: const EdgeInsets.all(16),
-            children: const [
-              EventCard(title: 'Fajr Reminder', subtitle: 'Prayer schedule', time: '05:00'),
-              SizedBox(height: 8),
-              EventCard(title: 'Medication', subtitle: 'After breakfast', time: '08:30'),
-              SizedBox(height: 8),
-              EventCard(title: 'Todo Due', subtitle: 'Project review', time: '16:00'),
+            padding: EdgeInsets.all(tokens.spacing.lg),
+            children: [
+              EntityTile(
+                icon: Icons.event_rounded,
+                accentColor: accent,
+                title: 'Fajr Reminder',
+                subtitle: 'Prayer schedule',
+                trailing: Text('05:00', style: textTheme.labelLarge),
+              ),
+              SizedBox(height: tokens.spacing.sm),
+              EntityTile(
+                icon: Icons.event_rounded,
+                accentColor: accent,
+                title: 'Medication',
+                subtitle: 'After breakfast',
+                trailing: Text('08:30', style: textTheme.labelLarge),
+              ),
+              SizedBox(height: tokens.spacing.sm),
+              EntityTile(
+                icon: Icons.event_rounded,
+                accentColor: accent,
+                title: 'Todo Due',
+                subtitle: 'Project review',
+                trailing: Text('16:00', style: textTheme.labelLarge),
+              ),
             ],
           ),
         ],

@@ -1,6 +1,14 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/theme/app_module_accents.dart';
+import '../../../core/theme/app_theme_tokens.dart';
+import '../../../shared/widgets/ui/app_card.dart';
+import '../../../shared/widgets/ui/entity_tile.dart';
+import '../../../shared/widgets/ui/progress_bar.dart';
+
 class CredentialCard extends StatelessWidget {
+  static const String _moduleKey = 'security';
+
   final String title;
   final String username;
   final String maskedPassword;
@@ -16,50 +24,56 @@ class CredentialCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      child: ListTile(
-        title: Text(title),
-        subtitle: Text('$username\n$maskedPassword'),
-        isThreeLine: true,
-        trailing: IconButton(
-          icon: const Icon(Icons.visibility_outlined),
-          onPressed: onReveal,
-        ),
+    return EntityTile(
+      icon: Icons.key_outlined,
+      accentColor: AppModuleAccents.forModule(_moduleKey),
+      title: title,
+      subtitle: '$username\n$maskedPassword',
+      subtitleMaxLines: 2,
+      trailing: IconButton(
+        icon: const Icon(Icons.visibility_outlined),
+        onPressed: onReveal,
       ),
     );
   }
 }
 
 class PasswordStrengthIndicator extends StatelessWidget {
+  static const int _strongThreshold = 70;
+  static const int _mediumThreshold = 40;
+
   final int value;
 
   const PasswordStrengthIndicator({super.key, required this.value});
 
   @override
   Widget build(BuildContext context) {
-    final color = value >= 70
-        ? Colors.green
-        : value >= 40
-            ? Colors.orange
-            : Colors.red;
-    final label = value >= 70
+    final tokens = AppThemeTokens.of(context);
+    final color = value >= _strongThreshold
+        ? tokens.colors.success
+        : value >= _mediumThreshold
+            ? tokens.colors.warning
+            : tokens.colors.danger;
+    final label = value >= _strongThreshold
         ? 'Strong'
-        : value >= 40
+        : value >= _mediumThreshold
             ? 'Medium'
             : 'Weak';
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        LinearProgressIndicator(value: value / 100, color: color),
-        const SizedBox(height: 4),
-        Text('$label ($value/100)'),
+        ProgressBar(value: value / 100, color: color),
+        SizedBox(height: tokens.spacing.xs),
+        Text('$label ($value/100)', style: Theme.of(context).textTheme.bodySmall),
       ],
     );
   }
 }
 
 class PasswordGeneratorWidget extends StatelessWidget {
+  static const String _monospaceFontFamily = 'monospace';
+
   final String password;
   final VoidCallback onGenerate;
 
@@ -71,23 +85,25 @@ class PasswordGeneratorWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('Generated Password'),
-            const SizedBox(height: 8),
-            SelectableText(password, style: const TextStyle(fontFamily: 'monospace')),
-            const SizedBox(height: 12),
-            FilledButton.icon(
-              onPressed: onGenerate,
-              icon: const Icon(Icons.casino_outlined),
-              label: const Text('Generate Again'),
-            ),
-          ],
-        ),
+    final tokens = AppThemeTokens.of(context);
+    final textTheme = Theme.of(context).textTheme;
+    return AppCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Generated Password', style: textTheme.titleSmall),
+          SizedBox(height: tokens.spacing.sm),
+          SelectableText(
+            password,
+            style: textTheme.bodyLarge?.copyWith(fontFamily: _monospaceFontFamily),
+          ),
+          SizedBox(height: tokens.spacing.md),
+          FilledButton.icon(
+            onPressed: onGenerate,
+            icon: const Icon(Icons.casino_outlined),
+            label: const Text('Generate Again'),
+          ),
+        ],
       ),
     );
   }

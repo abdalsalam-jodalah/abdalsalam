@@ -9,7 +9,7 @@ import '../../../shared/services/reminder_service.dart';
 import '../../financial/screens/accounts_page.dart';
 import '../../financial/screens/categories_page.dart';
 import '../widgets/module_reminder_toggle_list.dart';
-import '../widgets/picker_list_tile.dart';
+import '../../../shared/widgets/ui/picker_list_tile.dart';
 import '../widgets/settings_section_header.dart';
 
 class FinancialSettingsScreen extends ConsumerStatefulWidget {

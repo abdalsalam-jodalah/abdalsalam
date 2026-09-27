@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/theme/app_theme_tokens.dart';
+
 class EventFormScreen extends StatefulWidget {
   static const routeName = '/calendar/new-event';
 
@@ -22,21 +24,22 @@ class _EventFormScreenState extends State<EventFormScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final tokens = AppThemeTokens.of(context);
     return Scaffold(
       appBar: AppBar(title: const Text('Create Event')),
       body: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: EdgeInsets.all(tokens.spacing.lg),
         children: [
           TextField(
             controller: _titleController,
             decoration: const InputDecoration(labelText: 'Title'),
           ),
-          const SizedBox(height: 12),
+          SizedBox(height: tokens.spacing.md),
           TextField(
             controller: _locationController,
             decoration: const InputDecoration(labelText: 'Location'),
           ),
-          const SizedBox(height: 16),
+          SizedBox(height: tokens.spacing.lg),
           FilledButton(
             onPressed: () => Navigator.of(context).pop(),
             child: const Text('Save Event'),

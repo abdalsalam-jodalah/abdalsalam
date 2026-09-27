@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../../../core/errors/app_error.dart';
+import '../../../core/theme/app_theme_tokens.dart';
 import '../../../core/validation/validation_utils.dart';
 import '../../../features/religious/providers/religious_tracking_providers.dart';
 import '../../../providers/app_providers.dart';
@@ -12,7 +13,8 @@ import '../../../shared/services/reminder_service.dart';
 import '../../../shared/widgets/app_feedback.dart';
 import '../../../shared/widgets/async_error_view.dart';
 import '../widgets/module_reminder_toggle_list.dart';
-import '../widgets/picker_list_tile.dart';
+import '../../../shared/widgets/ui/app_card.dart';
+import '../../../shared/widgets/ui/picker_list_tile.dart';
 import '../widgets/settings_section_header.dart';
 
 class ReligiousSettingsScreen extends ConsumerStatefulWidget {
@@ -165,208 +167,230 @@ class _ReligiousSettingsScreenState extends ConsumerState<ReligiousSettingsScree
     final quranDailyGoalPages = (_settings['religiousQuranDailyGoalPages'] as int?) ?? 1;
     final badEventThreshold = (_settings['religiousBadEventThreshold'] as int?) ?? 3;
 
+    final spacing = AppThemeTokens.of(context).spacing;
+
     return Scaffold(
       appBar: AppBar(title: const Text('Religious')),
       body: ListView(
+        padding: EdgeInsets.all(spacing.lg),
         children: [
           const SettingsSectionHeader('Prayer calculation'),
-          PickerListTile<String>(
-            title: 'Prayer calculation method',
-            value: prayerMethod,
-            icon: Icons.calculate_outlined,
-            options: const [
-              PickerOption('muslim_world_league', 'Muslim World League'),
-              PickerOption('egyptian', 'Egyptian General Authority'),
-              PickerOption('karachi', 'University of Islamic Sciences, Karachi'),
-              PickerOption('umm_al_qura', 'Umm al-Qura, Makkah'),
-              PickerOption('dubai', 'Dubai'),
-              PickerOption('moon_sighting_committee', 'Moon Sighting Committee'),
-              PickerOption('north_america', 'ISNA (North America)'),
-              PickerOption('kuwait', 'Kuwait'),
-              PickerOption('qatar', 'Qatar'),
-              PickerOption('singapore', 'Singapore'),
-            ],
-            onChanged: (value) => _updateAndReport('prayerMethod', value),
+          AppCard(
+            padding: EdgeInsets.zero,
+            child: PickerListTile<String>(
+              title: 'Prayer calculation method',
+              value: prayerMethod,
+              icon: Icons.calculate_outlined,
+              options: const [
+                PickerOption('muslim_world_league', 'Muslim World League'),
+                PickerOption('egyptian', 'Egyptian General Authority'),
+                PickerOption('karachi', 'University of Islamic Sciences, Karachi'),
+                PickerOption('umm_al_qura', 'Umm al-Qura, Makkah'),
+                PickerOption('dubai', 'Dubai'),
+                PickerOption('moon_sighting_committee', 'Moon Sighting Committee'),
+                PickerOption('north_america', 'ISNA (North America)'),
+                PickerOption('kuwait', 'Kuwait'),
+                PickerOption('qatar', 'Qatar'),
+                PickerOption('singapore', 'Singapore'),
+              ],
+              onChanged: (value) => _updateAndReport('prayerMethod', value),
+            ),
           ),
           const SettingsSectionHeader('Prayer Times Source'),
-          RadioGroup<String>(
-            groupValue: _pendingPrayerSource,
-            onChanged: (value) {
-              if (value != null) {
-                setState(() => _pendingPrayerSource = value);
-              }
-            },
-            child: const Column(
+          AppCard(
+            padding: EdgeInsets.zero,
+            child: RadioGroup<String>(
+              groupValue: _pendingPrayerSource,
+              onChanged: (value) {
+                if (value != null) {
+                  setState(() => _pendingPrayerSource = value);
+                }
+              },
+              child: const Column(
+                children: [
+                  RadioListTile<String>(
+                    value: 'scraped',
+                    title: Text('Local source (quran-radio.com)'),
+                    subtitle: Text('Default — localized to your country'),
+                  ),
+                  RadioListTile<String>(
+                    value: 'adhan',
+                    title: Text('Calculated (Adhan)'),
+                    subtitle: Text('Computed locally from latitude/longitude and your chosen method'),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          SizedBox(height: spacing.md),
+          AppCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                RadioListTile<String>(
-                  value: 'scraped',
-                  title: Text('Local source (quran-radio.com)'),
-                  subtitle: Text('Default — localized to your country'),
+                if (_pendingPrayerSource == 'adhan') ...[
+                  Form(
+                    key: _locationFormKey,
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: TextFormField(
+                            controller: _latController,
+                            keyboardType: const TextInputType.numberWithOptions(decimal: true, signed: true),
+                            decoration: const InputDecoration(labelText: 'Latitude'),
+                            validator: _validateLatitude,
+                          ),
+                        ),
+                        SizedBox(width: spacing.md),
+                        Expanded(
+                          child: TextFormField(
+                            controller: _longController,
+                            keyboardType: const TextInputType.numberWithOptions(decimal: true, signed: true),
+                            decoration: const InputDecoration(labelText: 'Longitude'),
+                            validator: _validateLongitude,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  SizedBox(height: spacing.md),
+                ],
+                Consumer(
+                  builder: (context, ref, _) {
+                    final preview = ref.watch(prayerTimeSourcePreviewProvider(_pendingPrayerSource));
+                    return preview.when(
+                      data: (times) => Wrap(
+                        spacing: spacing.sm,
+                        runSpacing: spacing.xs,
+                        children: [
+                          for (final entry in times.entries)
+                            Chip(label: Text('${entry.key}: ${DateFormat('hh:mm a').format(entry.value)}')),
+                        ],
+                      ),
+                      loading: () => const LinearProgressIndicator(),
+                      error: (err, _) => AsyncErrorView(
+                        error: err,
+                        isCompact: true,
+                        onRetry: () => ref.invalidate(prayerTimeSourcePreviewProvider(_pendingPrayerSource)),
+                      ),
+                    );
+                  },
                 ),
-                RadioListTile<String>(
-                  value: 'adhan',
-                  title: Text('Calculated (Adhan)'),
-                  subtitle: Text('Computed locally from latitude/longitude and your chosen method'),
+                SizedBox(height: spacing.md),
+                FilledButton(
+                  onPressed: _confirmPrayerSource,
+                  child: const Text('Use this source'),
                 ),
               ],
             ),
           ),
-          if (_pendingPrayerSource == 'adhan')
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Form(
-                key: _locationFormKey,
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: TextFormField(
-                        controller: _latController,
-                        keyboardType: const TextInputType.numberWithOptions(decimal: true, signed: true),
-                        decoration: const InputDecoration(labelText: 'Latitude'),
-                        validator: _validateLatitude,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: TextFormField(
-                        controller: _longController,
-                        keyboardType: const TextInputType.numberWithOptions(decimal: true, signed: true),
-                        decoration: const InputDecoration(labelText: 'Longitude'),
-                        validator: _validateLongitude,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Consumer(
-              builder: (context, ref, _) {
-                final preview = ref.watch(prayerTimeSourcePreviewProvider(_pendingPrayerSource));
-                return preview.when(
-                  data: (times) => Wrap(
-                    spacing: 8,
-                    runSpacing: 4,
-                    children: [
-                      for (final entry in times.entries)
-                        Chip(label: Text('${entry.key}: ${DateFormat('hh:mm a').format(entry.value)}')),
-                    ],
-                  ),
-                  loading: () => const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 8),
-                    child: LinearProgressIndicator(),
-                  ),
-                  error: (err, _) => AsyncErrorView(
-                    error: err,
-                    isCompact: true,
-                    onRetry: () => ref.invalidate(prayerTimeSourcePreviewProvider(_pendingPrayerSource)),
-                  ),
-                );
-              },
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: FilledButton(
-              onPressed: _confirmPrayerSource,
-              child: const Text('Use this source'),
-            ),
-          ),
           const SettingsSectionHeader('Reminders'),
-          ModuleReminderToggleList(module: ReminderModule.religious, label: 'Enable religious reminders'),
-          SwitchListTile(
-            value: religiousRemindersEnabled,
-            title: const Text('Detailed reminder types'),
-            onChanged: (value) => _updateAndReport('religiousRemindersEnabled', value),
-          ),
-          SwitchListTile(
-            value: religiousPrayerRemindersEnabled,
-            title: const Text('Prayer reminders'),
-            dense: true,
-            onChanged: religiousRemindersEnabled
-                ? (value) => _updateAndReport('religiousPrayerRemindersEnabled', value)
-                : null,
-          ),
-          SwitchListTile(
-            value: religiousQuranRemindersEnabled,
-            title: const Text('Quran reminders'),
-            dense: true,
-            onChanged: religiousRemindersEnabled
-                ? (value) => _updateAndReport('religiousQuranRemindersEnabled', value)
-                : null,
-          ),
-          SwitchListTile(
-            value: religiousAthkarRemindersEnabled,
-            title: const Text('Athkar reminders'),
-            dense: true,
-            onChanged: religiousRemindersEnabled
-                ? (value) => _updateAndReport('religiousAthkarRemindersEnabled', value)
-                : null,
-          ),
-          SwitchListTile(
-            value: religiousNightRemindersEnabled,
-            title: const Text('Night prayer reminders'),
-            dense: true,
-            onChanged: religiousRemindersEnabled
-                ? (value) => _updateAndReport('religiousNightRemindersEnabled', value)
-                : null,
-          ),
-          SwitchListTile(
-            value: religiousBadEventRemindersEnabled,
-            title: const Text('Bad event reminders'),
-            dense: true,
-            onChanged: religiousRemindersEnabled
-                ? (value) => _updateAndReport('religiousBadEventRemindersEnabled', value)
-                : null,
-          ),
-          PickerListTile<int>(
-            title: 'Prayer reminder lead time',
-            value: religiousDefaultReminderMinutes,
-            icon: Icons.schedule_outlined,
-            options: const [
-              PickerOption(5, '5 minutes before'),
-              PickerOption(10, '10 minutes before'),
-              PickerOption(15, '15 minutes before'),
-              PickerOption(20, '20 minutes before'),
-              PickerOption(30, '30 minutes before'),
-            ],
-            onChanged: (value) => _updateAndReport('religiousDefaultReminderMinutes', value),
+          AppCard(
+            padding: EdgeInsets.zero,
+            child: Column(
+              children: [
+                ModuleReminderToggleList(module: ReminderModule.religious, label: 'Enable religious reminders'),
+                SwitchListTile(
+                  value: religiousRemindersEnabled,
+                  title: const Text('Detailed reminder types'),
+                  onChanged: (value) => _updateAndReport('religiousRemindersEnabled', value),
+                ),
+                SwitchListTile(
+                  value: religiousPrayerRemindersEnabled,
+                  title: const Text('Prayer reminders'),
+                  dense: true,
+                  onChanged: religiousRemindersEnabled
+                      ? (value) => _updateAndReport('religiousPrayerRemindersEnabled', value)
+                      : null,
+                ),
+                SwitchListTile(
+                  value: religiousQuranRemindersEnabled,
+                  title: const Text('Quran reminders'),
+                  dense: true,
+                  onChanged: religiousRemindersEnabled
+                      ? (value) => _updateAndReport('religiousQuranRemindersEnabled', value)
+                      : null,
+                ),
+                SwitchListTile(
+                  value: religiousAthkarRemindersEnabled,
+                  title: const Text('Athkar reminders'),
+                  dense: true,
+                  onChanged: religiousRemindersEnabled
+                      ? (value) => _updateAndReport('religiousAthkarRemindersEnabled', value)
+                      : null,
+                ),
+                SwitchListTile(
+                  value: religiousNightRemindersEnabled,
+                  title: const Text('Night prayer reminders'),
+                  dense: true,
+                  onChanged: religiousRemindersEnabled
+                      ? (value) => _updateAndReport('religiousNightRemindersEnabled', value)
+                      : null,
+                ),
+                SwitchListTile(
+                  value: religiousBadEventRemindersEnabled,
+                  title: const Text('Bad event reminders'),
+                  dense: true,
+                  onChanged: religiousRemindersEnabled
+                      ? (value) => _updateAndReport('religiousBadEventRemindersEnabled', value)
+                      : null,
+                ),
+                PickerListTile<int>(
+                  title: 'Prayer reminder lead time',
+                  value: religiousDefaultReminderMinutes,
+                  icon: Icons.schedule_outlined,
+                  options: const [
+                    PickerOption(5, '5 minutes before'),
+                    PickerOption(10, '10 minutes before'),
+                    PickerOption(15, '15 minutes before'),
+                    PickerOption(20, '20 minutes before'),
+                    PickerOption(30, '30 minutes before'),
+                  ],
+                  onChanged: (value) => _updateAndReport('religiousDefaultReminderMinutes', value),
+                ),
+              ],
+            ),
           ),
           const SettingsSectionHeader('Data & goals'),
-          PickerListTile<int>(
-            title: 'Prayer times history retention',
-            value: religiousPrayerTimesRetentionDays,
-            icon: Icons.storage_outlined,
-            options: const [
-              PickerOption(365, '365 days'),
-              PickerOption(730, '730 days'),
-              PickerOption(1095, '1095 days'),
-            ],
-            onChanged: (value) => _updateAndReport('religiousPrayerTimesRetentionDays', value),
-          ),
-          PickerListTile<int>(
-            title: 'Quran daily reading goal',
-            value: quranDailyGoalPages,
-            icon: Icons.menu_book_outlined,
-            options: const [
-              PickerOption(1, '1 page a day'),
-              PickerOption(3, '3 pages a day'),
-              PickerOption(5, '5 pages a day'),
-              PickerOption(10, '10 pages a day'),
-            ],
-            onChanged: (value) => _updateAndReport('religiousQuranDailyGoalPages', value),
-          ),
-          PickerListTile<int>(
-            title: 'Bad-event streak alert threshold',
-            value: badEventThreshold,
-            icon: Icons.warning_amber_outlined,
-            options: const [
-              PickerOption(1, 'After 1 occurrence'),
-              PickerOption(3, 'After 3 occurrences'),
-              PickerOption(5, 'After 5 occurrences'),
-            ],
-            onChanged: (value) => _updateAndReport('religiousBadEventThreshold', value),
+          AppCard(
+            padding: EdgeInsets.zero,
+            child: Column(
+              children: [
+                PickerListTile<int>(
+                  title: 'Prayer times history retention',
+                  value: religiousPrayerTimesRetentionDays,
+                  icon: Icons.storage_outlined,
+                  options: const [
+                    PickerOption(365, '365 days'),
+                    PickerOption(730, '730 days'),
+                    PickerOption(1095, '1095 days'),
+                  ],
+                  onChanged: (value) => _updateAndReport('religiousPrayerTimesRetentionDays', value),
+                ),
+                PickerListTile<int>(
+                  title: 'Quran daily reading goal',
+                  value: quranDailyGoalPages,
+                  icon: Icons.menu_book_outlined,
+                  options: const [
+                    PickerOption(1, '1 page a day'),
+                    PickerOption(3, '3 pages a day'),
+                    PickerOption(5, '5 pages a day'),
+                    PickerOption(10, '10 pages a day'),
+                  ],
+                  onChanged: (value) => _updateAndReport('religiousQuranDailyGoalPages', value),
+                ),
+                PickerListTile<int>(
+                  title: 'Bad-event streak alert threshold',
+                  value: badEventThreshold,
+                  icon: Icons.warning_amber_outlined,
+                  options: const [
+                    PickerOption(1, 'After 1 occurrence'),
+                    PickerOption(3, 'After 3 occurrences'),
+                    PickerOption(5, 'After 5 occurrences'),
+                  ],
+                  onChanged: (value) => _updateAndReport('religiousBadEventThreshold', value),
+                ),
+              ],
+            ),
           ),
         ],
       ),

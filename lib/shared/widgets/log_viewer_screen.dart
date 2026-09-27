@@ -2,10 +2,14 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../../core/theme/app_theme_tokens.dart';
 import '../infrastructure/crash_log_recorder.dart';
 import '../infrastructure/logger_service.dart';
+import 'empty_state.dart';
+import 'log_level_badge.dart';
+import 'ui/app_card.dart';
+import 'ui/show_confirm_dialog.dart';
 
-/// Log Viewer Screen for viewing app logs
 class LogViewerScreen extends StatefulWidget {
   static const routeName = '/dev/logs';
 
@@ -16,6 +20,25 @@ class LogViewerScreen extends StatefulWidget {
 }
 
 class _LogViewerScreenState extends State<LogViewerScreen> {
+  static const String _logsTitle = 'Log Viewer';
+  static const String _savedErrorsTitle = 'Saved Errors';
+  static const String _showSavedErrorsTooltip = 'Show Saved Errors';
+  static const String _showSessionLogsTooltip = 'Show Session Logs';
+  static const String _clearLogsTooltip = 'Clear Logs';
+  static const String _exportLogsTooltip = 'Export Logs';
+  static const String _searchHint = 'Search logs...';
+  static const String _noLogsTitle = 'No logs found';
+  static const String _noLogsSubtitle = 'Nothing has been logged yet, or your search has no matches.';
+  static const String _closeLabel = 'Close';
+  static const String _copyLabel = 'Copy';
+  static const String _copiedMessage = 'Log copied to clipboard';
+  static const String _clearLogsTitle = 'Clear Logs';
+  static const String _clearLogsMessage = 'Are you sure you want to clear all logs?';
+  static const String _clearLogsConfirmLabel = 'Clear';
+  static const String _clearedMessage = 'Logs cleared';
+  static const int _messageMaxLines = 3;
+  static const String _monospaceFontFamily = 'monospace';
+
   String _searchQuery = '';
   final TextEditingController _searchController = TextEditingController();
   bool _isShowingPersistedErrors = false;
@@ -51,183 +74,141 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final tokens = AppThemeTokens.of(context);
     return Scaffold(
       appBar: AppBar(
-        title: Text(_isShowingPersistedErrors ? 'Saved Errors' : 'Log Viewer'),
+        title: Text(_isShowingPersistedErrors ? _savedErrorsTitle : _logsTitle),
         actions: [
           IconButton(
-            icon: Icon(_isShowingPersistedErrors ? Icons.list_alt : Icons.history),
+            icon: Icon(_isShowingPersistedErrors ? Icons.list_alt_rounded : Icons.history_rounded),
             onPressed: () => setState(() => _isShowingPersistedErrors = !_isShowingPersistedErrors),
-            tooltip: _isShowingPersistedErrors ? 'Show Session Logs' : 'Show Saved Errors',
+            tooltip: _isShowingPersistedErrors ? _showSessionLogsTooltip : _showSavedErrorsTooltip,
           ),
           IconButton(
-            icon: const Icon(Icons.delete_outline),
+            icon: const Icon(Icons.delete_outline_rounded),
             onPressed: _confirmClearLogs,
-            tooltip: 'Clear Logs',
+            tooltip: _clearLogsTooltip,
           ),
           IconButton(
-            icon: const Icon(Icons.download),
+            icon: const Icon(Icons.download_rounded),
             onPressed: _exportLogs,
-            tooltip: 'Export Logs',
+            tooltip: _exportLogsTooltip,
           ),
         ],
       ),
       body: Column(
         children: [
-          _buildSearchBar(),
-          Expanded(
-            child: _buildLogList(),
+          Padding(
+            padding: EdgeInsets.all(tokens.spacing.md),
+            child: _buildSearchBar(),
           ),
+          Expanded(child: _buildLogList(tokens)),
         ],
       ),
     );
   }
 
   Widget _buildSearchBar() {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      color: Theme.of(context).colorScheme.surfaceContainerHighest,
-      child: TextField(
-        controller: _searchController,
-        decoration: InputDecoration(
-          hintText: 'Search logs...',
-          prefixIcon: const Icon(Icons.search),
-          suffixIcon: _searchQuery.isNotEmpty
-              ? IconButton(
-                  icon: const Icon(Icons.clear),
-                  onPressed: () {
-                    setState(() {
-                      _searchController.clear();
-                      _searchQuery = '';
-                    });
-                  },
-                )
-              : null,
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(8),
-          ),
-          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        ),
-        onChanged: (value) {
-          setState(() {
-            _searchQuery = value.toLowerCase();
-          });
-        },
+    return TextField(
+      controller: _searchController,
+      decoration: InputDecoration(
+        hintText: _searchHint,
+        prefixIcon: const Icon(Icons.search_rounded),
+        suffixIcon: _searchQuery.isNotEmpty
+            ? IconButton(
+                icon: const Icon(Icons.clear_rounded),
+                onPressed: () {
+                  setState(() {
+                    _searchController.clear();
+                    _searchQuery = '';
+                  });
+                },
+              )
+            : null,
       ),
+      onChanged: (value) {
+        setState(() {
+          _searchQuery = value.toLowerCase();
+        });
+      },
     );
   }
 
-  Widget _buildLogList() {
+  Widget _buildLogList(AppThemeTokens tokens) {
     final logs = _visibleLogs;
     final filteredLogs = logs.where((log) {
       return _searchQuery.isEmpty || log.toLowerCase().contains(_searchQuery);
     }).toList();
 
     if (filteredLogs.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.inbox_outlined,
-              size: 64,
-              color: Colors.grey[400],
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'No logs found',
-              style: TextStyle(
-                fontSize: 16,
-                color: Colors.grey[600],
-              ),
-            ),
-          ],
-        ),
+      return const EmptyState(
+        title: _noLogsTitle,
+        subtitle: _noLogsSubtitle,
+        icon: Icons.inbox_rounded,
+        isCompact: true,
       );
     }
 
     return ListView.builder(
+      padding: EdgeInsets.symmetric(horizontal: tokens.spacing.md),
       itemCount: filteredLogs.length,
       itemBuilder: (context, index) {
-        final log = filteredLogs[filteredLogs.length - 1 - index]; // Reverse order
-        return _buildLogItem(log);
+        final log = filteredLogs[filteredLogs.length - 1 - index];
+        return Padding(
+          padding: EdgeInsets.only(bottom: tokens.spacing.sm),
+          child: _buildLogItem(context, tokens, log),
+        );
       },
     );
   }
 
-  Widget _buildLogItem(String log) {
-    final color = _getLogLevelColor(log);
+  Widget _buildLogItem(BuildContext context, AppThemeTokens tokens, String log) {
+    final color = _getLogLevelColor(tokens, log);
     final level = _extractLogLevel(log);
-    
-    return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      child: InkWell(
-        onTap: () => _showLogDetails(log),
-        onLongPress: () => _copyLogToClipboard(log),
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+    final theme = Theme.of(context);
+
+    return AppCard(
+      onTap: () => _showLogDetails(log),
+      onLongPress: () => _copyLogToClipboard(log),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
             children: [
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: color.withValues(alpha: 0.2),
-                      borderRadius: BorderRadius.circular(4),
-                      border: Border.all(color: color.withValues(alpha: 0.5)),
-                    ),
-                    child: Text(
-                      level,
-                      style: TextStyle(
-                        color: color,
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      _extractModule(log),
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w600,
-                        fontSize: 12,
-                      ),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                  Text(
-                    _extractTime(log),
-                    style: TextStyle(
-                      fontSize: 10,
-                      color: Colors.grey[600],
-                    ),
-                  ),
-                ],
+              LogLevelBadge(level: level, color: color),
+              SizedBox(width: tokens.spacing.sm),
+              Expanded(
+                child: Text(
+                  _extractModule(log),
+                  style: theme.textTheme.labelMedium,
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
-              const SizedBox(height: 8),
               Text(
-                _extractMessage(log),
-                style: const TextStyle(fontSize: 13),
-                maxLines: 3,
-                overflow: TextOverflow.ellipsis,
+                _extractTime(log),
+                style: theme.textTheme.labelSmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
               ),
             ],
           ),
-        ),
+          SizedBox(height: tokens.spacing.sm),
+          Text(
+            _extractMessage(log),
+            style: theme.textTheme.bodySmall,
+            maxLines: _messageMaxLines,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ],
       ),
     );
   }
 
-  Color _getLogLevelColor(String log) {
-    if (log.contains('[DEBUG]')) return Colors.grey;
-    if (log.contains('[INFO]')) return Colors.blue;
-    if (log.contains('[WARN]')) return Colors.orange;
-    if (log.contains('[ERROR]')) return Colors.red;
-    if (log.contains('[FATAL]')) return Colors.purple;
-    return Colors.grey;
+  Color _getLogLevelColor(AppThemeTokens tokens, String log) {
+    if (log.contains('[DEBUG]')) return tokens.colors.muted;
+    if (log.contains('[INFO]')) return tokens.colors.info;
+    if (log.contains('[WARN]')) return tokens.colors.warning;
+    if (log.contains('[ERROR]')) return tokens.colors.danger;
+    if (log.contains('[FATAL]')) return tokens.colors.danger;
+    return tokens.colors.muted;
   }
 
   String _extractLogLevel(String log) {
@@ -261,52 +242,38 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
   }
 
   void _showLogDetails(String log) {
+    final tokens = AppThemeTokens.of(context);
+    final color = _getLogLevelColor(tokens, log);
+    final level = _extractLogLevel(log);
     unawaited(showDialog<void>(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         title: Row(
           children: [
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-              decoration: BoxDecoration(
-                color: _getLogLevelColor(log).withValues(alpha: 0.2),
-                borderRadius: BorderRadius.circular(4),
-              ),
-              child: Text(
-                _extractLogLevel(log),
-                style: TextStyle(
-                  color: _getLogLevelColor(log),
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
-            const SizedBox(width: 8),
+            LogLevelBadge(level: level, color: color),
+            SizedBox(width: tokens.spacing.sm),
             Expanded(
-              child: Text(
-                _extractModule(log),
-                style: const TextStyle(fontSize: 16),
-              ),
+              child: Text(_extractModule(log), style: Theme.of(dialogContext).textTheme.titleMedium),
             ),
           ],
         ),
         content: SingleChildScrollView(
           child: SelectableText(
             log,
-            style: const TextStyle(fontSize: 12, fontFamily: 'monospace'),
+            style: Theme.of(dialogContext).textTheme.bodySmall?.copyWith(fontFamily: _monospaceFontFamily),
           ),
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Close'),
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text(_closeLabel),
           ),
           TextButton(
             onPressed: () {
               _copyLogToClipboard(log);
-              Navigator.pop(context);
+              Navigator.pop(dialogContext);
             },
-            child: const Text('Copy'),
+            child: const Text(_copyLabel),
           ),
         ],
       ),
@@ -316,43 +283,35 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
   void _copyLogToClipboard(String log) {
     unawaited(Clipboard.setData(ClipboardData(text: log)));
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Log copied to clipboard')),
+      const SnackBar(content: Text(_copiedMessage)),
     );
   }
 
-  void _confirmClearLogs() {
-    unawaited(showDialog<void>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Clear Logs'),
-        content: const Text('Are you sure you want to clear all logs?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () async {
-              Navigator.pop(dialogContext);
-              if (_isShowingPersistedErrors) {
-                await CrashLogRecorder.instance.clearEntries();
-                _persistedErrors = const <String>[];
-              } else {
-                LoggerService.clearLogs();
-              }
-              if (!mounted) {
-                return;
-              }
-              setState(() {});
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Logs cleared')),
-              );
-            },
-            child: const Text('Clear'),
-          ),
-        ],
-      ),
-    ));
+  Future<void> _confirmClearLogs() async {
+    final isConfirmed = await showConfirmDialog(
+      context,
+      title: _clearLogsTitle,
+      message: _clearLogsMessage,
+      confirmLabel: _clearLogsConfirmLabel,
+      isDestructive: true,
+      icon: Icons.delete_outline_rounded,
+    );
+    if (!isConfirmed) {
+      return;
+    }
+    if (_isShowingPersistedErrors) {
+      await CrashLogRecorder.instance.clearEntries();
+      _persistedErrors = const <String>[];
+    } else {
+      LoggerService.clearLogs();
+    }
+    if (!mounted) {
+      return;
+    }
+    setState(() {});
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text(_clearedMessage)),
+    );
   }
 
   void _exportLogs() {

@@ -3,9 +3,11 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/theme/app_theme_tokens.dart';
 import '../../../providers/app_providers.dart';
-import '../../../shared/widgets/app_feedback.dart';
 import '../../../shared/services/reminder_service.dart';
+import '../../../shared/widgets/app_feedback.dart';
+import '../../../shared/widgets/ui/app_card.dart';
 import '../widgets/module_reminder_toggle_list.dart';
 import '../widgets/settings_section_header.dart';
 
@@ -19,6 +21,10 @@ class SleepSettingsScreen extends ConsumerStatefulWidget {
 }
 
 class _SleepSettingsScreenState extends ConsumerState<SleepSettingsScreen> {
+  static const double _minSleepGoalHours = 4;
+  static const double _maxSleepGoalHours = 12;
+  static const int _sleepGoalDivisions = 16;
+
   Map<String, dynamic> _settings = const {};
 
   @override
@@ -63,29 +69,41 @@ class _SleepSettingsScreenState extends ConsumerState<SleepSettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final spacing = AppThemeTokens.of(context).spacing;
     final sleepGoalHours = (_settings['sleepGoalHours'] as num?)?.toDouble() ?? 8.0;
 
     return Scaffold(
       appBar: AppBar(title: const Text('Sleep')),
       body: ListView(
+        padding: EdgeInsets.all(spacing.lg),
         children: [
           const SettingsSectionHeader('Reminders'),
-          const ModuleReminderToggleList(module: ReminderModule.sleep, label: 'Enable sleep reminders'),
-          const SettingsSectionHeader('Goals'),
-          ListTile(
-            title: const Text('Weekly sleep goal'),
-            subtitle: Text('${sleepGoalHours.toStringAsFixed(1)} hours per night'),
+          const AppCard(
+            padding: EdgeInsets.zero,
+            child: ModuleReminderToggleList(module: ReminderModule.sleep, label: 'Enable sleep reminders'),
           ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Slider(
-              value: sleepGoalHours,
-              min: 4,
-              max: 12,
-              divisions: 16,
-              label: '${sleepGoalHours.toStringAsFixed(1)}h',
-              onChanged: (value) => setState(() => _settings['sleepGoalHours'] = value),
-              onChangeEnd: (value) => _update('sleepGoalHours', value),
+          const SettingsSectionHeader('Goals'),
+          AppCard(
+            padding: EdgeInsets.zero,
+            child: Column(
+              children: [
+                ListTile(
+                  title: const Text('Weekly sleep goal'),
+                  subtitle: Text('${sleepGoalHours.toStringAsFixed(1)} hours per night'),
+                ),
+                Padding(
+                  padding: EdgeInsets.symmetric(horizontal: spacing.lg),
+                  child: Slider(
+                    value: sleepGoalHours,
+                    min: _minSleepGoalHours,
+                    max: _maxSleepGoalHours,
+                    divisions: _sleepGoalDivisions,
+                    label: '${sleepGoalHours.toStringAsFixed(1)}h',
+                    onChanged: (value) => setState(() => _settings['sleepGoalHours'] = value),
+                    onChangeEnd: (value) => _update('sleepGoalHours', value),
+                  ),
+                ),
+              ],
             ),
           ),
         ],

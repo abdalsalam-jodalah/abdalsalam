@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/theme/app_theme_tokens.dart';
 import '../widgets/security_widgets.dart';
 
 class CredentialFormScreen extends StatefulWidget {
@@ -12,6 +13,13 @@ class CredentialFormScreen extends StatefulWidget {
 }
 
 class _CredentialFormScreenState extends State<CredentialFormScreen> {
+  static const int _lengthScore = 30;
+  static const int _uppercaseScore = 20;
+  static const int _lowercaseScore = 20;
+  static const int _digitScore = 15;
+  static const int _symbolScore = 15;
+  static const int _minimumPasswordLength = 8;
+
   final _titleController = TextEditingController();
   final _userController = TextEditingController();
   final _passController = TextEditingController();
@@ -27,33 +35,34 @@ class _CredentialFormScreenState extends State<CredentialFormScreen> {
   int get _strength {
     final value = _passController.text;
     var score = 0;
-    if (value.length >= 8) score += 30;
-    if (RegExp(r'[A-Z]').hasMatch(value)) score += 20;
-    if (RegExp(r'[a-z]').hasMatch(value)) score += 20;
-    if (RegExp(r'[0-9]').hasMatch(value)) score += 15;
-    if (RegExp(r'[^A-Za-z0-9]').hasMatch(value)) score += 15;
+    if (value.length >= _minimumPasswordLength) score += _lengthScore;
+    if (RegExp(r'[A-Z]').hasMatch(value)) score += _uppercaseScore;
+    if (RegExp(r'[a-z]').hasMatch(value)) score += _lowercaseScore;
+    if (RegExp(r'[0-9]').hasMatch(value)) score += _digitScore;
+    if (RegExp(r'[^A-Za-z0-9]').hasMatch(value)) score += _symbolScore;
     return score.clamp(0, 100);
   }
 
   @override
   Widget build(BuildContext context) {
+    final tokens = AppThemeTokens.of(context);
     return Scaffold(
       appBar: AppBar(title: const Text('Add Credential')),
       body: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: EdgeInsets.all(tokens.spacing.lg),
         children: [
           TextField(controller: _titleController, decoration: const InputDecoration(labelText: 'Title')),
-          const SizedBox(height: 10),
+          SizedBox(height: tokens.spacing.sm),
           TextField(controller: _userController, decoration: const InputDecoration(labelText: 'Username')),
-          const SizedBox(height: 10),
+          SizedBox(height: tokens.spacing.sm),
           TextField(
             controller: _passController,
             decoration: const InputDecoration(labelText: 'Password'),
             onChanged: (_) => setState(() {}),
           ),
-          const SizedBox(height: 10),
+          SizedBox(height: tokens.spacing.sm),
           PasswordStrengthIndicator(value: _strength),
-          const SizedBox(height: 16),
+          SizedBox(height: tokens.spacing.lg),
           FilledButton(
             onPressed: () => Navigator.of(context).pop(),
             child: const Text('Save'),

@@ -3,10 +3,12 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/theme/app_theme_tokens.dart';
 import '../../../providers/app_providers.dart';
 import '../../../shared/widgets/app_feedback.dart';
+import '../../../shared/widgets/ui/app_card.dart';
+import '../../../shared/widgets/ui/picker_list_tile.dart';
 import '../../health/screens/medication_list_screen.dart';
-import '../widgets/picker_list_tile.dart';
 import '../widgets/settings_section_header.dart';
 
 class MedicationsSettingsScreen extends ConsumerStatefulWidget {
@@ -63,30 +65,38 @@ class _MedicationsSettingsScreenState extends ConsumerState<MedicationsSettingsS
 
   @override
   Widget build(BuildContext context) {
+    final spacing = AppThemeTokens.of(context).spacing;
     final refillReminderDays = (_settings['medicationsDefaultRefillReminderDays'] as int?) ?? 7;
 
     return Scaffold(
       appBar: AppBar(title: const Text('Medications')),
       body: ListView(
+        padding: EdgeInsets.all(spacing.lg),
         children: [
           const SettingsSectionHeader('Refill reminders'),
-          PickerListTile<int>(
-            title: 'Default refill reminder lead time',
-            value: refillReminderDays,
-            icon: Icons.medication_outlined,
-            options: const [
-              PickerOption(3, '3 days before running out'),
-              PickerOption(7, '7 days before running out'),
-              PickerOption(14, '14 days before running out'),
-            ],
-            onChanged: (value) => _update('medicationsDefaultRefillReminderDays', value),
+          AppCard(
+            padding: EdgeInsets.zero,
+            child: PickerListTile<int>(
+              title: 'Default refill reminder lead time',
+              value: refillReminderDays,
+              icon: Icons.medication_outlined,
+              options: const [
+                PickerOption(3, '3 days before running out'),
+                PickerOption(7, '7 days before running out'),
+                PickerOption(14, '14 days before running out'),
+              ],
+              onChanged: (value) => _update('medicationsDefaultRefillReminderDays', value),
+            ),
           ),
           const SettingsSectionHeader('Manage'),
-          ListTile(
-            title: const Text('Medications'),
-            subtitle: const Text('Reminders and refill dates are set per medication'),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () => Navigator.of(context).pushNamed(MedicationListScreen.routeName),
+          AppCard(
+            padding: EdgeInsets.zero,
+            child: ListTile(
+              title: const Text('Medications'),
+              subtitle: const Text('Reminders and refill dates are set per medication'),
+              trailing: const Icon(Icons.chevron_right_rounded),
+              onTap: () => Navigator.of(context).pushNamed(MedicationListScreen.routeName),
+            ),
           ),
         ],
       ),

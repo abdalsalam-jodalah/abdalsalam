@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/theme/app_theme_tokens.dart';
 import '../../../providers/app_providers.dart';
 import '../../../shared/services/backup_service.dart';
 import '../../../shared/widgets/app_feedback.dart';
+import '../../../shared/widgets/ui/app_card.dart';
 
 class BackupScreen extends ConsumerStatefulWidget {
   static const routeName = '/settings/backup';
@@ -26,26 +28,24 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final spacing = AppThemeTokens.of(context).spacing;
     return Scaffold(
       appBar: AppBar(title: const Text('Backup')),
-      body: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(_status),
-            const SizedBox(height: 12),
-            FilledButton(
-              onPressed: _createBackup,
-              child: const Text('Create Full Backup'),
-            ),
-            const SizedBox(height: 10),
-            OutlinedButton(
-              onPressed: _lastPath == null ? null : _shareBackup,
-              child: const Text('Share Last Backup'),
-            ),
-          ],
-        ),
+      body: ListView(
+        padding: EdgeInsets.all(spacing.lg),
+        children: [
+          AppCard(child: Text(_status)),
+          SizedBox(height: spacing.md),
+          FilledButton(
+            onPressed: _createBackup,
+            child: const Text('Create Full Backup'),
+          ),
+          SizedBox(height: spacing.sm),
+          OutlinedButton(
+            onPressed: _lastPath == null ? null : _shareBackup,
+            child: const Text('Share Last Backup'),
+          ),
+        ],
       ),
     );
   }

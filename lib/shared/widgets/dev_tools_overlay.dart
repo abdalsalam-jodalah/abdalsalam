@@ -3,11 +3,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:abdalsalam_logic_flutter/abdalsalam_logic_flutter.dart' as logic;
 import '../../providers/app_providers.dart';
 import '../../features/financial/providers/financial_providers.dart';
+import '../../core/theme/app_theme_tokens.dart';
 import 'app_feedback.dart';
+import 'dev_action_button.dart';
+import 'dev_info_row.dart';
 import 'ui/component_gallery_screen.dart';
+import 'ui/glass_surface.dart';
 
-/// Dev Tools Overlay for monitoring app state and diagnostics
-/// Only visible in debug mode
 class DevToolsOverlay extends ConsumerStatefulWidget {
   final Widget child;
 
@@ -22,6 +24,38 @@ class DevToolsOverlay extends ConsumerStatefulWidget {
 
 class _DevToolsOverlayState extends ConsumerState<DevToolsOverlay> {
   static const String _seedSuccessMessage = 'Financial data seeded successfully!';
+  static const String _title = 'Dev Tools';
+  static const String _appStateTitle = 'App State';
+  static const String _storageTitle = 'Storage';
+  static const String _actionsTitle = 'Actions';
+  static const String _statusLabel = 'Status';
+  static const String _lifecycleLabel = 'Lifecycle';
+  static const String _typeLabel = 'Type';
+  static const String _onlineValue = 'Online';
+  static const String _offlineValue = 'Offline';
+  static const String _storageTypeValue = 'SQLite + Hive';
+  static const String _initializedValue = 'Initialized';
+  static const String _componentGalleryLabel = 'Component Gallery';
+  static const String _viewLogsLabel = 'View Logs';
+  static const String _viewDatabaseLabel = 'View Database';
+  static const String _seedFinancialDataLabel = 'Seed Financial Data';
+  static const String _clearLogsLabel = 'Clear Logs';
+  static const String _exportStateLabel = 'Export State';
+  static const String _forceSyncLabel = 'Force Sync';
+  static const String _logsClearedMessage = 'Logs cleared';
+  static const String _stateExportedMessage = 'State exported';
+  static const String _syncTriggeredMessage = 'Sync triggered';
+  static const String _logsRoute = '/dev/logs';
+  static const String _databaseRoute = '/dev/database';
+
+  static const double _toggleRight = 16;
+  static const double _toggleBottom = 80;
+  static const double _panelRight = 16;
+  static const double _panelBottom = 140;
+  static const double _collapsedWidth = 280;
+  static const double _expandedWidth = 320;
+  static const double _maxHeightFraction = 0.7;
+  static const double _headerIconSize = 20;
 
   bool _isVisible = false;
   bool _isExpanded = false;
@@ -39,8 +73,8 @@ class _DevToolsOverlayState extends ConsumerState<DevToolsOverlay> {
 
   Widget _buildToggleButton() {
     return Positioned(
-      right: 16,
-      bottom: 80,
+      right: _toggleRight,
+      bottom: _toggleBottom,
       child: FloatingActionButton.small(
         heroTag: 'dev_tools_toggle',
         onPressed: () {
@@ -48,85 +82,77 @@ class _DevToolsOverlayState extends ConsumerState<DevToolsOverlay> {
             _isVisible = !_isVisible;
           });
         },
-        backgroundColor: Colors.deepPurple,
-        child: Icon(
-          _isVisible ? Icons.close : Icons.developer_mode,
-          color: Colors.white,
-        ),
+        child: Icon(_isVisible ? Icons.close_rounded : Icons.developer_mode_rounded),
       ),
     );
   }
 
   Widget _buildDevToolsPanel() {
     final appStateManager = ref.watch(appStateManagerProvider);
+    final tokens = AppThemeTokens.of(context);
 
     return Positioned(
-      right: 16,
-      bottom: 140,
-      child: Material(
-        elevation: 8,
-        borderRadius: BorderRadius.circular(12),
-        child: Container(
-          width: _isExpanded ? 320 : 280,
-          constraints: BoxConstraints(
-            maxHeight: MediaQuery.of(context).size.height * 0.7,
-          ),
-          decoration: BoxDecoration(
-            color: Colors.grey[900],
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: Colors.deepPurple, width: 2),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              _buildHeader(),
-              Flexible(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.all(12),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _buildAppStateSection(appStateManager),
-                      const Divider(color: Colors.grey),
-                      _buildStorageSection(),
-                      const Divider(color: Colors.grey),
-                      _buildActionsSection(),
-                    ],
+      right: _panelRight,
+      bottom: _panelBottom,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * _maxHeightFraction),
+        child: GlassSurface(
+          isBlurred: true,
+          padding: EdgeInsets.zero,
+          child: SizedBox(
+            width: _isExpanded ? _expandedWidth : _collapsedWidth,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _buildHeader(tokens),
+                Flexible(
+                  child: SingleChildScrollView(
+                    padding: EdgeInsets.all(tokens.spacing.md),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _buildAppStateSection(tokens, appStateManager),
+                        const Divider(),
+                        _buildStorageSection(tokens),
+                        const Divider(),
+                        _buildActionsSection(tokens),
+                      ],
+                    ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
     );
   }
 
-  Widget _buildHeader() {
+  Widget _buildHeader(AppThemeTokens tokens) {
+    final colorScheme = Theme.of(context).colorScheme;
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: EdgeInsets.all(tokens.spacing.md),
       decoration: BoxDecoration(
-        color: Colors.deepPurple,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(10)),
+        color: colorScheme.tertiaryContainer,
+        borderRadius: BorderRadius.vertical(top: tokens.radius.largeBorder.topLeft),
       ),
       child: Row(
         children: [
-          const Icon(Icons.developer_mode, color: Colors.white, size: 20),
-          const SizedBox(width: 8),
-          const Text(
-            'Dev Tools',
-            style: TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.bold,
-              fontSize: 16,
-            ),
+          Icon(Icons.developer_mode_rounded, color: colorScheme.onTertiaryContainer, size: _headerIconSize),
+          SizedBox(width: tokens.spacing.sm),
+          Text(
+            _title,
+            style: Theme.of(context)
+                .textTheme
+                .titleSmall
+                ?.copyWith(color: colorScheme.onTertiaryContainer, fontWeight: FontWeight.bold),
           ),
           const Spacer(),
           IconButton(
             icon: Icon(
-              _isExpanded ? Icons.unfold_less : Icons.unfold_more,
-              color: Colors.white,
-              size: 20,
+              _isExpanded ? Icons.unfold_less_rounded : Icons.unfold_more_rounded,
+              color: colorScheme.onTertiaryContainer,
+              size: _headerIconSize,
             ),
             onPressed: () {
               setState(() {
@@ -141,7 +167,7 @@ class _DevToolsOverlayState extends ConsumerState<DevToolsOverlay> {
     );
   }
 
-  Widget _buildAppStateSection(logic.AppStateManager appStateManager) {
+  Widget _buildAppStateSection(AppThemeTokens tokens, logic.AppStateManager appStateManager) {
     return StreamBuilder<logic.AppStateInfo>(
       stream: appStateManager.stateStream,
       builder: (context, snapshot) {
@@ -150,71 +176,67 @@ class _DevToolsOverlayState extends ConsumerState<DevToolsOverlay> {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _buildSectionTitle('App State'),
-            const SizedBox(height: 8),
-            _buildInfoRow(
-              'Status',
-              state?.isOnline == true ? 'Online' : 'Offline',
-              state?.isOnline == true ? Colors.green : Colors.red,
+            _buildSectionTitle(_appStateTitle),
+            SizedBox(height: tokens.spacing.sm),
+            DevInfoRow(
+              label: _statusLabel,
+              value: state?.isOnline == true ? _onlineValue : _offlineValue,
+              accentColor: state?.isOnline == true ? tokens.colors.success : tokens.colors.danger,
             ),
             if (state != null)
-              _buildInfoRow(
-                'Lifecycle',
-                state.lifecycle.name,
-                Colors.blue,
-              ),
+              DevInfoRow(label: _lifecycleLabel, value: state.lifecycle.name, accentColor: tokens.colors.info),
           ],
         );
       },
     );
   }
 
-  Widget _buildStorageSection() {
+  Widget _buildStorageSection(AppThemeTokens tokens) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildSectionTitle('Storage'),
-        const SizedBox(height: 8),
-        _buildInfoRow('Type', 'SQLite + Hive', Colors.purple),
-        _buildInfoRow('Status', 'Initialized', Colors.green),
+        _buildSectionTitle(_storageTitle),
+        SizedBox(height: tokens.spacing.sm),
+        DevInfoRow(label: _typeLabel, value: _storageTypeValue, accentColor: tokens.colors.info),
+        DevInfoRow(label: _statusLabel, value: _initializedValue, accentColor: tokens.colors.success),
       ],
     );
   }
 
-  Widget _buildActionsSection() {
+  Widget _buildActionsSection(AppThemeTokens tokens) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildSectionTitle('Actions'),
-        const SizedBox(height: 8),
-        _buildActionButton(
-          'Component Gallery',
-          Icons.palette_outlined,
-          () async {
+        _buildSectionTitle(_actionsTitle),
+        SizedBox(height: tokens.spacing.sm),
+        DevActionButton(
+          label: _componentGalleryLabel,
+          icon: Icons.palette_outlined,
+          onPressed: () async {
             await Navigator.of(context).pushNamed(ComponentGalleryScreen.routeName);
           },
         ),
-        const SizedBox(height: 4),
-        _buildActionButton(
-          'View Logs',
-          Icons.article_outlined,
-          () async {
-            await Navigator.of(context).pushNamed('/dev/logs');
+        SizedBox(height: tokens.spacing.xs),
+        DevActionButton(
+          label: _viewLogsLabel,
+          icon: Icons.article_outlined,
+          onPressed: () async {
+            await Navigator.of(context).pushNamed(_logsRoute);
           },
         ),
-        const SizedBox(height: 4),
-        _buildActionButton(
-          'View Database',
-          Icons.storage_outlined,
-          () async {
-            await Navigator.of(context).pushNamed('/dev/database');
+        SizedBox(height: tokens.spacing.xs),
+        DevActionButton(
+          label: _viewDatabaseLabel,
+          icon: Icons.storage_outlined,
+          onPressed: () async {
+            await Navigator.of(context).pushNamed(_databaseRoute);
           },
         ),
-        const SizedBox(height: 4),
-        _buildActionButton(
-          'Seed Financial Data',
-          Icons.add_circle_outline,
-          () async {
+        SizedBox(height: tokens.spacing.xs),
+        DevActionButton(
+          label: _seedFinancialDataLabel,
+          icon: Icons.add_circle_outline,
+          onPressed: () async {
             try {
               final seeder = ref.read(financialDataSeederProvider);
               await seeder.seedAll();
@@ -231,36 +253,33 @@ class _DevToolsOverlayState extends ConsumerState<DevToolsOverlay> {
             }
           },
         ),
-        const SizedBox(height: 4),
-        _buildActionButton(
-          'Clear Logs',
-          Icons.delete_outline,
-          () {
-            // Clear logs action
+        SizedBox(height: tokens.spacing.xs),
+        DevActionButton(
+          label: _clearLogsLabel,
+          icon: Icons.delete_outline_rounded,
+          onPressed: () {
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Logs cleared')),
+              const SnackBar(content: Text(_logsClearedMessage)),
             );
           },
         ),
-        const SizedBox(height: 4),
-        _buildActionButton(
-          'Export State',
-          Icons.download,
-          () {
-            // Export state action
+        SizedBox(height: tokens.spacing.xs),
+        DevActionButton(
+          label: _exportStateLabel,
+          icon: Icons.download_rounded,
+          onPressed: () {
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('State exported')),
+              const SnackBar(content: Text(_stateExportedMessage)),
             );
           },
         ),
-        const SizedBox(height: 4),
-        _buildActionButton(
-          'Force Sync',
-          Icons.sync,
-          () {
-            // Force sync action
+        SizedBox(height: tokens.spacing.xs),
+        DevActionButton(
+          label: _forceSyncLabel,
+          icon: Icons.sync_rounded,
+          onPressed: () {
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Sync triggered')),
+              const SnackBar(content: Text(_syncTriggeredMessage)),
             );
           },
         ),
@@ -269,65 +288,6 @@ class _DevToolsOverlayState extends ConsumerState<DevToolsOverlay> {
   }
 
   Widget _buildSectionTitle(String title) {
-    return Text(
-      title,
-      style: const TextStyle(
-        color: Colors.white,
-        fontWeight: FontWeight.bold,
-        fontSize: 14,
-      ),
-    );
-  }
-
-  Widget _buildInfoRow(String label, String value, Color color) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(
-            label,
-            style: const TextStyle(
-              color: Colors.grey,
-              fontSize: 12,
-            ),
-          ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.2),
-              borderRadius: BorderRadius.circular(4),
-              border: Border.all(color: color.withValues(alpha: 0.5)),
-            ),
-            child: Text(
-              value,
-              style: TextStyle(
-                color: color,
-                fontSize: 11,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildActionButton(String label, IconData icon, VoidCallback onPressed) {
-    return SizedBox(
-      width: double.infinity,
-      child: OutlinedButton.icon(
-        onPressed: onPressed,
-        icon: Icon(icon, size: 16, color: Colors.white70),
-        label: Text(
-          label,
-          style: const TextStyle(color: Colors.white70, fontSize: 12),
-        ),
-        style: OutlinedButton.styleFrom(
-          side: const BorderSide(color: Colors.white24),
-          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
-        ),
-      ),
-    );
+    return Text(title, style: Theme.of(context).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.bold));
   }
 }

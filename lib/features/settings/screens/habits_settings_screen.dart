@@ -3,11 +3,13 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/theme/app_theme_tokens.dart';
 import '../../../providers/app_providers.dart';
-import '../../../shared/widgets/app_feedback.dart';
 import '../../../shared/services/reminder_service.dart';
+import '../../../shared/widgets/app_feedback.dart';
+import '../../../shared/widgets/ui/app_card.dart';
+import '../../../shared/widgets/ui/picker_list_tile.dart';
 import '../widgets/module_reminder_toggle_list.dart';
-import '../widgets/picker_list_tile.dart';
 import '../widgets/settings_section_header.dart';
 
 class HabitsSettingsScreen extends ConsumerStatefulWidget {
@@ -64,6 +66,7 @@ class _HabitsSettingsScreenState extends ConsumerState<HabitsSettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final spacing = AppThemeTokens.of(context).spacing;
     final streakGoal = (_settings['habitsDefaultStreakGoal'] as int?) ?? 21;
     final defaultReminderMinutes = (_settings['habitsDefaultReminderMinutes'] as int?) ?? 480;
     final defaultReminderTime = TimeOfDay(
@@ -74,33 +77,44 @@ class _HabitsSettingsScreenState extends ConsumerState<HabitsSettingsScreen> {
     return Scaffold(
       appBar: AppBar(title: const Text('Habits')),
       body: ListView(
+        padding: EdgeInsets.all(spacing.lg),
         children: [
           const SettingsSectionHeader('Reminders'),
-          const ModuleReminderToggleList(module: ReminderModule.habits, label: 'Enable habit reminders'),
-          ListTile(
-            title: const Text('Default reminder time for new habits'),
-            subtitle: Text(defaultReminderTime.format(context)),
-            trailing: const Icon(Icons.access_time),
-            onTap: () async {
-              final picked = await showTimePicker(context: context, initialTime: defaultReminderTime);
-              if (picked != null) {
-                await _update('habitsDefaultReminderMinutes', picked.hour * 60 + picked.minute);
-              }
-            },
+          AppCard(
+            padding: EdgeInsets.zero,
+            child: Column(
+              children: [
+                const ModuleReminderToggleList(module: ReminderModule.habits, label: 'Enable habit reminders'),
+                ListTile(
+                  title: const Text('Default reminder time for new habits'),
+                  subtitle: Text(defaultReminderTime.format(context)),
+                  trailing: const Icon(Icons.access_time_rounded),
+                  onTap: () async {
+                    final picked = await showTimePicker(context: context, initialTime: defaultReminderTime);
+                    if (picked != null) {
+                      await _update('habitsDefaultReminderMinutes', picked.hour * 60 + picked.minute);
+                    }
+                  },
+                ),
+              ],
+            ),
           ),
           const SettingsSectionHeader('Goals'),
-          PickerListTile<int>(
-            title: 'Default streak goal',
-            value: streakGoal,
-            icon: Icons.local_fire_department_outlined,
-            options: const [
-              PickerOption(7, '7 days'),
-              PickerOption(21, '21 days'),
-              PickerOption(30, '30 days'),
-              PickerOption(66, '66 days'),
-              PickerOption(90, '90 days'),
-            ],
-            onChanged: (value) => _update('habitsDefaultStreakGoal', value),
+          AppCard(
+            padding: EdgeInsets.zero,
+            child: PickerListTile<int>(
+              title: 'Default streak goal',
+              value: streakGoal,
+              icon: Icons.local_fire_department_outlined,
+              options: const [
+                PickerOption(7, '7 days'),
+                PickerOption(21, '21 days'),
+                PickerOption(30, '30 days'),
+                PickerOption(66, '66 days'),
+                PickerOption(90, '90 days'),
+              ],
+              onChanged: (value) => _update('habitsDefaultStreakGoal', value),
+            ),
           ),
         ],
       ),
