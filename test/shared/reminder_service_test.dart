@@ -19,6 +19,10 @@ class _FakeNotificationService extends NotificationService {
   _FakeNotificationService({required super.plugin, required super.logger});
 
   final List<bool> quietFlags = [];
+  bool notificationsEnabled = true;
+
+  @override
+  Future<Result<bool, AppError>> areNotificationsEnabled() async => Success(notificationsEnabled);
 
   Result<void, AppError> _outcomeFor(int id) {
     if (failingIds.contains(id)) {
@@ -305,6 +309,15 @@ void main() {
       notifications.failingIds.add(payload.notificationId);
 
       expect(() => service.schedule(payload), throwsA(isA<ServiceError>()));
+    });
+
+    test('should skip delivery without throwing when the OS has notifications disabled', () async {
+      notifications.notificationsEnabled = false;
+      final payload = buildPayload();
+
+      await service.schedule(payload);
+
+      expect(notifications.scheduledIds, isEmpty);
     });
 
     test('should ignore a malformed notification payload without emitting a tap', () async {

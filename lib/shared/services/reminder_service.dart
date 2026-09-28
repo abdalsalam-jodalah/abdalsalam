@@ -124,6 +124,14 @@ class ReminderService {
 
   Future<Result<void, AppError>> _deliver(ReminderPayload payload) async {
     try {
+      final enabled = await notifications.areNotificationsEnabled();
+      if (enabled.data == false) {
+        logger.info(
+          '[$_serviceName] skipped ${payload.module.name}:${payload.targetId}; notifications are disabled at the OS level',
+        );
+        return const Success(null);
+      }
+
       final channel = NotificationChannelType.values.byName(payload.module.name);
       final encodedPayload = jsonEncode(payload.toJson());
       final withMarkTakenAction = payload.module == ReminderModule.health && payload.metadata?['time'] != null;

@@ -186,6 +186,46 @@ class NotificationService {
         badge: true,
         sound: true,
       );
+
+      final macOSPlugin =
+          plugin.resolvePlatformSpecificImplementation<
+              MacOSFlutterLocalNotificationsPlugin>();
+      await macOSPlugin?.requestPermissions(
+        alert: true,
+        badge: true,
+        sound: true,
+      );
+    });
+  }
+
+  /// Whether the OS currently allows this app to post notifications, per
+  /// the platform's own authorization/enabled check. `true` on a platform
+  /// with no such concept (or if the plugin can't answer), so callers only
+  /// need to special-case an explicit `false`.
+  Future<Result<bool, AppError>> areNotificationsEnabled() {
+    return _guard('areNotificationsEnabled', () async {
+      final androidPlugin =
+          plugin.resolvePlatformSpecificImplementation<
+              AndroidFlutterLocalNotificationsPlugin>();
+      if (androidPlugin != null) {
+        return await androidPlugin.areNotificationsEnabled() ?? true;
+      }
+
+      final iosPlugin =
+          plugin.resolvePlatformSpecificImplementation<
+              IOSFlutterLocalNotificationsPlugin>();
+      if (iosPlugin != null) {
+        return (await iosPlugin.checkPermissions())?.isEnabled ?? true;
+      }
+
+      final macOSPlugin =
+          plugin.resolvePlatformSpecificImplementation<
+              MacOSFlutterLocalNotificationsPlugin>();
+      if (macOSPlugin != null) {
+        return (await macOSPlugin.checkPermissions())?.isEnabled ?? true;
+      }
+
+      return true;
     });
   }
 

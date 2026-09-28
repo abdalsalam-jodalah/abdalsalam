@@ -70,5 +70,11 @@ void main() {
 
       expect(result.isFailure, isTrue);
     });
+
+    test('should return a failure instead of throwing when checking notification status fails', () async {
+      final result = await service.areNotificationsEnabled();
+
+      expect(result.isFailure, isTrue);
+    });
   });
 }
