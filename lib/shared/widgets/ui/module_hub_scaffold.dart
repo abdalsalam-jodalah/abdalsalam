@@ -27,6 +27,7 @@ class _ModuleHubScaffoldState extends State<ModuleHubScaffold> {
   Widget build(BuildContext context) {
     final tokens = AppThemeTokens.of(context);
     return Scaffold(
+      extendBody: true,
       floatingActionButton: widget.floatingActionButton,
       body: SafeArea(
         bottom: false,
