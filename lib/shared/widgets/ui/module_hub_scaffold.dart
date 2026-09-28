@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_theme_tokens.dart';
+import 'adaptive_nav_bar.dart';
 import 'glass_surface.dart';
 import 'module_hub_destination.dart';
 
@@ -41,19 +42,10 @@ class _ModuleHubScaffoldState extends State<ModuleHubScaffold> {
         child: GlassSurface(
           isBlurred: true,
           borderRadius: tokens.radius.extraLargeBorder,
-          child: NavigationBar(
-            backgroundColor: Colors.transparent,
+          child: AdaptiveNavBar(
+            destinations: widget.destinations,
             selectedIndex: _selectedIndex,
             onDestinationSelected: (index) => setState(() => _selectedIndex = index),
-            labelBehavior: NavigationDestinationLabelBehavior.onlyShowSelected,
-            destinations: [
-              for (final destination in widget.destinations)
-                NavigationDestination(
-                  icon: Icon(destination.icon),
-                  selectedIcon: Icon(destination.selectedIcon),
-                  label: destination.label,
-                ),
-            ],
           ),
         ),
       ),
