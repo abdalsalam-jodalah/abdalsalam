@@ -93,9 +93,9 @@ class AppBootstrapper {
     final startupReport = await _runner.runAll(<BootstrapStep>[
       BootstrapStep.optional('Device status', appStateManager.initialize),
       BootstrapStep.optional('Settings', () async {
-        final settings = await settingsService.getSettings();
-        initialSidebarOrder = _readSidebarOrder(settings[_sidebarOrderSetting]);
-        initialAppearance = Appearance.fromSettings(settings);
+        final initialSettings = await _loadInitialSettings(settingsService);
+        initialSidebarOrder = initialSettings.sidebarOrder;
+        initialAppearance = initialSettings.appearance;
       }),
       BootstrapStep.optional('Notifications and reminders', () async {
         final initialization = await notificationService.initialize(
@@ -146,9 +146,36 @@ class AppBootstrapper {
     );
   }
 
+  Future<AppBootstrapResult> reloadAfterRestore(AppBootstrapResult previous) async {
+    final initialSettings = await _loadInitialSettings(SettingsService(_storage));
+    final rescheduled = await previous.reminderService.rescheduleAll();
+    if (rescheduled.isFailure) {
+      LoggerService.forModule('Bootstrap', moduleType: logic.ModuleType.service)
+          .warning('Reminders could not be rescheduled after restore: ${rescheduled.error}');
+    }
+    return AppBootstrapResult(
+      appStateManager: previous.appStateManager,
+      notificationService: previous.notificationService,
+      reminderService: previous.reminderService,
+      initialSidebarOrder: initialSettings.sidebarOrder,
+      initialAppearance: initialSettings.appearance,
+      startupReport: previous.startupReport,
+    );
+  }
+
   Future<void> dispose() async {
     await _medicationMarkTakenSubscription?.cancel();
     await _appLifecycleLogger?.stop();
+  }
+
+  Future<({List<String>? sidebarOrder, Appearance appearance})> _loadInitialSettings(
+    SettingsService settingsService,
+  ) async {
+    final settings = await settingsService.getSettings();
+    return (
+      sidebarOrder: _readSidebarOrder(settings[_sidebarOrderSetting]),
+      appearance: Appearance.fromSettings(settings),
+    );
   }
 
   List<String>? _readSidebarOrder(Object? value) {

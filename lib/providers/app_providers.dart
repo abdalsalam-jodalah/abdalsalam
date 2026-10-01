@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:abdalsalam_logic_flutter/abdalsalam_logic_flutter.dart' as logic;
+import 'package:flutter/foundation.dart' show VoidCallback;
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:local_auth/local_auth.dart';
@@ -19,7 +20,15 @@ import '../shared/infrastructure/storage_gateway.dart';
 import '../shared/services/notification_service.dart';
 import '../shared/services/analytics_engine.dart';
 import '../shared/services/achievement_service.dart';
+import '../shared/services/backup_attachment_bundler.dart';
+import '../shared/services/auto_backup_service.dart';
 import '../shared/services/backup_service.dart';
+import '../shared/services/backup_status.dart';
+import '../shared/services/backup_status_service.dart';
+import '../shared/services/export_row_enricher.dart';
+import '../shared/services/financial_export_enricher.dart';
+import '../shared/services/module_export_service.dart';
+import '../shared/services/module_table_registry.dart';
 import '../shared/services/future_sync_service.dart';
 import '../shared/services/settings_service.dart';
 import '../shared/services/state_aware_service.dart';
@@ -182,6 +191,8 @@ final appSettingsProvider = FutureProvider<Map<String, dynamic>>((ref) async {
 /// The persisted sidebar order, loaded synchronously during app bootstrap
 /// (before the first frame) and overridden in main.dart — so the sidebar
 /// never flashes the default order while the async settings load resolves.
+final appReloadProvider = Provider<VoidCallback>((ref) => () {});
+
 final initialSidebarOrderProvider = Provider<List<String>?>((ref) => null);
 
 final startupReportProvider = Provider<StartupReport>((ref) => const StartupReport());
@@ -190,8 +201,66 @@ final backupTablesProvider = Provider<List<String>>((ref) {
   return DatabaseSchemaInitializer.tables;
 });
 
+final backupAttachmentBundlerProvider = Provider<BackupAttachmentBundler>((ref) {
+  return BackupAttachmentBundler(<AttachmentBinding>[
+    AttachmentBinding(
+      table: 'doctor_visits',
+      field: 'attachmentPaths',
+      isList: true,
+      storage: ref.watch(attachmentStorageServiceProvider),
+    ),
+    AttachmentBinding(
+      table: 'food_logs',
+      field: 'imagePath',
+      storage: ref.watch(foodAttachmentStorageServiceProvider),
+    ),
+  ]);
+});
+
+final backupStatusServiceProvider = Provider<BackupStatusService>((ref) {
+  return BackupStatusService(ref.watch(storageGatewayProvider));
+});
+
 final backupServiceProvider = Provider<BackupService>((ref) {
-  return BackupService(ref.watch(storageGatewayProvider), ref.watch(loggerProvider));
+  return BackupService(
+    ref.watch(storageGatewayProvider),
+    ref.watch(loggerProvider),
+    attachmentBundler: ref.watch(backupAttachmentBundlerProvider),
+    backupStatus: ref.watch(backupStatusServiceProvider),
+  );
+});
+
+final autoBackupServiceProvider = Provider<AutoBackupService>((ref) {
+  return AutoBackupService(
+    backups: ref.watch(backupServiceProvider),
+    status: ref.watch(backupStatusServiceProvider),
+    settings: ref.watch(settingsServiceProvider),
+    logger: ref.watch(loggerProvider),
+  );
+});
+
+final backupStatusProvider = FutureProvider.autoDispose<BackupStatus>((ref) {
+  return ref.watch(backupStatusServiceProvider).read();
+});
+
+final backupReminderDaysProvider = FutureProvider.autoDispose<int?>((ref) async {
+  final settings = await ref.watch(settingsServiceProvider).getSettings();
+  final configuredDays = settings[AutoBackupService.intervalDaysSettingKey];
+  return ref.watch(backupStatusServiceProvider).exportReminderDaysOverdue(
+        reminderDays: configuredDays is int ? configuredDays : AutoBackupService.defaultIntervalDays,
+      );
+});
+
+final moduleExportServiceProvider = Provider<ModuleExportService>((ref) {
+  return ModuleExportService(
+    ref.watch(storageGatewayProvider),
+    ref.watch(loggerProvider),
+    enrichers: const <ExportRowEnricher>[FinancialExportEnricher()],
+  );
+});
+
+final recordCountsByModuleProvider = FutureProvider.autoDispose<Map<DataModule, int>>((ref) {
+  return ref.watch(moduleExportServiceProvider).countRecordsByModule();
 });
 
 final futureSyncServiceProvider = Provider<FutureSyncService>((ref) {

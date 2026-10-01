@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/app_theme_tokens.dart';
 import '../../../providers/app_providers.dart';
+import '../../../shared/services/backup_archive.dart';
 import '../../../shared/services/backup_service.dart';
 import '../../../shared/widgets/app_feedback.dart';
 import '../../../shared/widgets/ui/app_card.dart';
@@ -17,14 +18,18 @@ class BackupScreen extends ConsumerStatefulWidget {
 }
 
 class _BackupScreenState extends ConsumerState<BackupScreen> {
-  static const String _initialStatus = 'No backup started';
+  static const String _initialStatus = 'No backup created yet';
   static const String _creatingStatus = 'Creating backup...';
   static const String _createFailedStatus = 'Backup failed';
+  static const String _saveCancelledStatus = 'Save cancelled';
   static const String _shareFailedStatus = 'Share failed';
   static const String _sharedSuccessStatus = 'Backup shared successfully';
+  static const String _guidance =
+      'A backup holds every module, your settings, and attached files. Save it somewhere outside this phone '
+      '(Google Drive, email, a computer) so it survives an uninstall or a lost device.';
 
   String _status = _initialStatus;
-  String? _lastPath;
+  bool _isWorking = false;
 
   @override
   Widget build(BuildContext context) {
@@ -34,60 +39,104 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
       body: ListView(
         padding: EdgeInsets.all(spacing.lg),
         children: [
+          const Text(_guidance),
+          SizedBox(height: spacing.md),
           AppCard(child: Text(_status)),
           SizedBox(height: spacing.md),
-          FilledButton(
-            onPressed: _createBackup,
-            child: const Text('Create Full Backup'),
+          FilledButton.icon(
+            onPressed: _isWorking ? null : _saveToDevice,
+            icon: const Icon(Icons.save_alt_rounded),
+            label: const Text('Save to device'),
           ),
           SizedBox(height: spacing.sm),
-          OutlinedButton(
-            onPressed: _lastPath == null ? null : _shareBackup,
-            child: const Text('Share Last Backup'),
+          OutlinedButton.icon(
+            onPressed: _isWorking ? null : _shareBackup,
+            icon: const Icon(Icons.share_outlined),
+            label: const Text('Share backup'),
           ),
         ],
       ),
     );
   }
 
-  Future<void> _createBackup() async {
-    setState(() => _status = _creatingStatus);
-    final backup = await ref.read(backupServiceProvider).createCompressedBackup(
+  Future<BackupArchive?> _createArchive() async {
+    setState(() {
+      _isWorking = true;
+      _status = _creatingStatus;
+    });
+    final backup = await ref.read(backupServiceProvider).createBackupArchive(
           tables: ref.read(backupTablesProvider),
         );
-    if (!mounted) return;
+    if (!mounted) return null;
     if (backup.isFailure) {
-      setState(() => _status = _createFailedStatus);
+      _finishWith(_createFailedStatus);
       AppFeedback.showError(context, backup.error!);
-      return;
+      return null;
     }
+    return backup.data;
+  }
 
-    final save = await ref.read(backupServiceProvider).saveBackupToDevice(
-          content: backup.data!,
+  Future<void> _saveToDevice() async {
+    final archive = await _createArchive();
+    if (archive == null || !mounted) return;
+    final saved = await ref.read(backupServiceProvider).saveBackupAs(
+          bytes: archive.bytes,
           fileName: BackupService.backupFileName(DateTime.now()),
         );
     if (!mounted) return;
-    if (save.isFailure) {
-      setState(() => _status = _createFailedStatus);
-      AppFeedback.showError(context, save.error!);
+    if (saved.isFailure) {
+      _finishWith(_createFailedStatus);
+      AppFeedback.showError(context, saved.error!);
       return;
     }
-    setState(() {
-      _lastPath = save.data;
-      _status = 'Backup saved: ${save.data}';
-    });
+    final path = saved.data;
+    if (path != null) {
+      _refreshBackupStatus();
+    }
+    _finishWith(path == null ? _saveCancelledStatus : 'Backup saved: $path${_attachmentNote(archive)}');
   }
 
   Future<void> _shareBackup() async {
-    final path = _lastPath;
-    if (path == null) return;
-    final share = await ref.read(backupServiceProvider).shareBackup(path);
+    final archive = await _createArchive();
+    if (archive == null || !mounted) return;
+    final backupService = ref.read(backupServiceProvider);
+    final saved = await backupService.saveBackupToDevice(
+      bytes: archive.bytes,
+      fileName: BackupService.backupFileName(DateTime.now()),
+    );
     if (!mounted) return;
-    if (share.isFailure) {
-      setState(() => _status = _shareFailedStatus);
-      AppFeedback.showError(context, share.error!);
+    if (saved.isFailure) {
+      _finishWith(_createFailedStatus);
+      AppFeedback.showError(context, saved.error!);
       return;
     }
-    setState(() => _status = _sharedSuccessStatus);
+    final shared = await backupService.shareBackup(saved.data!);
+    if (!mounted) return;
+    if (shared.isFailure) {
+      _finishWith(_shareFailedStatus);
+      AppFeedback.showError(context, shared.error!);
+      return;
+    }
+    _refreshBackupStatus();
+    _finishWith('$_sharedSuccessStatus${_attachmentNote(archive)}');
+  }
+
+  void _refreshBackupStatus() {
+    ref.invalidate(backupReminderDaysProvider);
+    ref.invalidate(backupStatusProvider);
+  }
+
+  void _finishWith(String status) {
+    setState(() {
+      _isWorking = false;
+      _status = status;
+    });
+  }
+
+  String _attachmentNote(BackupArchive archive) {
+    if (archive.missingAttachmentCount == 0) {
+      return '';
+    }
+    return ' (${archive.missingAttachmentCount} attached files could not be found and were left out)';
   }
 }

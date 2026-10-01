@@ -26,6 +26,7 @@ class _FakeBackupService extends BackupService {
   final Result<RestoreReport, AppError> restoreResult;
   final Duration restoreDelay;
   String? lastRestoredContent;
+  bool? lastReplace;
 
   _FakeBackupService({
     required this.restoreResult,
@@ -35,6 +36,7 @@ class _FakeBackupService extends BackupService {
   @override
   Future<Result<RestoreReport, AppError>> restoreFromText(String content, {bool replace = false}) async {
     lastRestoredContent = content;
+    lastReplace = replace;
     if (restoreDelay > Duration.zero) {
       await Future<void>.delayed(restoreDelay);
     }
@@ -43,8 +45,11 @@ class _FakeBackupService extends BackupService {
 }
 
 void main() {
-  Widget host(BackupService service) => ProviderScope(
-        overrides: [backupServiceProvider.overrideWithValue(service)],
+  Widget host(BackupService service, {VoidCallback? onReload}) => ProviderScope(
+        overrides: [
+          backupServiceProvider.overrideWithValue(service),
+          if (onReload != null) appReloadProvider.overrideWithValue(onReload),
+        ],
         child: const MaterialApp(home: RestoreScreen()),
       );
 
@@ -104,5 +109,79 @@ void main() {
     await tester.pump();
 
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('should restore with merge by default', (tester) async {
+    final service = _FakeBackupService(restoreResult: const Success(_sampleReport));
+    await tester.pumpWidget(host(service));
+
+    await tester.enterText(find.byType(TextField), '{}');
+    await tester.tap(find.text('Restore Pasted Backup'));
+    await tester.pump();
+    await tester.pump();
+
+    expect(service.lastReplace, isFalse);
+  });
+
+  testWidgets('should not restore when replace mode is cancelled at the confirmation', (tester) async {
+    final service = _FakeBackupService(restoreResult: const Success(_sampleReport));
+    await tester.pumpWidget(host(service));
+
+    await tester.tap(find.byType(Switch));
+    await tester.pump();
+    await tester.enterText(find.byType(TextField), '{}');
+    await tester.tap(find.text('Restore Pasted Backup'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Cancel'));
+    await tester.pumpAndSettle();
+
+    expect(service.lastRestoredContent, isNull);
+  });
+
+  testWidgets('should restore in replace mode once confirmed', (tester) async {
+    final service = _FakeBackupService(restoreResult: const Success(_sampleReport));
+    await tester.pumpWidget(host(service));
+
+    await tester.tap(find.byType(Switch));
+    await tester.pump();
+    await tester.enterText(find.byType(TextField), '{}');
+    await tester.tap(find.text('Restore Pasted Backup'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Replace'));
+    await tester.pumpAndSettle();
+
+    expect(service.lastReplace, isTrue);
+  });
+
+  testWidgets('should reload the app only after the completion dialog is acknowledged', (tester) async {
+    var reloadCount = 0;
+    final service = _FakeBackupService(restoreResult: const Success(_sampleReport));
+    await tester.pumpWidget(host(service, onReload: () => reloadCount++));
+
+    await tester.enterText(find.byType(TextField), '{}');
+    await tester.tap(find.text('Restore Pasted Backup'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Restore complete'), findsWidgets);
+    expect(reloadCount, 0);
+
+    await tester.tap(find.text('Reload app'));
+    await tester.pumpAndSettle();
+
+    expect(reloadCount, 1);
+  });
+
+  testWidgets('should not reload the app when restore fails', (tester) async {
+    var reloadCount = 0;
+    await tester.pumpWidget(host(
+      _FakeBackupService(restoreResult: Failure(CorruptDataError('checksum mismatch'))),
+      onReload: () => reloadCount++,
+    ));
+
+    await tester.enterText(find.byType(TextField), '{}');
+    await tester.tap(find.text('Restore Pasted Backup'));
+    await tester.pumpAndSettle();
+
+    expect(reloadCount, 0);
   });
 }

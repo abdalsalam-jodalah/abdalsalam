@@ -6,6 +6,7 @@ import '../widgets/settings_hub_tile.dart';
 import 'appearance_settings_screen.dart';
 import 'calendar_settings_screen.dart';
 import 'dashboard_settings_screen.dart';
+import 'data_management_screen.dart';
 import 'financial_settings_screen.dart';
 import 'food_settings_screen.dart';
 import 'general_settings_screen.dart';
@@ -45,8 +46,14 @@ const _hubEntries = <_SettingsHubEntry>[
   _SettingsHubEntry(
     icon: Icons.tune,
     title: 'General',
-    subtitle: 'Language, notifications, backup',
+    subtitle: 'Language, notifications',
     routeName: GeneralSettingsScreen.routeName,
+  ),
+  _SettingsHubEntry(
+    icon: Icons.storage_outlined,
+    title: 'Data & Backup',
+    subtitle: 'Back up, restore, export your data',
+    routeName: DataManagementScreen.routeName,
   ),
   _SettingsHubEntry(
     icon: Icons.mosque_outlined,

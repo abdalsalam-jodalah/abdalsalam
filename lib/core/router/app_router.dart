@@ -75,6 +75,8 @@ import '../../features/sports/screens/weekly_schedule_screen.dart';
 import '../../features/settings/screens/backup_screen.dart';
 import '../../features/settings/screens/calendar_settings_screen.dart';
 import '../../features/settings/screens/dashboard_settings_screen.dart';
+import '../../features/settings/screens/data_management_screen.dart';
+import '../../features/settings/screens/export_data_screen.dart';
 import '../../features/settings/screens/financial_settings_screen.dart';
 import '../../features/settings/screens/food_settings_screen.dart';
 import '../../features/settings/screens/appearance_settings_screen.dart';
@@ -532,6 +534,16 @@ class AppRouter {
       case DashboardSettingsScreen.routeName:
         return MaterialPageRoute<void>(
           builder: (_) => const DashboardSettingsScreen(),
+          settings: settings,
+        );
+      case DataManagementScreen.routeName:
+        return MaterialPageRoute<void>(
+          builder: (_) => const DataManagementScreen(),
+          settings: settings,
+        );
+      case ExportDataScreen.routeName:
+        return MaterialPageRoute<void>(
+          builder: (_) => const ExportDataScreen(),
           settings: settings,
         );
       case BackupScreen.routeName:

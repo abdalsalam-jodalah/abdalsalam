@@ -13,6 +13,7 @@ import 'features/dashboard/screens/app_shell_screen.dart';
 import 'providers/app_providers.dart';
 import 'providers/appearance_controller.dart';
 import 'shared/services/reminder_service.dart';
+import 'shared/widgets/backup_reminder_banner.dart';
 import 'shared/widgets/data_integrity_banner.dart';
 import 'shared/widgets/dev_tools_overlay.dart';
 
@@ -23,14 +24,16 @@ class AbdalsalamApp extends ConsumerStatefulWidget {
   ConsumerState<AbdalsalamApp> createState() => _AbdalsalamAppState();
 }
 
-class _AbdalsalamAppState extends ConsumerState<AbdalsalamApp> {
+class _AbdalsalamAppState extends ConsumerState<AbdalsalamApp> with WidgetsBindingObserver {
   final GlobalKey<NavigatorState> _navigatorKey = GlobalKey<NavigatorState>();
   StreamSubscription<ReminderPayload>? _reminderTapSubscription;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      unawaited(_runAutoBackupIfDue());
       ref.read(syncQueueProcessorProvider);
       ref.read(religiousSyncSchedulerProvider).start();
       final reminders = ref.read(reminderServiceProvider);
@@ -45,8 +48,24 @@ class _AbdalsalamAppState extends ConsumerState<AbdalsalamApp> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     unawaited(_reminderTapSubscription?.cancel());
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      unawaited(_runAutoBackupIfDue());
+      ref.invalidate(backupReminderDaysProvider);
+    }
+  }
+
+  Future<void> _runAutoBackupIfDue() async {
+    final result = await ref.read(autoBackupServiceProvider).runIfDue();
+    if (mounted && result.isSuccess && result.data == true) {
+      ref.invalidate(backupStatusProvider);
+    }
   }
 
   @override
@@ -78,6 +97,7 @@ class _AbdalsalamAppState extends ConsumerState<AbdalsalamApp> {
               children: [
                 const StartupStatusBanner(),
                 DataIntegrityBanner(navigatorKey: _navigatorKey),
+                BackupReminderBanner(navigatorKey: _navigatorKey),
                 Expanded(child: child ?? const SizedBox.shrink()),
               ],
             ),

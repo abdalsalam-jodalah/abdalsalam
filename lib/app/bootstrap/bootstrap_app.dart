@@ -38,6 +38,10 @@ class _BootstrapAppState extends State<BootstrapApp> {
     setState(() => _bootstrapFuture = _bootstrapper.bootstrap());
   }
 
+  void _reloadAfterRestore(AppBootstrapResult previous) {
+    setState(() => _bootstrapFuture = _bootstrapper.reloadAfterRestore(previous));
+  }
+
   @override
   Widget build(BuildContext context) {
     return FutureBuilder<AppBootstrapResult>(
@@ -71,6 +75,7 @@ class _BootstrapAppState extends State<BootstrapApp> {
             initialSidebarOrderProvider.overrideWithValue(result.initialSidebarOrder),
             initialAppearanceProvider.overrideWithValue(result.initialAppearance),
             startupReportProvider.overrideWithValue(result.startupReport),
+            appReloadProvider.overrideWithValue(() => _reloadAfterRestore(result)),
           ],
           child: const AbdalsalamApp(),
         );

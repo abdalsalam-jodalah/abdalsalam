@@ -9,8 +9,7 @@ import '../../../shared/widgets/app_feedback.dart';
 import '../../../shared/widgets/ui/app_card.dart';
 import '../../../shared/widgets/ui/picker_list_tile.dart';
 import '../widgets/settings_section_header.dart';
-import 'backup_screen.dart';
-import 'restore_screen.dart';
+import 'data_management_screen.dart';
 
 class GeneralSettingsScreen extends ConsumerStatefulWidget {
   static const routeName = '/settings/general';
@@ -88,8 +87,6 @@ class _GeneralSettingsScreenState extends ConsumerState<GeneralSettingsScreen> {
     final notificationSound = (_settings['notificationSound'] as String?) ?? 'default';
     final notificationPriority = (_settings['notificationPriority'] as String?) ?? 'default';
     final respectDoNotDisturb = (_settings['respectDoNotDisturb'] as bool?) ?? true;
-    final autoBackup = (_settings['autoBackupEnabled'] as bool?) ?? false;
-    final backupReminderDays = (_settings['backupReminderDays'] as int?) ?? 7;
 
     final spacing = AppThemeTokens.of(context).spacing;
 
@@ -166,38 +163,15 @@ class _GeneralSettingsScreenState extends ConsumerState<GeneralSettingsScreen> {
               ],
             ),
           ),
-          const SettingsSectionHeader('Backup & Restore'),
+          const SettingsSectionHeader('Data'),
           AppCard(
             padding: EdgeInsets.zero,
             child: Column(
               children: [
-                SwitchListTile(
-                  value: autoBackup,
-                  title: const Text('Automatic backup'),
-                  onChanged: (value) => _update('autoBackupEnabled', value),
-                ),
-                PickerListTile<int>(
-                  title: 'Backup reminder frequency',
-                  value: backupReminderDays,
-                  icon: Icons.notifications_active_outlined,
-                  options: const [
-                    PickerOption(1, 'Every day'),
-                    PickerOption(3, 'Every 3 days'),
-                    PickerOption(7, 'Every 7 days'),
-                    PickerOption(14, 'Every 14 days'),
-                    PickerOption(30, 'Every 30 days'),
-                  ],
-                  onChanged: (value) => _update('backupReminderDays', value),
-                ),
                 ListTile(
-                  title: const Text('Backup now'),
+                  title: const Text('Data & Backup'),
                   trailing: const Icon(Icons.chevron_right_rounded),
-                  onTap: () => Navigator.of(context).pushNamed(BackupScreen.routeName),
-                ),
-                ListTile(
-                  title: const Text('Restore backup'),
-                  trailing: const Icon(Icons.chevron_right_rounded),
-                  onTap: () => Navigator.of(context).pushNamed(RestoreScreen.routeName),
+                  onTap: () => Navigator.of(context).pushNamed(DataManagementScreen.routeName),
                 ),
               ],
             ),
