@@ -17,8 +17,8 @@ void main() {
   sqfliteFfiInit();
   databaseFactory = databaseFactoryFfi;
 
-  Future<void> pumpShell(WidgetTester tester) async {
-    tester.view.physicalSize = const Size(420, 900);
+  Future<void> pumpShell(WidgetTester tester, {Size size = const Size(420, 900)}) async {
+    tester.view.physicalSize = size;
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
     await tester.pumpWidget(
@@ -129,6 +129,89 @@ void main() {
     expect(sidebarVisibleWidth(tester), inExclusiveRange(0, 88));
     await finishAnimations(tester);
     expect(sidebarVisibleWidth(tester), 88);
+    await disposeShell(tester);
+  });
+
+  testWidgets('should go through every open, expand, collapse, and close transition without layout errors', (tester) async {
+    await pumpShell(tester);
+
+    Future<void> step() async {
+      for (var frame = 0; frame < 6; frame++) {
+        await tester.pump(const Duration(milliseconds: 50));
+      }
+    }
+
+    await tester.tap(find.byIcon(Icons.menu_rounded));
+    await tester.pump();
+    await step();
+    expect(sidebarVisibleWidth(tester), 264);
+
+    await tester.tap(find.byIcon(Icons.menu_open_rounded));
+    await tester.pump();
+    await step();
+    expect(sidebarVisibleWidth(tester), 88);
+
+    await tester.tap(find.byIcon(Icons.menu_rounded));
+    await tester.pump();
+    await step();
+    await tester.tap(find.byIcon(Icons.keyboard_double_arrow_left_rounded));
+    await tester.pump();
+    await step();
+    expect(sidebarVisibleWidth(tester), 0);
+
+    await tester.tap(find.byIcon(Icons.chevron_right_rounded));
+    await tester.pump();
+    await step();
+    expect(sidebarVisibleWidth(tester), 88);
+
+    expect(tester.takeException(), isNull);
+    await disposeShell(tester);
+  });
+
+  testWidgets('should fade the labels in and out with the width instead of popping', (tester) async {
+    await pumpShell(tester);
+    double labelOpacity() {
+      final opacity = find.descendant(of: find.byType(ShellSidebar), matching: find.byType(Opacity));
+      return opacity.evaluate().isEmpty ? 0 : tester.widget<Opacity>(opacity.at(1)).opacity;
+    }
+
+    await tester.tap(find.byIcon(Icons.menu_rounded));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    final midway = labelOpacity();
+
+    expect(midway, greaterThan(0));
+    expect(midway, lessThan(1));
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(labelOpacity(), 1);
+    await disposeShell(tester);
+  });
+
+  testWidgets('should animate every transition on a wide screen too', (tester) async {
+    await pumpShell(tester, size: const Size(1200, 800));
+    expect(sidebarVisibleWidth(tester), 88);
+
+    await tester.tap(find.byIcon(Icons.menu_rounded));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(sidebarVisibleWidth(tester), inExclusiveRange(88, 264));
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(sidebarVisibleWidth(tester), 264);
+
+    await tester.tap(find.byIcon(Icons.keyboard_double_arrow_left_rounded));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(sidebarVisibleWidth(tester), inExclusiveRange(0, 264));
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(sidebarVisibleWidth(tester), 0);
+
+    await tester.tap(find.byIcon(Icons.chevron_right_rounded));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(sidebarVisibleWidth(tester), inExclusiveRange(0, 88));
+
+    expect(tester.takeException(), isNull);
+    await tester.pump(const Duration(milliseconds: 300));
     await disposeShell(tester);
   });
 }

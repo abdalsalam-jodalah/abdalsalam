@@ -13,6 +13,7 @@ class ShellSidebar extends StatelessWidget {
   static const String _closeTooltip = 'Close sidebar';
 
   final ShellSidebarMode mode;
+  final double expandProgress;
   final int selectedIndex;
   final List<ShellDestination> destinations;
   final VoidCallback onOpenStep;
@@ -24,6 +25,7 @@ class ShellSidebar extends StatelessWidget {
   const ShellSidebar({
     super.key,
     required this.mode,
+    required this.expandProgress,
     required this.selectedIndex,
     required this.destinations,
     required this.onOpenStep,
@@ -46,7 +48,7 @@ class ShellSidebar extends StatelessWidget {
           children: [
             Expanded(
               child: Align(
-                alignment: isExpanded ? Alignment.centerRight : Alignment.center,
+                alignment: Alignment.lerp(Alignment.center, Alignment.centerRight, expandProgress)!,
                 child: Semantics(
                   button: true,
                   label: isExpanded ? _collapseLabel : _expandLabel,
@@ -58,23 +60,44 @@ class ShellSidebar extends StatelessWidget {
                 ),
               ),
             ),
-            if (isExpanded)
-              Semantics(
-                button: true,
-                label: _closeAllLabel,
-                child: IconButton(
-                  onPressed: onCloseAll,
-                  tooltip: _closeTooltip,
-                  icon: const Icon(Icons.keyboard_double_arrow_left_rounded),
+            ClipRect(
+              child: Align(
+                alignment: Alignment.centerRight,
+                widthFactor: expandProgress,
+                child: Opacity(
+                  opacity: expandProgress,
+                  child: Semantics(
+                    button: true,
+                    label: _closeAllLabel,
+                    child: IconButton(
+                      onPressed: isExpanded ? onCloseAll : null,
+                      tooltip: _closeTooltip,
+                      icon: const Icon(Icons.keyboard_double_arrow_left_rounded),
+                    ),
+                  ),
                 ),
               ),
+            ),
           ],
         ),
-        if (isExpanded)
-          Padding(
-            padding: EdgeInsets.fromLTRB(tokens.spacing.lg, tokens.spacing.xs, tokens.spacing.lg, tokens.spacing.sm),
-            child: Text(_pagesLabel, style: theme.textTheme.labelLarge?.copyWith(color: tokens.colors.muted)),
+        ClipRect(
+          child: Align(
+            alignment: Alignment.topLeft,
+            heightFactor: expandProgress,
+            child: Opacity(
+              opacity: expandProgress,
+              child: Padding(
+                padding: EdgeInsets.fromLTRB(tokens.spacing.lg, tokens.spacing.xs, tokens.spacing.lg, tokens.spacing.sm),
+                child: Text(
+                  _pagesLabel,
+                  maxLines: 1,
+                  softWrap: false,
+                  style: theme.textTheme.labelLarge?.copyWith(color: tokens.colors.muted),
+                ),
+              ),
+            ),
           ),
+        ),
         Expanded(
           child: ReorderableListView.builder(
             buildDefaultDragHandles: false,
@@ -86,7 +109,7 @@ class ShellSidebar extends StatelessWidget {
                 key: ValueKey(destination.key),
                 index: index,
                 child: ShellSidebarItem(
-                  isExpanded: isExpanded,
+                  expandProgress: expandProgress,
                   isSelected: index == selectedIndex,
                   destination: destination,
                   onTap: () => onSelect(index),

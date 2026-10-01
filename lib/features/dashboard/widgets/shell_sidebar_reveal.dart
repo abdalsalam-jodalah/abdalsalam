@@ -2,18 +2,20 @@ import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_motion.dart';
 
+typedef ShellSidebarPanelBuilder = Widget Function(BuildContext context, double visibleWidth);
+
 class ShellSidebarReveal extends StatelessWidget {
   final double visibleWidth;
   final double panelWidth;
   final bool slidesFromEdge;
-  final Widget child;
+  final ShellSidebarPanelBuilder panelBuilder;
 
   const ShellSidebarReveal({
     super.key,
     required this.visibleWidth,
     required this.panelWidth,
     required this.slidesFromEdge,
-    required this.child,
+    required this.panelBuilder,
   });
 
   @override
@@ -23,19 +25,23 @@ class ShellSidebarReveal extends StatelessWidget {
       tween: Tween<double>(end: visibleWidth),
       duration: duration,
       curve: AppMotion.standard,
-      child: child,
-      builder: (context, width, panel) {
+      builder: (context, width, _) {
         if (width <= 0) {
           return const SizedBox.shrink();
+        }
+        if (!slidesFromEdge) {
+          return ClipRect(
+            child: SizedBox(width: width, child: panelBuilder(context, width)),
+          );
         }
         return ClipRect(
           child: SizedBox(
             width: width,
             child: OverflowBox(
-              alignment: slidesFromEdge ? Alignment.centerRight : Alignment.centerLeft,
+              alignment: Alignment.centerRight,
               minWidth: panelWidth,
               maxWidth: panelWidth,
-              child: panel,
+              child: panelBuilder(context, panelWidth),
             ),
           ),
         );

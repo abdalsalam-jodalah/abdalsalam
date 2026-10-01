@@ -18,7 +18,8 @@ void main() {
                 visibleWidth: visibleWidth,
                 panelWidth: panelWidth,
                 slidesFromEdge: slidesFromEdge,
-                child: const SizedBox(key: panelKey, width: panelWidth, height: 200, child: Text('Pages')),
+                panelBuilder: (context, layoutWidth) =>
+                    const SizedBox(key: panelKey, width: panelWidth, height: 200, child: Text('Pages')),
               ),
               const Expanded(child: SizedBox.shrink()),
             ],

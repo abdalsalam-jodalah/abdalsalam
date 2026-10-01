@@ -29,6 +29,7 @@ import '../widgets/quick_log_fab.dart';
 import '../widgets/shell_destination.dart';
 import '../widgets/shell_open_handle.dart';
 import '../widgets/shell_sidebar.dart';
+import '../widgets/shell_sidebar_metrics.dart';
 import '../widgets/shell_sidebar_reveal.dart';
 import '../widgets/shell_sidebar_mode.dart';
 import '../widgets/shell_swipe_detector.dart';
@@ -44,8 +45,6 @@ class AppShellScreen extends ConsumerStatefulWidget {
 class _AppShellScreenState extends ConsumerState<AppShellScreen> {
   static const String _sidebarOrderSetting = 'sidebarOrder';
   static const double _closedWidth = 0;
-  static const double _iconsWidth = 88;
-  static const double _expandedWidth = 264;
   static const double _edgeSwipeZone = 28;
   static const double _closeSwipeZone = 56;
   static const double _largeScreenBreakpoint = 900;
@@ -174,11 +173,11 @@ class _AppShellScreenState extends ConsumerState<AppShellScreen> {
 
   double get _sidebarWidth => switch (_sidebarMode) {
         ShellSidebarMode.closed => _closedWidth,
-        ShellSidebarMode.icons => _iconsWidth,
-        ShellSidebarMode.expanded => _expandedWidth,
+        ShellSidebarMode.icons => ShellSidebarMetrics.iconsWidth,
+        ShellSidebarMode.expanded => ShellSidebarMetrics.expandedWidth,
       };
 
-  double get _panelWidth => _lastOpenMode == ShellSidebarMode.expanded ? _expandedWidth : _iconsWidth;
+  double get _panelWidth => _lastOpenMode == ShellSidebarMode.expanded ? ShellSidebarMetrics.expandedWidth : ShellSidebarMetrics.iconsWidth;
 
   void _setMode(ShellSidebarMode mode) {
     final touchesEdge = mode == ShellSidebarMode.closed || _sidebarMode == ShellSidebarMode.closed;
@@ -287,7 +286,7 @@ class _AppShellScreenState extends ConsumerState<AppShellScreen> {
     );
   }
 
-  Widget _buildSidebarPanel(AppThemeTokens tokens) {
+  Widget _buildSidebarPanel(AppThemeTokens tokens, double expandProgress) {
     return Listener(
       behavior: HitTestBehavior.translucent,
       onPointerDown: (_) => _autoCloseTimer.touch(),
@@ -300,6 +299,7 @@ class _AppShellScreenState extends ConsumerState<AppShellScreen> {
           borderRadius: tokens.radius.extraLargeBorder,
           child: ShellSidebar(
             mode: _sidebarMode,
+            expandProgress: expandProgress,
             selectedIndex: _index,
             destinations: _destinations,
             onOpenStep: _stepOpen,
@@ -318,10 +318,15 @@ class _AppShellScreenState extends ConsumerState<AppShellScreen> {
       visibleWidth: _sidebarWidth,
       panelWidth: _panelWidth,
       slidesFromEdge: _slidesFromEdge,
-      child: Padding(
-        padding: EdgeInsets.all(tokens.spacing.sm),
-        child: _buildSidebarPanel(tokens),
-      ),
+      panelBuilder: (context, layoutWidth) {
+        final expandProgress = _slidesFromEdge
+            ? (_lastOpenMode == ShellSidebarMode.expanded ? 1.0 : 0.0)
+            : ShellSidebarMetrics.expandProgressFor(layoutWidth);
+        return Padding(
+          padding: EdgeInsets.all(tokens.spacing.sm),
+          child: _buildSidebarPanel(tokens, expandProgress),
+        );
+      },
     );
   }
 
