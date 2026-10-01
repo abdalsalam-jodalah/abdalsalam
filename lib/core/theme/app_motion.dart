@@ -9,4 +9,5 @@ class AppMotion {
 
   static const Curve standard = Curves.easeOutCubic;
   static const Curve emphasized = Curves.easeInOutCubicEmphasized;
+  static const Curve smooth = Curves.easeInOutCubic;
 }

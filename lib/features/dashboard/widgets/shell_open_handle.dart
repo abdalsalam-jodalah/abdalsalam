@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/theme/app_motion.dart';
 import '../../../core/theme/app_theme_tokens.dart';
 import '../../../shared/widgets/ui/glass_surface.dart';
 
@@ -51,18 +52,24 @@ class _ShellOpenHandleState extends State<ShellOpenHandle> {
         onHorizontalDragUpdate: (details) => _horizontalDrag += details.delta.dx,
         onHorizontalDragEnd: _handleHorizontalDragEnd,
         onVerticalDragUpdate: (details) => widget.onVerticalDrag(details.delta.dy),
-        child: SizedBox(
-          width: ShellOpenHandle.hitWidth,
-          height: ShellOpenHandle.hitHeight,
-          child: Align(
-            alignment: Alignment.centerLeft,
-            child: GlassSurface(
-              isBlurred: true,
-              borderRadius: BorderRadius.horizontal(right: Radius.circular(radius.md)),
-              child: const SizedBox(
-                width: ShellOpenHandle._visibleWidth,
-                height: ShellOpenHandle._visibleHeight,
-                child: Center(child: Icon(Icons.chevron_right_rounded, size: ShellOpenHandle._iconSize)),
+        child: TweenAnimationBuilder<double>(
+          tween: Tween<double>(begin: 0, end: 1),
+          duration: AppMotion.normal,
+          curve: AppMotion.standard,
+          builder: (context, opacity, child) => Opacity(opacity: opacity, child: child),
+          child: SizedBox(
+            width: ShellOpenHandle.hitWidth,
+            height: ShellOpenHandle.hitHeight,
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: GlassSurface(
+                isBlurred: true,
+                borderRadius: BorderRadius.horizontal(right: Radius.circular(radius.md)),
+                child: const SizedBox(
+                  width: ShellOpenHandle._visibleWidth,
+                  height: ShellOpenHandle._visibleHeight,
+                  child: Center(child: Icon(Icons.chevron_right_rounded, size: ShellOpenHandle._iconSize)),
+                ),
               ),
             ),
           ),

@@ -53,7 +53,7 @@ void main() {
 
   Future<void> finishAnimations(WidgetTester tester) async {
     await tester.pump();
-    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pump(const Duration(milliseconds: 600));
   }
 
   Future<void> disposeShell(WidgetTester tester) => tester.pumpWidget(const SizedBox());
@@ -136,7 +136,7 @@ void main() {
     await pumpShell(tester);
 
     Future<void> step() async {
-      for (var frame = 0; frame < 6; frame++) {
+      for (var frame = 0; frame < 12; frame++) {
         await tester.pump(const Duration(milliseconds: 50));
       }
     }
@@ -202,7 +202,7 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
     expect(sidebarVisibleWidth(tester), inExclusiveRange(0, 264));
-    await tester.pump(const Duration(milliseconds: 300));
+    await tester.pump(const Duration(milliseconds: 500));
     expect(sidebarVisibleWidth(tester), 0);
 
     await tester.tap(find.byIcon(Icons.chevron_right_rounded));

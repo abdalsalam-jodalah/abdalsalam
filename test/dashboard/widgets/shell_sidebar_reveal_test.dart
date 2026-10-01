@@ -100,4 +100,30 @@ void main() {
 
     expect(find.byKey(panelKey), findsNothing);
   });
+
+  testWidgets('should still be mostly visible a moment after closing starts', (tester) async {
+    await tester.pumpWidget(host(visibleWidth: panelWidth));
+    await tester.pumpWidget(host(visibleWidth: 0));
+    await tester.pump();
+
+    await tester.pump(const Duration(milliseconds: 100));
+
+    expect(visibleWidthOfPanel(tester), greaterThan(panelWidth * 0.6));
+  });
+
+  testWidgets('should take longer to close than to open', (tester) async {
+    await tester.pumpWidget(host(visibleWidth: 0));
+    await tester.pumpWidget(host(visibleWidth: panelWidth));
+    await tester.pump();
+    await tester.pump(ShellSidebarReveal.openDuration);
+    expect(visibleWidthOfPanel(tester), panelWidth);
+
+    await tester.pumpWidget(host(visibleWidth: 0));
+    await tester.pump();
+    await tester.pump(ShellSidebarReveal.openDuration);
+
+    expect(find.byKey(panelKey), findsOneWidget);
+    await tester.pump(ShellSidebarReveal.closeDuration);
+    expect(find.byKey(panelKey), findsNothing);
+  });
 }

@@ -4,7 +4,12 @@ import '../../../core/theme/app_motion.dart';
 
 typedef ShellSidebarPanelBuilder = Widget Function(BuildContext context, double visibleWidth);
 
-class ShellSidebarReveal extends StatelessWidget {
+class ShellSidebarReveal extends StatefulWidget {
+  static const Duration openDuration = AppMotion.normal;
+  static const Duration closeDuration = AppMotion.slow;
+  static const Curve openCurve = AppMotion.standard;
+  static const Curve closeCurve = AppMotion.smooth;
+
   final double visibleWidth;
   final double panelWidth;
   final bool slidesFromEdge;
@@ -19,19 +24,37 @@ class ShellSidebarReveal extends StatelessWidget {
   });
 
   @override
+  State<ShellSidebarReveal> createState() => _ShellSidebarRevealState();
+}
+
+class _ShellSidebarRevealState extends State<ShellSidebarReveal> {
+  bool _isShrinking = false;
+
+  @override
+  void didUpdateWidget(ShellSidebarReveal oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.visibleWidth != oldWidget.visibleWidth) {
+      _isShrinking = widget.visibleWidth < oldWidget.visibleWidth;
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final duration = MediaQuery.disableAnimationsOf(context) ? Duration.zero : AppMotion.normal;
+    final isMotionReduced = MediaQuery.disableAnimationsOf(context);
+    final duration = isMotionReduced
+        ? Duration.zero
+        : (_isShrinking ? ShellSidebarReveal.closeDuration : ShellSidebarReveal.openDuration);
     return TweenAnimationBuilder<double>(
-      tween: Tween<double>(end: visibleWidth),
+      tween: Tween<double>(end: widget.visibleWidth),
       duration: duration,
-      curve: AppMotion.standard,
+      curve: _isShrinking ? ShellSidebarReveal.closeCurve : ShellSidebarReveal.openCurve,
       builder: (context, width, _) {
         if (width <= 0) {
           return const SizedBox.shrink();
         }
-        if (!slidesFromEdge) {
+        if (!widget.slidesFromEdge) {
           return ClipRect(
-            child: SizedBox(width: width, child: panelBuilder(context, width)),
+            child: SizedBox(width: width, child: widget.panelBuilder(context, width)),
           );
         }
         return ClipRect(
@@ -39,9 +62,9 @@ class ShellSidebarReveal extends StatelessWidget {
             width: width,
             child: OverflowBox(
               alignment: Alignment.centerRight,
-              minWidth: panelWidth,
-              maxWidth: panelWidth,
-              child: panelBuilder(context, panelWidth),
+              minWidth: widget.panelWidth,
+              maxWidth: widget.panelWidth,
+              child: widget.panelBuilder(context, widget.panelWidth),
             ),
           ),
         );
