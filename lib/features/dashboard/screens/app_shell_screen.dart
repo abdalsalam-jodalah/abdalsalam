@@ -190,14 +190,13 @@ class _AppShellScreenState extends ConsumerState<AppShellScreen> {
   }
 
   void _stepOpen() {
-    if (_sidebarMode != ShellSidebarMode.expanded) {
-      _setMode(ShellSidebarMode.expanded);
-    }
-  }
-
-  void _openIconsOnly() {
-    if (_sidebarMode != ShellSidebarMode.icons) {
-      _setMode(ShellSidebarMode.icons);
+    switch (_sidebarMode) {
+      case ShellSidebarMode.closed:
+        _setMode(ShellSidebarMode.icons);
+      case ShellSidebarMode.icons:
+        _setMode(ShellSidebarMode.expanded);
+      case ShellSidebarMode.expanded:
+        break;
     }
   }
 
@@ -211,21 +210,13 @@ class _AppShellScreenState extends ConsumerState<AppShellScreen> {
 
   void _handleHorizontalDragStart(DragStartDetails details) {
     _dragDelta = 0;
-    if (_sidebarMode == ShellSidebarMode.closed && details.localPosition.dx > _edgeSwipeZone) {
-      _dragDelta = double.nan;
-    }
   }
 
   void _handleHorizontalDragUpdate(DragUpdateDetails details) {
-    if (!_dragDelta.isNaN) {
-      _dragDelta += details.delta.dx;
-    }
+    _dragDelta += details.delta.dx;
   }
 
   void _handleHorizontalDragEnd(DragEndDetails details) {
-    if (_dragDelta.isNaN) {
-      return;
-    }
     final velocity = details.primaryVelocity ?? 0;
     if (_dragDelta >= _dragThreshold || velocity > _dragVelocityThreshold) {
       _stepOpen();
@@ -235,31 +226,51 @@ class _AppShellScreenState extends ConsumerState<AppShellScreen> {
     _dragDelta = 0;
   }
 
+  Widget _buildEdgeSwipeZone() {
+    return Positioned(
+      left: 0,
+      top: 0,
+      bottom: 0,
+      width: _edgeSwipeZone,
+      child: GestureDetector(
+        behavior: HitTestBehavior.translucent,
+        onHorizontalDragStart: _handleHorizontalDragStart,
+        onHorizontalDragUpdate: _handleHorizontalDragUpdate,
+        onHorizontalDragEnd: _handleHorizontalDragEnd,
+      ),
+    );
+  }
+
   Widget _buildOpenHandle(double minTop, double maxTop) {
     return Positioned(
       top: _openHandleTop.clamp(minTop, maxTop),
       left: 0,
       child: ShellOpenHandle(
-        onTap: _openIconsOnly,
-        onDoubleTap: _stepOpen,
+        onOpen: _stepOpen,
         onVerticalDrag: (delta) => setState(() => _openHandleTop = (_openHandleTop + delta).clamp(minTop, maxTop)),
       ),
     );
   }
 
   Widget _buildSidebarPanel(AppThemeTokens tokens) {
-    return GlassSurface(
-      isBlurred: true,
-      borderRadius: tokens.radius.extraLargeBorder,
-      child: ShellSidebar(
-        mode: _sidebarMode,
-        selectedIndex: _index,
-        destinations: _destinations,
-        onOpenStep: _stepOpen,
-        onCloseStep: _stepClose,
-        onCloseAll: () => _setMode(ShellSidebarMode.closed),
-        onSelect: (value) => setState(() => _index = value),
-        onReorder: _reorderDestinations,
+    return GestureDetector(
+      behavior: HitTestBehavior.translucent,
+      onHorizontalDragStart: _handleHorizontalDragStart,
+      onHorizontalDragUpdate: _handleHorizontalDragUpdate,
+      onHorizontalDragEnd: _handleHorizontalDragEnd,
+      child: GlassSurface(
+        isBlurred: true,
+        borderRadius: tokens.radius.extraLargeBorder,
+        child: ShellSidebar(
+          mode: _sidebarMode,
+          selectedIndex: _index,
+          destinations: _destinations,
+          onOpenStep: _stepOpen,
+          onCloseStep: _stepClose,
+          onCloseAll: () => _setMode(ShellSidebarMode.closed),
+          onSelect: (value) => setState(() => _index = value),
+          onReorder: _reorderDestinations,
+        ),
       ),
     );
   }
@@ -309,66 +320,62 @@ class _AppShellScreenState extends ConsumerState<AppShellScreen> {
 
     return Scaffold(
       body: SafeArea(
-        child: GestureDetector(
-          behavior: HitTestBehavior.translucent,
-          onHorizontalDragStart: _handleHorizontalDragStart,
-          onHorizontalDragUpdate: _handleHorizontalDragUpdate,
-          onHorizontalDragEnd: _handleHorizontalDragEnd,
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              final minTop = tokens.spacing.md;
-              final maxTop = (constraints.maxHeight - _handleBottomClearance).clamp(minTop, double.infinity);
-              if (constraints.maxWidth >= _largeScreenBreakpoint) {
-                return Row(
-                  children: [
-                    AnimatedContainer(
-                      duration: AppMotion.fast,
-                      curve: AppMotion.standard,
-                      width: sidebarWidth,
-                      padding: sidebarWidth == 0 ? EdgeInsets.zero : EdgeInsets.all(panelInset),
-                      child: sidebarWidth == 0 ? const SizedBox.shrink() : _buildSidebarPanel(tokens),
-                    ),
-                    Expanded(
-                      child: Stack(
-                        children: [
-                          Positioned.fill(child: content),
-                          if (isClosed) _buildOpenHandle(minTop, maxTop),
-                          ?logWheelScrim,
-                          ?logFab,
-                        ],
-                      ),
-                    ),
-                  ],
-                );
-              }
-              return Stack(
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final minTop = tokens.spacing.md;
+            final maxTop = (constraints.maxHeight - _handleBottomClearance).clamp(minTop, double.infinity);
+            if (constraints.maxWidth >= _largeScreenBreakpoint) {
+              return Row(
                 children: [
-                  Positioned.fill(child: content),
-                  if (isExpanded)
-                    Positioned.fill(
-                      child: GestureDetector(
-                        onTap: () => _setMode(ShellSidebarMode.icons),
-                        child: ColoredBox(color: Theme.of(context).colorScheme.scrim.withValues(alpha: _scrimOpacity)),
-                      ),
-                    ),
-                  AnimatedPositioned(
+                  AnimatedContainer(
                     duration: AppMotion.fast,
                     curve: AppMotion.standard,
-                    left: 0,
-                    top: 0,
-                    bottom: 0,
                     width: sidebarWidth,
-                    child: sidebarWidth == 0
-                        ? const SizedBox.shrink()
-                        : Padding(padding: EdgeInsets.all(panelInset), child: _buildSidebarPanel(tokens)),
+                    padding: sidebarWidth == 0 ? EdgeInsets.zero : EdgeInsets.all(panelInset),
+                    child: sidebarWidth == 0 ? const SizedBox.shrink() : _buildSidebarPanel(tokens),
                   ),
-                  if (isClosed) _buildOpenHandle(minTop, maxTop),
-                  ?logWheelScrim,
-                  ?logFab,
+                  Expanded(
+                    child: Stack(
+                      children: [
+                        Positioned.fill(child: content),
+                        if (isClosed) _buildEdgeSwipeZone(),
+                        if (isClosed) _buildOpenHandle(minTop, maxTop),
+                        ?logWheelScrim,
+                        ?logFab,
+                      ],
+                    ),
+                  ),
                 ],
               );
-            },
-          ),
+            }
+            return Stack(
+              children: [
+                Positioned.fill(child: content),
+                if (isExpanded)
+                  Positioned.fill(
+                    child: GestureDetector(
+                      onTap: () => _setMode(ShellSidebarMode.icons),
+                      child: ColoredBox(color: Theme.of(context).colorScheme.scrim.withValues(alpha: _scrimOpacity)),
+                    ),
+                  ),
+                AnimatedPositioned(
+                  duration: AppMotion.fast,
+                  curve: AppMotion.standard,
+                  left: 0,
+                  top: 0,
+                  bottom: 0,
+                  width: sidebarWidth,
+                  child: sidebarWidth == 0
+                      ? const SizedBox.shrink()
+                      : Padding(padding: EdgeInsets.all(panelInset), child: _buildSidebarPanel(tokens)),
+                ),
+                if (isClosed) _buildEdgeSwipeZone(),
+                if (isClosed) _buildOpenHandle(minTop, maxTop),
+                ?logWheelScrim,
+                ?logFab,
+              ],
+            );
+          },
         ),
       ),
     );
