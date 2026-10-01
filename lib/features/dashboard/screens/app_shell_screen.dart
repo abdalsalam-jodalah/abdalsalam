@@ -4,7 +4,6 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../core/theme/app_motion.dart';
 import '../../../core/theme/app_theme_tokens.dart';
 import '../../../providers/app_providers.dart';
 import '../../../shared/widgets/ui/glass_surface.dart';
@@ -30,8 +29,10 @@ import '../widgets/quick_log_fab.dart';
 import '../widgets/shell_destination.dart';
 import '../widgets/shell_open_handle.dart';
 import '../widgets/shell_sidebar.dart';
+import '../widgets/shell_sidebar_reveal.dart';
 import '../widgets/shell_sidebar_mode.dart';
 import '../widgets/shell_swipe_detector.dart';
+import '../widgets/sidebar_auto_close_timer.dart';
 
 class AppShellScreen extends ConsumerStatefulWidget {
   const AppShellScreen({super.key});
@@ -51,6 +52,13 @@ class _AppShellScreenState extends ConsumerState<AppShellScreen> {
   static const double _initialHandleTop = 140;
   static const double _handleBottomClearance = 76;
   static const double _scrimOpacity = 0.3;
+  static const ValueKey<String> _sidebarSlotKey = ValueKey<String>('shell-sidebar-slot');
+  static const ValueKey<String> _sidebarScrimKey = ValueKey<String>('shell-sidebar-scrim');
+  static const ValueKey<String> _closeSwipeZoneKey = ValueKey<String>('shell-close-swipe-zone');
+  static const ValueKey<String> _edgeSwipeZoneKey = ValueKey<String>('shell-edge-swipe-zone');
+  static const ValueKey<String> _openHandleKey = ValueKey<String>('shell-open-handle');
+  static const ValueKey<String> _logWheelScrimKey = ValueKey<String>('shell-log-wheel-scrim');
+  static const ValueKey<String> _logFabKey = ValueKey<String>('shell-log-fab');
 
   static const _defaultDestinations = <ShellDestination>[
     ShellDestination('dashboard', 'Dashboard', Icons.space_dashboard_rounded, DashboardScreen()),
@@ -84,15 +92,37 @@ class _AppShellScreenState extends ConsumerState<AppShellScreen> {
   int _index = 0;
   late List<ShellDestination> _destinations;
   ShellSidebarMode _sidebarMode = ShellSidebarMode.icons;
+  ShellSidebarMode _lastOpenMode = ShellSidebarMode.icons;
+  bool _slidesFromEdge = true;
   double _openHandleTop = _initialHandleTop;
   bool _isLogWheelOpen = false;
   int _logWheelIndex = 0;
   double _logWheelTurnCarry = 0;
 
+  late final SidebarAutoCloseTimer _autoCloseTimer = SidebarAutoCloseTimer(onTimeout: _closeAfterInactivity);
+
   @override
   void initState() {
     super.initState();
     _destinations = _resolveOrder(ref.read(initialSidebarOrderProvider));
+    _autoCloseTimer.start();
+  }
+
+  @override
+  void dispose() {
+    _autoCloseTimer.dispose();
+    super.dispose();
+  }
+
+  void _closeAfterInactivity() {
+    if (mounted && _sidebarMode != ShellSidebarMode.closed) {
+      _setMode(ShellSidebarMode.closed);
+    }
+  }
+
+  void _applySavedSettings(Map<String, dynamic> settings) {
+    _applySavedOrder(settings[_sidebarOrderSetting]);
+    _autoCloseTimer.configure(SidebarAutoCloseTimer.durationFromSetting(settings[SidebarAutoCloseTimer.settingKey]));
   }
 
   List<ShellDestination> _resolveOrder(List<String>? savedOrder) {
@@ -148,7 +178,23 @@ class _AppShellScreenState extends ConsumerState<AppShellScreen> {
         ShellSidebarMode.expanded => _expandedWidth,
       };
 
-  void _setMode(ShellSidebarMode mode) => setState(() => _sidebarMode = mode);
+  double get _panelWidth => _lastOpenMode == ShellSidebarMode.expanded ? _expandedWidth : _iconsWidth;
+
+  void _setMode(ShellSidebarMode mode) {
+    final touchesEdge = mode == ShellSidebarMode.closed || _sidebarMode == ShellSidebarMode.closed;
+    setState(() {
+      _slidesFromEdge = touchesEdge;
+      _sidebarMode = mode;
+      if (mode != ShellSidebarMode.closed) {
+        _lastOpenMode = mode;
+      }
+    });
+    if (mode == ShellSidebarMode.closed) {
+      _autoCloseTimer.stop();
+    } else {
+      _autoCloseTimer.start();
+    }
+  }
 
   void _resetLogWheel() {
     _isLogWheelOpen = false;
@@ -209,6 +255,7 @@ class _AppShellScreenState extends ConsumerState<AppShellScreen> {
 
   Widget _buildEdgeSwipeZone() {
     return Positioned(
+      key: _edgeSwipeZoneKey,
       left: 0,
       top: 0,
       bottom: 0,
@@ -219,6 +266,7 @@ class _AppShellScreenState extends ConsumerState<AppShellScreen> {
 
   Widget _buildCloseSwipeZone({required double left}) {
     return Positioned(
+      key: _closeSwipeZoneKey,
       left: left,
       top: 0,
       bottom: 0,
@@ -229,6 +277,7 @@ class _AppShellScreenState extends ConsumerState<AppShellScreen> {
 
   Widget _buildOpenHandle(double minTop, double maxTop) {
     return Positioned(
+      key: _openHandleKey,
       top: _openHandleTop.clamp(minTop, maxTop),
       left: 0,
       child: ShellOpenHandle(
@@ -239,36 +288,52 @@ class _AppShellScreenState extends ConsumerState<AppShellScreen> {
   }
 
   Widget _buildSidebarPanel(AppThemeTokens tokens) {
-    return ShellSwipeDetector(
-      onSwipeOpen: _stepOpen,
-      onSwipeClose: _stepClose,
-      child: GlassSurface(
-        isBlurred: true,
-        borderRadius: tokens.radius.extraLargeBorder,
-        child: ShellSidebar(
-          mode: _sidebarMode,
-          selectedIndex: _index,
-          destinations: _destinations,
-          onOpenStep: _stepOpen,
-          onCloseStep: _stepClose,
-          onCloseAll: () => _setMode(ShellSidebarMode.closed),
-          onSelect: (value) => setState(() => _index = value),
-          onReorder: _reorderDestinations,
+    return Listener(
+      behavior: HitTestBehavior.translucent,
+      onPointerDown: (_) => _autoCloseTimer.touch(),
+      onPointerMove: (_) => _autoCloseTimer.touch(),
+      child: ShellSwipeDetector(
+        onSwipeOpen: _stepOpen,
+        onSwipeClose: _stepClose,
+        child: GlassSurface(
+          isBlurred: true,
+          borderRadius: tokens.radius.extraLargeBorder,
+          child: ShellSidebar(
+            mode: _sidebarMode,
+            selectedIndex: _index,
+            destinations: _destinations,
+            onOpenStep: _stepOpen,
+            onCloseStep: _stepClose,
+            onCloseAll: () => _setMode(ShellSidebarMode.closed),
+            onSelect: (value) => setState(() => _index = value),
+            onReorder: _reorderDestinations,
+          ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildSidebarSlot(AppThemeTokens tokens) {
+    return ShellSidebarReveal(
+      visibleWidth: _sidebarWidth,
+      panelWidth: _panelWidth,
+      slidesFromEdge: _slidesFromEdge,
+      child: Padding(
+        padding: EdgeInsets.all(tokens.spacing.sm),
+        child: _buildSidebarPanel(tokens),
       ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    ref.listen(appSettingsProvider, (_, next) => next.whenData((settings) => _applySavedOrder(settings[_sidebarOrderSetting])));
+    ref.listen(appSettingsProvider, (_, next) => next.whenData(_applySavedSettings));
     final tokens = AppThemeTokens.of(context);
     final selected = _destinations[_index];
     final sidebarWidth = _sidebarWidth;
     final isClosed = _sidebarMode == ShellSidebarMode.closed;
     final isIcons = _sidebarMode == ShellSidebarMode.icons;
     final isExpanded = _sidebarMode == ShellSidebarMode.expanded;
-    final panelInset = tokens.spacing.sm;
 
     final content = Semantics(
       label: '${selected.label} page',
@@ -280,6 +345,7 @@ class _AppShellScreenState extends ConsumerState<AppShellScreen> {
 
     final logWheelScrim = _isLogWheelOpen
         ? Positioned.fill(
+            key: _logWheelScrimKey,
             child: GestureDetector(
               behavior: HitTestBehavior.translucent,
               onTap: () => setState(_resetLogWheel),
@@ -290,6 +356,7 @@ class _AppShellScreenState extends ConsumerState<AppShellScreen> {
 
     final logFab = selected.key == 'dashboard'
         ? Positioned(
+            key: _logFabKey,
             right: tokens.spacing.lg,
             bottom: tokens.spacing.lg,
             child: QuickLogFab(
@@ -312,13 +379,7 @@ class _AppShellScreenState extends ConsumerState<AppShellScreen> {
             if (constraints.maxWidth >= _largeScreenBreakpoint) {
               return Row(
                 children: [
-                  AnimatedContainer(
-                    duration: AppMotion.fast,
-                    curve: AppMotion.standard,
-                    width: sidebarWidth,
-                    padding: sidebarWidth == 0 ? EdgeInsets.zero : EdgeInsets.all(panelInset),
-                    child: sidebarWidth == 0 ? const SizedBox.shrink() : _buildSidebarPanel(tokens),
-                  ),
+                  _buildSidebarSlot(tokens),
                   Expanded(
                     child: Stack(
                       children: [
@@ -339,6 +400,7 @@ class _AppShellScreenState extends ConsumerState<AppShellScreen> {
                 Positioned.fill(child: content),
                 if (isExpanded)
                   Positioned.fill(
+                    key: _sidebarScrimKey,
                     child: ShellSwipeDetector(
                       onSwipeClose: _stepClose,
                       child: GestureDetector(
@@ -347,16 +409,12 @@ class _AppShellScreenState extends ConsumerState<AppShellScreen> {
                       ),
                     ),
                   ),
-                AnimatedPositioned(
-                  duration: AppMotion.fast,
-                  curve: AppMotion.standard,
+                Positioned(
+                  key: _sidebarSlotKey,
                   left: 0,
                   top: 0,
                   bottom: 0,
-                  width: sidebarWidth,
-                  child: sidebarWidth == 0
-                      ? const SizedBox.shrink()
-                      : Padding(padding: EdgeInsets.all(panelInset), child: _buildSidebarPanel(tokens)),
+                  child: _buildSidebarSlot(tokens),
                 ),
                 if (isIcons) _buildCloseSwipeZone(left: sidebarWidth),
                 if (isClosed) _buildEdgeSwipeZone(),

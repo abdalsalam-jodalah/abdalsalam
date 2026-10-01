@@ -8,6 +8,7 @@ import '../../../providers/app_providers.dart';
 import '../../../shared/widgets/app_feedback.dart';
 import '../../../shared/widgets/ui/app_card.dart';
 import '../../../shared/widgets/ui/picker_list_tile.dart';
+import '../../dashboard/widgets/sidebar_auto_close_timer.dart';
 import '../widgets/settings_section_header.dart';
 import 'data_management_screen.dart';
 
@@ -49,6 +50,7 @@ class _GeneralSettingsScreenState extends ConsumerState<GeneralSettingsScreen> {
     if (!mounted) return;
     try {
       await ref.read(settingsServiceProvider).updateSetting(key, value);
+      ref.invalidate(appSettingsProvider);
     } catch (error, stackTrace) {
       final mapped = ref.read(errorHandlerProvider).mapException(
         error,
@@ -87,6 +89,9 @@ class _GeneralSettingsScreenState extends ConsumerState<GeneralSettingsScreen> {
     final notificationSound = (_settings['notificationSound'] as String?) ?? 'default';
     final notificationPriority = (_settings['notificationPriority'] as String?) ?? 'default';
     final respectDoNotDisturb = (_settings['respectDoNotDisturb'] as bool?) ?? true;
+    final sidebarAutoCloseValue = _settings[SidebarAutoCloseTimer.settingKey];
+    final sidebarAutoCloseSeconds =
+        sidebarAutoCloseValue is num ? sidebarAutoCloseValue.toInt() : SidebarAutoCloseTimer.defaultSeconds;
 
     final spacing = AppThemeTokens.of(context).spacing;
 
@@ -122,6 +127,24 @@ class _GeneralSettingsScreenState extends ConsumerState<GeneralSettingsScreen> {
                   onChanged: (value) => _update('firstDayOfWeek', value),
                 ),
               ],
+            ),
+          ),
+          const SettingsSectionHeader('Sidebar'),
+          AppCard(
+            padding: EdgeInsets.zero,
+            child: PickerListTile<int>(
+              title: 'Close sidebar when untouched',
+              value: sidebarAutoCloseSeconds,
+              icon: Icons.timer_outlined,
+              options: const [
+                PickerOption(0, 'Never'),
+                PickerOption(5, 'After 5 seconds'),
+                PickerOption(10, 'After 10 seconds'),
+                PickerOption(20, 'After 20 seconds'),
+                PickerOption(30, 'After 30 seconds'),
+                PickerOption(60, 'After 1 minute'),
+              ],
+              onChanged: (value) => _update(SidebarAutoCloseTimer.settingKey, value),
             ),
           ),
           const SettingsSectionHeader('Notifications'),

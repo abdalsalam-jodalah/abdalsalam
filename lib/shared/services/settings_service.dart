@@ -87,6 +87,7 @@ class SettingsService {
         'calendarReminderType': 'notification',
         DashboardCardCatalog.cardOrderSetting: DashboardCardCatalog.defaultOrder,
         'dashboardHiddenCards': <String>[],
+        'sidebarAutoCloseSeconds': 10,
         'sidebarOrder': <String>[
           'dashboard',
           'religious',

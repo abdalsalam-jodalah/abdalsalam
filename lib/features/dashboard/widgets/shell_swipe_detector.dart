@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 class ShellSwipeDetector extends StatefulWidget {
   static const double openDistance = 56;
   static const double openVelocity = 420;
-  static const double closeDistance = 24;
+  static const double closeDistance = 16;
   static const double closeVelocity = 300;
 
   final VoidCallback? onSwipeOpen;
