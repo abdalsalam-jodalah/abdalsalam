@@ -30,7 +30,7 @@ class BackupValidator {
       return Failure(ImportError('Backup checksum mismatch'));
     }
     final preferences = reader.readMap(BackupKeys.preferences);
-    if (version == BackupKeys.currentVersion &&
+    if (version != BackupKeys.legacyVersion &&
         metadataReader.optionalString(BackupKeys.preferencesChecksum) != codec.checksum(preferences)) {
       return Failure(ImportError('Backup settings checksum mismatch'));
     }

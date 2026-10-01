@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:path_provider/path_provider.dart';
 import 'package:uuid/uuid.dart';
@@ -27,13 +28,38 @@ class AttachmentStorageService {
 
   ErrorHandler get _errorHandler => ErrorHandler(logger);
 
+  Future<Directory> _ensureAttachmentsDirectory() async {
+    final documentsDir = await _documentsDirectoryProvider();
+    final attachmentsDir = Directory('${documentsDir.path}/$subDirectory');
+    if (!await attachmentsDir.exists()) {
+      await attachmentsDir.create(recursive: true);
+    }
+    return attachmentsDir;
+  }
+
+  Future<Uint8List?> readAttachmentBytes(String path) async {
+    final file = File(path);
+    if (!await file.exists()) {
+      return null;
+    }
+    return file.readAsBytes();
+  }
+
+  Future<Result<String, AppError>> saveAttachmentBytes({required String fileName, required Uint8List bytes}) async {
+    try {
+      final attachmentsDir = await _ensureAttachmentsDirectory();
+      final destinationPath = '${attachmentsDir.path}/$fileName';
+      await File(destinationPath).writeAsBytes(bytes);
+      logger.info('[$_serviceName] restored attachment $destinationPath');
+      return Success(destinationPath);
+    } catch (error, stackTrace) {
+      return Failure(_errorHandler.mapException(error, context: '$_serviceName.saveAttachmentBytes', stackTrace: stackTrace));
+    }
+  }
+
   Future<Result<String, AppError>> saveAttachment(String sourcePath) async {
     try {
-      final documentsDir = await _documentsDirectoryProvider();
-      final attachmentsDir = Directory('${documentsDir.path}/$subDirectory');
-      if (!await attachmentsDir.exists()) {
-        await attachmentsDir.create(recursive: true);
-      }
+      final attachmentsDir = await _ensureAttachmentsDirectory();
 
       final extension = sourcePath.contains('.') ? sourcePath.split('.').last : '';
       final fileName = extension.isEmpty ? _uuid.v4() : '${_uuid.v4()}.$extension';
