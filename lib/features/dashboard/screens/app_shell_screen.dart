@@ -31,6 +31,7 @@ import '../widgets/shell_destination.dart';
 import '../widgets/shell_open_handle.dart';
 import '../widgets/shell_sidebar.dart';
 import '../widgets/shell_sidebar_mode.dart';
+import '../widgets/shell_swipe_detector.dart';
 
 class AppShellScreen extends ConsumerStatefulWidget {
   const AppShellScreen({super.key});
@@ -44,9 +45,8 @@ class _AppShellScreenState extends ConsumerState<AppShellScreen> {
   static const double _closedWidth = 0;
   static const double _iconsWidth = 88;
   static const double _expandedWidth = 264;
-  static const double _dragThreshold = 56;
-  static const double _dragVelocityThreshold = 420;
   static const double _edgeSwipeZone = 28;
+  static const double _closeSwipeZone = 56;
   static const double _largeScreenBreakpoint = 900;
   static const double _initialHandleTop = 140;
   static const double _handleBottomClearance = 76;
@@ -84,7 +84,6 @@ class _AppShellScreenState extends ConsumerState<AppShellScreen> {
   int _index = 0;
   late List<ShellDestination> _destinations;
   ShellSidebarMode _sidebarMode = ShellSidebarMode.icons;
-  double _dragDelta = 0;
   double _openHandleTop = _initialHandleTop;
   bool _isLogWheelOpen = false;
   int _logWheelIndex = 0;
@@ -208,36 +207,23 @@ class _AppShellScreenState extends ConsumerState<AppShellScreen> {
     }
   }
 
-  void _handleHorizontalDragStart(DragStartDetails details) {
-    _dragDelta = 0;
-  }
-
-  void _handleHorizontalDragUpdate(DragUpdateDetails details) {
-    _dragDelta += details.delta.dx;
-  }
-
-  void _handleHorizontalDragEnd(DragEndDetails details) {
-    final velocity = details.primaryVelocity ?? 0;
-    if (_dragDelta >= _dragThreshold || velocity > _dragVelocityThreshold) {
-      _stepOpen();
-    } else if (_dragDelta <= -_dragThreshold || velocity < -_dragVelocityThreshold) {
-      _stepClose();
-    }
-    _dragDelta = 0;
-  }
-
   Widget _buildEdgeSwipeZone() {
     return Positioned(
       left: 0,
       top: 0,
       bottom: 0,
       width: _edgeSwipeZone,
-      child: GestureDetector(
-        behavior: HitTestBehavior.translucent,
-        onHorizontalDragStart: _handleHorizontalDragStart,
-        onHorizontalDragUpdate: _handleHorizontalDragUpdate,
-        onHorizontalDragEnd: _handleHorizontalDragEnd,
-      ),
+      child: ShellSwipeDetector(onSwipeOpen: _stepOpen),
+    );
+  }
+
+  Widget _buildCloseSwipeZone({required double left}) {
+    return Positioned(
+      left: left,
+      top: 0,
+      bottom: 0,
+      width: _closeSwipeZone,
+      child: ShellSwipeDetector(onSwipeClose: _stepClose),
     );
   }
 
@@ -253,11 +239,9 @@ class _AppShellScreenState extends ConsumerState<AppShellScreen> {
   }
 
   Widget _buildSidebarPanel(AppThemeTokens tokens) {
-    return GestureDetector(
-      behavior: HitTestBehavior.translucent,
-      onHorizontalDragStart: _handleHorizontalDragStart,
-      onHorizontalDragUpdate: _handleHorizontalDragUpdate,
-      onHorizontalDragEnd: _handleHorizontalDragEnd,
+    return ShellSwipeDetector(
+      onSwipeOpen: _stepOpen,
+      onSwipeClose: _stepClose,
       child: GlassSurface(
         isBlurred: true,
         borderRadius: tokens.radius.extraLargeBorder,
@@ -282,6 +266,7 @@ class _AppShellScreenState extends ConsumerState<AppShellScreen> {
     final selected = _destinations[_index];
     final sidebarWidth = _sidebarWidth;
     final isClosed = _sidebarMode == ShellSidebarMode.closed;
+    final isIcons = _sidebarMode == ShellSidebarMode.icons;
     final isExpanded = _sidebarMode == ShellSidebarMode.expanded;
     final panelInset = tokens.spacing.sm;
 
@@ -338,6 +323,7 @@ class _AppShellScreenState extends ConsumerState<AppShellScreen> {
                     child: Stack(
                       children: [
                         Positioned.fill(child: content),
+                        if (isIcons) _buildCloseSwipeZone(left: 0),
                         if (isClosed) _buildEdgeSwipeZone(),
                         if (isClosed) _buildOpenHandle(minTop, maxTop),
                         ?logWheelScrim,
@@ -353,9 +339,12 @@ class _AppShellScreenState extends ConsumerState<AppShellScreen> {
                 Positioned.fill(child: content),
                 if (isExpanded)
                   Positioned.fill(
-                    child: GestureDetector(
-                      onTap: () => _setMode(ShellSidebarMode.icons),
-                      child: ColoredBox(color: Theme.of(context).colorScheme.scrim.withValues(alpha: _scrimOpacity)),
+                    child: ShellSwipeDetector(
+                      onSwipeClose: _stepClose,
+                      child: GestureDetector(
+                        onTap: () => _setMode(ShellSidebarMode.icons),
+                        child: ColoredBox(color: Theme.of(context).colorScheme.scrim.withValues(alpha: _scrimOpacity)),
+                      ),
                     ),
                   ),
                 AnimatedPositioned(
@@ -369,6 +358,7 @@ class _AppShellScreenState extends ConsumerState<AppShellScreen> {
                       ? const SizedBox.shrink()
                       : Padding(padding: EdgeInsets.all(panelInset), child: _buildSidebarPanel(tokens)),
                 ),
+                if (isIcons) _buildCloseSwipeZone(left: sidebarWidth),
                 if (isClosed) _buildEdgeSwipeZone(),
                 if (isClosed) _buildOpenHandle(minTop, maxTop),
                 ?logWheelScrim,
