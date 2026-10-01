@@ -6,6 +6,7 @@ import 'package:uuid/uuid.dart';
 import '../../../core/theme/accent_palette.dart';
 import '../../../core/theme/app_theme_tokens.dart';
 import '../../../data/models/financial/category_model.dart';
+import '../../../data/models/financial/financial_icon_palette.dart';
 import '../../../shared/widgets/app_feedback.dart';
 import '../../../shared/widgets/async_error_view.dart';
 import '../../../shared/widgets/empty_state.dart';
@@ -43,20 +44,6 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage> {
   static const String _deleteCategoryTitle = 'Delete Category';
   static const String _cancelLabel = 'Cancel';
   static const String _deleteLabel = 'Delete';
-  static const _iconOptions = <IconData>[
-    Icons.shopping_cart,
-    Icons.restaurant,
-    Icons.directions_car,
-    Icons.home,
-    Icons.movie,
-    Icons.fitness_center,
-    Icons.medical_services,
-    Icons.school,
-    Icons.card_giftcard,
-    Icons.work,
-    Icons.savings,
-    Icons.category,
-  ];
   static final _colorOptions = <Color>[
     for (final option in AccentPalette.options) option.color,
   ];
@@ -219,7 +206,7 @@ class _CategoriesPageState extends ConsumerState<CategoriesPage> {
       builder: (_) => _CategoryDialogContent(
         category: category,
         initialType: category?.type ?? _selectedType,
-        iconOptions: _iconOptions,
+        iconOptions: financialCategoryIcons,
         colorOptions: _colorOptions,
       ),
     );
@@ -322,6 +309,8 @@ class _CategoryDialogContent extends StatefulWidget {
 }
 
 class _CategoryDialogContentState extends State<_CategoryDialogContent> {
+  static const int _collapsedIconCount = 12;
+
   final formKey = GlobalKey<FormState>();
   late final TextEditingController nameController;
   late CategoryType selectedType;
@@ -391,6 +380,7 @@ class _CategoryDialogContentState extends State<_CategoryDialogContent> {
             SizedBox(height: tokens.spacing.sm),
             FinancialIconOptionPicker(
               options: widget.iconOptions,
+              collapsedCount: _collapsedIconCount,
               selected: selectedIcon,
               accentColor: selectedColor,
               onSelected: (icon) => setState(() => selectedIcon = icon),
