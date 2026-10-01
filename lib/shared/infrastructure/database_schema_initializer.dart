@@ -47,6 +47,7 @@ class DatabaseSchemaInitializer {
     'life_reviews',
     'life_plan_topics',
     'life_planning_tasks',
+    'app_enhancement_notes',
     'sync_queue',
   ];
 

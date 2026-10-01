@@ -21,6 +21,7 @@ class AppModuleAccents {
     'calendar': Color(0xFF14B8A6),
     'security': Color(0xFF475569),
     'analytics': Color(0xFF0891B2),
+    'enhancements': Color(0xFFF59E0B),
     'settings': Color(0xFF64748B),
   };
 

@@ -72,6 +72,7 @@ import '../../features/sports/screens/exercise_library_screen.dart';
 import '../../features/sports/screens/sports_dashboard_screen.dart';
 import '../../features/sports/screens/sports_screen.dart';
 import '../../features/sports/screens/weekly_schedule_screen.dart';
+import '../../features/enhancements/screens/enhancement_notes_screen.dart';
 import '../../features/settings/screens/backup_screen.dart';
 import '../../features/settings/screens/calendar_settings_screen.dart';
 import '../../features/settings/screens/dashboard_settings_screen.dart';
@@ -289,6 +290,11 @@ class AppRouter {
       case DoctorVisitFormScreen.routeName:
         return MaterialPageRoute<void>(
           builder: (_) => const DoctorVisitFormScreen(),
+          settings: settings,
+        );
+      case EnhancementNotesScreen.routeName:
+        return MaterialPageRoute<void>(
+          builder: (_) => const EnhancementNotesScreen(),
           settings: settings,
         );
       case SleepScreen.routeName:

@@ -11,6 +11,7 @@ import '../../analytics/screens/analytics_screen.dart';
 import '../../calendar/screens/calendar_screen.dart';
 import '../../dashboard/screens/dashboard_screen.dart';
 import '../../financial/screens/financial_screen.dart';
+import '../../enhancements/screens/enhancement_notes_screen.dart';
 import '../../food/screens/food_screen.dart';
 import '../../habits/screens/habits_screen.dart';
 import '../../health/screens/health_screen.dart';
@@ -75,6 +76,7 @@ class _AppShellScreenState extends ConsumerState<AppShellScreen> {
     ShellDestination('calendar', 'Calendar', Icons.calendar_month_rounded, CalendarScreen()),
     ShellDestination('security', 'Security', Icons.lock_rounded, SecurityScreen()),
     ShellDestination('analytics', 'Analytics', Icons.insights_rounded, AnalyticsScreen()),
+    ShellDestination('enhancements', 'Notes to Enhance', Icons.lightbulb_rounded, EnhancementNotesScreen()),
     ShellDestination('settings', 'Settings', Icons.settings_rounded, SettingsHubScreen()),
   ];
 

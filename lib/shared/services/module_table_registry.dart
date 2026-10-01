@@ -59,6 +59,7 @@ enum DataModule {
     ],
   ),
   security(label: 'Security', tables: <String>['credentials', 'credential_categories']),
+  enhancements(label: 'Notes to Enhance', tables: <String>['app_enhancement_notes']),
   system(label: 'System', tables: <String>['sync_queue']);
 
   final String label;

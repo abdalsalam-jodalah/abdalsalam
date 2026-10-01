@@ -101,6 +101,7 @@ class SettingsService {
           'calendar',
           'security',
           'analytics',
+          'enhancements',
           'settings',
         ],
       };
