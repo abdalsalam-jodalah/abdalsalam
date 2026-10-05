@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/constants/sync_ui_text.dart';
 import '../../../core/theme/app_theme_tokens.dart';
 import '../../../providers/app_providers.dart';
 import '../../../shared/services/module_table_registry.dart';
 import '../../../shared/widgets/ui/app_card.dart';
+import '../../sync/screens/sync_hub_screen.dart';
 import '../widgets/auto_backup_settings_card.dart';
 import '../widgets/settings_section_header.dart';
 import 'backup_screen.dart';
@@ -41,6 +43,12 @@ class DataManagementScreen extends ConsumerWidget {
                   title: 'Restore from backup',
                   subtitle: 'Bring your data back after a reinstall or on a new phone',
                   routeName: RestoreScreen.routeName,
+                ),
+                _NavigationTile(
+                  icon: Icons.usb_rounded,
+                  title: SyncUiText.hubTitle,
+                  subtitle: SyncUiText.hubTileSubtitle,
+                  routeName: SyncHubScreen.routeName,
                 ),
               ],
             ),

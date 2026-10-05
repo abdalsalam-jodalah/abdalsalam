@@ -42,8 +42,7 @@ DEADLINE 1/10/2026
 - external concetions
 
 ---------------------------------
-- u shoudl ask to take permisosns like notfications ,not fail liek what hapedn now(iget pop up that failure hapened for notfaciosn and remvoinder )
-- support the full screen edge to edgde to have teh coclor and occnote 
+
 - ineed uto drow system reprsitin image to undetsin teh system as mboblie devloper and uandetsnd fetaures and thisng i can odi n on cobined flow 
 - also i need u to drow the required system for backend 
 for ecah point, image that i will have abckedn to rpsenst it 

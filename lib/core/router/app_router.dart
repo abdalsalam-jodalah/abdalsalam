@@ -15,6 +15,7 @@ import '../../features/financial/screens/transactions_page.dart';
 import '../../features/financial/screens/transaction_form_screen.dart';
 import '../../data/models/financial/transaction_model.dart';
 import '../../data/models/habits/habit.dart';
+import '../../data/models/sync/sync_session_report.dart';
 import '../../features/habits/screens/habits_screen.dart';
 import '../../features/habits/screens/habit_detail_screen.dart';
 import '../../features/habits/screens/habit_form_screen.dart';
@@ -74,6 +75,8 @@ import '../../features/sports/screens/sports_screen.dart';
 import '../../features/sports/screens/weekly_schedule_screen.dart';
 import '../../features/enhancements/screens/enhancement_notes_screen.dart';
 import '../../features/settings/screens/backup_screen.dart';
+import '../../features/sync/screens/sync_hub_screen.dart';
+import '../../features/sync/screens/sync_report_screen.dart';
 import '../../features/settings/screens/calendar_settings_screen.dart';
 import '../../features/settings/screens/dashboard_settings_screen.dart';
 import '../../features/settings/screens/data_management_screen.dart';
@@ -560,6 +563,16 @@ class AppRouter {
       case RestoreScreen.routeName:
         return MaterialPageRoute<void>(
           builder: (_) => const RestoreScreen(),
+          settings: settings,
+        );
+      case SyncHubScreen.routeName:
+        return MaterialPageRoute<void>(
+          builder: (_) => const SyncHubScreen(),
+          settings: settings,
+        );
+      case SyncReportScreen.routeName:
+        return MaterialPageRoute<void>(
+          builder: (_) => SyncReportScreen(report: settings.arguments as SyncSessionReport),
           settings: settings,
         );
       case ComponentGalleryScreen.routeName:

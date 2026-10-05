@@ -29,5 +29,6 @@ class BackupKeys {
     'wellness_reminder_rollover_last_run',
     'sync_queue',
     'backup_status_v1',
+    'sync_history_v1',
   };
 }
