@@ -7,7 +7,9 @@ import '../../../data/models/planning/goal.dart';
 import '../../../data/models/planning/planning_task.dart';
 import '../../../shared/widgets/app_feedback.dart';
 import '../../../shared/widgets/ui/app_form_dialog.dart';
+import '../providers/planning_board_provider.dart';
 import '../providers/planning_providers.dart';
+import 'task_category_picker.dart';
 
 const _uuid = Uuid();
 const String _taskCreatedMessage = 'Task created';
@@ -34,7 +36,11 @@ Future<bool> showPlanningTaskDialog(
 }) async {
   final result = await showDialog<_PlanningTaskResult>(
     context: context,
-    builder: (_) => _PlanningTaskDialogContent(existing: existing, linkableGoals: linkableGoals),
+    builder: (_) => _PlanningTaskDialogContent(
+      existing: existing,
+      linkableGoals: linkableGoals,
+      showCategoryPicker: fixedGoalId == null,
+    ),
   );
 
   if (result == null) return false;
@@ -54,6 +60,7 @@ Future<bool> showPlanningTaskDialog(
             description: result.description.isEmpty ? null : result.description,
             date: date,
             goalId: resolvedGoalId,
+            categoryIds: result.selectedCategoryIds,
             order: order,
           ),
         )
@@ -63,6 +70,7 @@ Future<bool> showPlanningTaskDialog(
             description: result.description.isEmpty ? null : result.description,
             goalId: resolvedGoalId,
             clearGoalId: resolvedGoalId == null,
+            categoryIds: result.selectedCategoryIds,
             updatedAt: now,
           ),
         );
@@ -77,6 +85,7 @@ Future<bool> showPlanningTaskDialog(
   if (date != null) {
     ref.invalidate(tasksForDateProvider(date));
   }
+  ref.invalidate(planningBoardProvider);
   final goalIdForInvalidate = fixedGoalId ?? existing?.goalId ?? result.selectedGoalId;
   if (goalIdForInvalidate != null) {
     ref.invalidate(tasksForGoalProvider(goalIdForInvalidate));
@@ -86,18 +95,24 @@ Future<bool> showPlanningTaskDialog(
 }
 
 class _PlanningTaskResult {
-  _PlanningTaskResult(this.title, this.description, this.selectedGoalId);
+  _PlanningTaskResult(this.title, this.description, this.selectedGoalId, this.selectedCategoryIds);
 
   final String title;
   final String description;
   final String? selectedGoalId;
+  final List<String> selectedCategoryIds;
 }
 
 class _PlanningTaskDialogContent extends StatefulWidget {
-  const _PlanningTaskDialogContent({required this.existing, required this.linkableGoals});
+  const _PlanningTaskDialogContent({
+    required this.existing,
+    required this.linkableGoals,
+    required this.showCategoryPicker,
+  });
 
   final PlanningTask? existing;
   final List<Goal> linkableGoals;
+  final bool showCategoryPicker;
 
   @override
   State<_PlanningTaskDialogContent> createState() => _PlanningTaskDialogContentState();
@@ -111,12 +126,14 @@ class _PlanningTaskDialogContentState extends State<_PlanningTaskDialogContent> 
   late final TextEditingController titleController;
   late final TextEditingController descriptionController;
   String? selectedGoalId;
+  List<String> selectedCategoryIds = const <String>[];
 
   bool get allowGoalLink => widget.linkableGoals.isNotEmpty;
 
   @override
   void initState() {
     super.initState();
+    selectedCategoryIds = widget.existing?.categoryIds ?? const <String>[];
     titleController = TextEditingController(text: widget.existing?.title ?? '');
     descriptionController = TextEditingController(text: widget.existing?.description ?? '');
     selectedGoalId = widget.linkableGoals.any((goal) => goal.id == widget.existing?.goalId)
@@ -135,7 +152,12 @@ class _PlanningTaskDialogContentState extends State<_PlanningTaskDialogContent> 
     if (formKey.currentState?.validate() ?? false) {
       Navigator.pop(
         context,
-        _PlanningTaskResult(titleController.text.trim(), descriptionController.text.trim(), selectedGoalId),
+        _PlanningTaskResult(
+          titleController.text.trim(),
+          descriptionController.text.trim(),
+          selectedGoalId,
+          selectedCategoryIds,
+        ),
       );
     }
   }
@@ -163,6 +185,13 @@ class _PlanningTaskDialogContentState extends State<_PlanningTaskDialogContent> 
               maxLines: 2,
               decoration: const InputDecoration(labelText: 'Description (optional)'),
             ),
+            if (widget.showCategoryPicker) ...[
+              SizedBox(height: spacing.md),
+              TaskCategoryPicker(
+                selectedCategoryIds: selectedCategoryIds,
+                onChanged: (value) => setState(() => selectedCategoryIds = value),
+              ),
+            ],
             if (allowGoalLink) ...[
               SizedBox(height: spacing.md),
               DropdownButtonFormField<String?>(

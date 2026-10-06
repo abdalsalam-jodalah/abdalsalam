@@ -45,6 +45,7 @@ import '../../features/planning/screens/goals_screen.dart';
 import '../../features/planning/screens/life_plan_screen.dart';
 import '../../features/planning/screens/life_planning_topics_screen.dart';
 import '../../features/planning/screens/planning_home_screen.dart';
+import '../../features/planning/screens/task_categories_screen.dart';
 import '../../features/planning/screens/reviews_screen.dart';
 import '../../features/notes/screens/note_categories_screen.dart';
 import '../../features/notes/screens/note_editor_screen.dart';
@@ -433,6 +434,11 @@ class AppRouter {
       case DayPlanningScreen.routeName:
         return MaterialPageRoute<void>(
           builder: (_) => const DayPlanningScreen(),
+          settings: settings,
+        );
+      case TaskCategoriesScreen.routeName:
+        return MaterialPageRoute<void>(
+          builder: (_) => const TaskCategoriesScreen(),
           settings: settings,
         );
       case LifePlanningTopicsScreen.routeName:
