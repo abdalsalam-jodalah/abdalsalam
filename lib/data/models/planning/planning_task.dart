@@ -9,6 +9,7 @@ class PlanningTask extends BaseModel {
   final int order;
   final DateTime? date;
   final String? goalId;
+  final List<String> categoryIds;
 
   const PlanningTask({
     required super.id,
@@ -22,6 +23,7 @@ class PlanningTask extends BaseModel {
     this.order = 0,
     this.date,
     this.goalId,
+    this.categoryIds = const <String>[],
   });
 
   factory PlanningTask.fromJson(Map<String, dynamic> json) {
@@ -39,7 +41,16 @@ class PlanningTask extends BaseModel {
       order: reader.readInt('order'),
       date: reader.optionalDate('date'),
       goalId: reader.optionalString('goalId'),
+      categoryIds: _readCategoryIds(json, reader),
     );
+  }
+
+  static List<String> _readCategoryIds(Map<String, dynamic> json, JsonReader reader) {
+    if (json.containsKey('categoryIds')) {
+      return reader.readStringList('categoryIds');
+    }
+    final legacyCategoryId = reader.optionalString('categoryId');
+    return legacyCategoryId == null ? const <String>[] : <String>[legacyCategoryId];
   }
 
   PlanningTask copyWith({
@@ -51,6 +62,8 @@ class PlanningTask extends BaseModel {
     DateTime? date,
     String? goalId,
     bool clearGoalId = false,
+    List<String>? categoryIds,
+    bool clearDate = false,
   }) =>
       PlanningTask(
         id: id,
@@ -62,8 +75,9 @@ class PlanningTask extends BaseModel {
         description: description ?? this.description,
         isCompleted: isCompleted ?? this.isCompleted,
         order: order ?? this.order,
-        date: date ?? this.date,
+        date: clearDate ? null : (date ?? this.date),
         goalId: clearGoalId ? null : (goalId ?? this.goalId),
+        categoryIds: categoryIds ?? this.categoryIds,
       );
 
   @override
@@ -79,5 +93,6 @@ class PlanningTask extends BaseModel {
         'order': order,
         'date': date?.toIso8601String(),
         'goalId': goalId,
+        'categoryIds': categoryIds,
       };
 }

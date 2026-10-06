@@ -56,6 +56,7 @@ enum DataModule {
       'life_reviews',
       'life_plan_topics',
       'life_planning_tasks',
+      'planning_task_categories',
     ],
   ),
   security(label: 'Security', tables: <String>['credentials', 'credential_categories']),

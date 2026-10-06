@@ -58,6 +58,12 @@ void main() {
       expectFieldError(service.validate(_task(title: '')), PlanningTaskService.titleField);
     });
 
+    test('should report categoryIds when the same category is listed twice', () {
+      final task = _task().copyWith(categoryIds: ['cat-1', 'cat-1']);
+
+      expectFieldError(service.validate(task), PlanningTaskService.categoryIdsField);
+    });
+
     test('should report order when order is negative', () {
       expectFieldError(service.validate(_task(order: -1)), PlanningTaskService.orderField);
     });
@@ -70,6 +76,16 @@ void main() {
       expect(result.isSuccess, isTrue);
       final stored = await service.getByDate(_taskDate);
       expect(stored.data?.map((task) => task.id), ['task-1']);
+    });
+
+    test('should list dated and unassigned tasks but not goal tasks as board tasks', () async {
+      await service.create(_task());
+      await service.create(_task(id: 'task-2').copyWith(clearDate: true));
+      await service.create(_task(id: 'task-3').copyWith(clearDate: true, goalId: 'goal-1'));
+
+      final board = await service.getBoardTasks();
+
+      expect(board.data?.map((task) => task.id), unorderedEquals(['task-1', 'task-2']));
     });
 
     test('should persist a completed toggle', () async {

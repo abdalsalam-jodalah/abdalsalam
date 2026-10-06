@@ -28,6 +28,7 @@ import '../shared/services/backup_status.dart';
 import '../shared/services/backup_status_service.dart';
 import '../shared/services/export_row_enricher.dart';
 import '../shared/services/financial_export_enricher.dart';
+import '../shared/services/planning_export_enricher.dart';
 import '../shared/services/module_export_service.dart';
 import '../shared/services/module_table_registry.dart';
 import '../shared/services/future_sync_service.dart';
@@ -263,7 +264,7 @@ final moduleExportServiceProvider = Provider<ModuleExportService>((ref) {
   return ModuleExportService(
     ref.watch(storageGatewayProvider),
     ref.watch(loggerProvider),
-    enrichers: const <ExportRowEnricher>[FinancialExportEnricher()],
+    enrichers: const <ExportRowEnricher>[FinancialExportEnricher(), PlanningExportEnricher()],
   );
 });
 

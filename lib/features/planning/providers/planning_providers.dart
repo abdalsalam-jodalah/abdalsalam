@@ -7,12 +7,14 @@ import '../../../data/repositories/planning/achievement_repository.dart';
 import '../../../data/repositories/planning/review_repository.dart';
 import '../../../data/repositories/planning/planning_task_repository.dart';
 import '../../../data/repositories/planning/plan_topic_repository.dart';
+import '../../../data/repositories/planning/task_category_repository.dart';
 import '../../../data/models/planning/life_plan.dart';
 import '../../../data/models/planning/goal.dart';
 import '../../../data/models/planning/achievement.dart';
 import '../../../data/models/planning/review.dart';
 import '../../../data/models/planning/planning_task.dart';
 import '../../../data/models/planning/plan_topic.dart';
+import '../../../data/models/planning/task_category.dart';
 import '../../../providers/app_providers.dart';
 import '../../../shared/infrastructure/logger_service.dart';
 import '../services/achievement_service.dart';
@@ -21,6 +23,7 @@ import '../services/life_plan_service.dart';
 import '../services/plan_topic_service.dart';
 import '../services/planning_task_service.dart';
 import '../services/review_service.dart';
+import '../services/task_category_service.dart';
 
 const String planningUserId = 'user1';
 
@@ -79,6 +82,15 @@ final planTopicRepositoryProvider = Provider<PlanTopicRepository>((ref) {
   return PlanTopicRepositoryImpl(storage, logger);
 });
 
+final taskCategoryRepositoryProvider = Provider<TaskCategoryRepository>((ref) {
+  final storage = ref.watch(storageGatewayProvider);
+  final logger = LoggerService.forModule(
+    'TaskCategoryRepository',
+    moduleType: logic.ModuleType.repository,
+  );
+  return TaskCategoryRepositoryImpl(storage, logger);
+});
+
 final lifePlanServiceProvider = Provider<LifePlanService>((ref) {
   return LifePlanService(
     ref.watch(lifePlanRepositoryProvider),
@@ -111,6 +123,14 @@ final planningTaskServiceProvider = Provider<PlanningTaskService>((ref) {
   return PlanningTaskService(
     ref.watch(planningTaskRepositoryProvider),
     LoggerService.forModule('PlanningTaskService', moduleType: logic.ModuleType.service),
+  );
+});
+
+final taskCategoryServiceProvider = Provider<TaskCategoryService>((ref) {
+  return TaskCategoryService(
+    ref.watch(taskCategoryRepositoryProvider),
+    LoggerService.forModule('TaskCategoryService', moduleType: logic.ModuleType.service),
+    taskRepository: ref.watch(planningTaskRepositoryProvider),
   );
 });
 
@@ -177,6 +197,20 @@ final tasksForGoalProvider =
   final service = ref.watch(planningTaskServiceProvider);
   final result = await service.getByGoal(goalId);
   return result.getOrThrow();
+});
+
+final taskCategoriesProvider = FutureProvider<List<TaskCategory>>((ref) async {
+  final service = ref.watch(taskCategoryServiceProvider);
+  final result = await service.getActiveSortedByName();
+  return result.getOrThrow();
+});
+
+final taskCategoryLookupProvider = Provider<Map<String, TaskCategory>>((ref) {
+  final categories = ref.watch(taskCategoriesProvider).maybeWhen(
+        data: (items) => items,
+        orElse: () => const <TaskCategory>[],
+      );
+  return {for (final category in categories) category.id: category};
 });
 
 final rootTopicsProvider = FutureProvider<List<PlanTopic>>((ref) async {

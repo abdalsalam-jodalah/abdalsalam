@@ -7,12 +7,14 @@ import 'package:abdalsalam/data/models/planning/life_plan.dart';
 import 'package:abdalsalam/data/models/planning/plan_topic.dart';
 import 'package:abdalsalam/data/models/planning/planning_task.dart';
 import 'package:abdalsalam/data/models/planning/review.dart';
+import 'package:abdalsalam/data/models/planning/task_category.dart';
 import 'package:abdalsalam/data/repositories/planning/achievement_repository.dart';
 import 'package:abdalsalam/data/repositories/planning/goal_repository.dart';
 import 'package:abdalsalam/data/repositories/planning/life_plan_repository.dart';
 import 'package:abdalsalam/data/repositories/planning/plan_topic_repository.dart';
 import 'package:abdalsalam/data/repositories/planning/planning_task_repository.dart';
 import 'package:abdalsalam/data/repositories/planning/review_repository.dart';
+import 'package:abdalsalam/data/repositories/planning/task_category_repository.dart';
 
 AppError fakePlanningStorageFailure() => DatabaseError('fake planning storage failure');
 
@@ -47,6 +49,19 @@ class FakePlanningCrudRepository<T extends BaseModel> {
     final index = items.indexWhere((item) => item.id == entity.id);
     if (index != -1) {
       items[index] = entity;
+    }
+    return const Success(null);
+  }
+
+  Future<Result<void, AppError>> updateBulk(List<T> entities) async {
+    if (shouldFailUpdate) {
+      return Failure(fakePlanningStorageFailure());
+    }
+    for (final entity in entities) {
+      final index = items.indexWhere((item) => item.id == entity.id);
+      if (index != -1) {
+        items[index] = entity;
+      }
     }
     return const Success(null);
   }
@@ -166,12 +181,33 @@ class FakePlanningTaskRepository extends FakePlanningCrudRepository<PlanningTask
   }
 
   @override
+  Future<Result<List<PlanningTask>, AppError>> getBoardTasks() async {
+    if (shouldFailGetByDate) {
+      return Failure(fakePlanningStorageFailure());
+    }
+    return Success(items.where((task) => task.date != null || task.goalId == null).toList());
+  }
+
+  @override
+  Future<Result<List<PlanningTask>, AppError>> getByCategory(String categoryId) async {
+    if (shouldFailGetByDate) {
+      return Failure(fakePlanningStorageFailure());
+    }
+    return Success(items.where((task) => task.categoryIds.contains(categoryId)).toList());
+  }
+
+  @override
   Future<Result<List<PlanningTask>, AppError>> getByGoal(String goalId) async {
     if (shouldFailGetByGoal) {
       return Failure(fakePlanningStorageFailure());
     }
     return Success(items.where((task) => task.goalId == goalId).toList());
   }
+}
+
+class FakeTaskCategoryRepository extends FakePlanningCrudRepository<TaskCategory>
+    implements TaskCategoryRepository {
+  FakeTaskCategoryRepository([super.seed]);
 }
 
 class FakePlanTopicRepository extends FakePlanningCrudRepository<PlanTopic> implements PlanTopicRepository {
@@ -280,6 +316,7 @@ PlanningTask buildPlanningTask({
   String title = 'Draft outline',
   DateTime? date,
   String? goalId,
+  List<String> categoryIds = const <String>[],
 }) {
   final now = DateTime(2026, 1, 1);
   return PlanningTask(
@@ -290,7 +327,18 @@ PlanningTask buildPlanningTask({
     title: title,
     date: date,
     goalId: goalId,
+    categoryIds: categoryIds,
   );
+}
+
+TaskCategory buildTaskCategory({
+  String id = 'category-1',
+  String userId = 'user1',
+  String name = 'iOS',
+  String color = '#F5A623',
+}) {
+  final now = DateTime(2026, 1, 1);
+  return TaskCategory(id: id, createdAt: now, updatedAt: now, userId: userId, name: name, color: color);
 }
 
 PlanTopic buildPlanTopic({

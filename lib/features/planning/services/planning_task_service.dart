@@ -10,6 +10,7 @@ class PlanningTaskService extends BaseServiceImpl<PlanningTask> {
   static const String userIdField = 'userId';
   static const String titleField = 'title';
   static const String orderField = 'order';
+  static const String categoryIdsField = 'categoryIds';
   static const int _minOrder = 0;
 
   PlanningTaskService(PlanningTaskRepository super.repository, super.logger);
@@ -35,6 +36,12 @@ class PlanningTaskService extends BaseServiceImpl<PlanningTask> {
           orderField,
           ValidationUtils.numericRange(value: entity.order, fieldName: orderField, min: _minOrder),
         ),
+        MapEntry(
+          categoryIdsField,
+          entity.categoryIds.toSet().length == entity.categoryIds.length
+              ? null
+              : '$categoryIdsField must not contain duplicates',
+        ),
       ]),
     );
   }
@@ -53,6 +60,10 @@ class PlanningTaskService extends BaseServiceImpl<PlanningTask> {
 
   Future<Result<List<PlanningTask>, AppError>> getByDate(DateTime date) {
     return _repo.getByDate(date);
+  }
+
+  Future<Result<List<PlanningTask>, AppError>> getBoardTasks() {
+    return _repo.getBoardTasks();
   }
 
   Future<Result<List<PlanningTask>, AppError>> getByGoal(String goalId) {

@@ -6,7 +6,9 @@ import '../base_repository_impl.dart';
 
 abstract class PlanningTaskRepository extends BaseRepository<PlanningTask> {
   Future<Result<List<PlanningTask>, AppError>> getByDate(DateTime date);
+  Future<Result<List<PlanningTask>, AppError>> getBoardTasks();
   Future<Result<List<PlanningTask>, AppError>> getByGoal(String goalId);
+  Future<Result<List<PlanningTask>, AppError>> getByCategory(String categoryId);
 }
 
 class PlanningTaskRepositoryImpl extends BaseRepositoryImpl<PlanningTask>
@@ -36,6 +38,26 @@ class PlanningTaskRepositoryImpl extends BaseRepositoryImpl<PlanningTask>
       ..sort((a, b) => a.order.compareTo(b.order));
 
     return Success(matches);
+  }
+
+  @override
+  Future<Result<List<PlanningTask>, AppError>> getBoardTasks() async {
+    final result = await getActive();
+    if (result.isFailure) {
+      return Failure(result.error!);
+    }
+
+    return Success(result.data!.where((task) => task.date != null || task.goalId == null).toList(growable: false));
+  }
+
+  @override
+  Future<Result<List<PlanningTask>, AppError>> getByCategory(String categoryId) async {
+    final result = await getActive();
+    if (result.isFailure) {
+      return Failure(result.error!);
+    }
+
+    return Success(result.data!.where((task) => task.categoryIds.contains(categoryId)).toList(growable: false));
   }
 
   @override
