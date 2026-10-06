@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math';
 
 import 'package:flutter/material.dart';
 
@@ -30,11 +31,10 @@ class AppSplashScreen extends StatefulWidget {
   static const double _taglineFontSize = 14;
   static const double _appNameLetterSpacing = 0.5;
   static const double _taglineOpacity = 0.6;
-  static const double _progressWidth = 96;
-  static const double _progressHeight = 3;
-  static const double _progressBottomPadding = 64;
-  static const double _progressTrackOpacity = 0.12;
-  static const double _progressStart = 0.8;
+  static const Duration _loopDuration = Duration(milliseconds: 1600);
+  static const double _loopStrengthStart = 0.8;
+  static const double _loopMinimumOpacity = 0.3;
+  static const double _loopMinimumScale = 0.92;
 
   const AppSplashScreen({super.key});
 
@@ -49,10 +49,14 @@ class _SplashTile {
   const _SplashTile({required this.assetName, required this.direction});
 }
 
-class _AppSplashScreenState extends State<AppSplashScreen> with SingleTickerProviderStateMixin {
+class _AppSplashScreenState extends State<AppSplashScreen> with TickerProviderStateMixin {
   late final AnimationController _controller = AnimationController(
     vsync: this,
     duration: AppSplashScreen._animationDuration,
+  );
+  late final AnimationController _loopController = AnimationController(
+    vsync: this,
+    duration: AppSplashScreen._loopDuration,
   );
 
   @override
@@ -60,14 +64,17 @@ class _AppSplashScreenState extends State<AppSplashScreen> with SingleTickerProv
     super.didChangeDependencies();
     if (MediaQuery.disableAnimationsOf(context)) {
       _controller.value = 1;
+      _loopController.stop();
     } else if (!_controller.isAnimating && _controller.value == 0) {
       unawaited(_controller.forward());
+      unawaited(_loopController.repeat());
     }
   }
 
   @override
   void dispose() {
     _controller.dispose();
+    _loopController.dispose();
     super.dispose();
   }
 
@@ -76,14 +83,23 @@ class _AppSplashScreenState extends State<AppSplashScreen> with SingleTickerProv
     return curve.transform(raw);
   }
 
+  double _loopPulse(int index) {
+    final strength = _progressBetween(AppSplashScreen._loopStrengthStart, 1);
+    final phase = (_loopController.value - index / AppSplashScreen._tiles.length) % 1;
+    final dimness = 0.5 - 0.5 * cos(2 * pi * phase);
+    return strength * dimness;
+  }
+
   Widget _buildTile(int index, _SplashTile tile) {
     final start = index * AppSplashScreen._tileStaggerStep;
     final progress = _progressBetween(start, start + AppSplashScreen._tileAnimationSpan, Curves.easeOutBack);
     final opacity = _progressBetween(start, start + AppSplashScreen._tileAnimationSpan / 2).clamp(0.0, 1.0);
     final travel = tile.direction * AppSplashScreen._tileTravelDistance * (1 - progress);
-    final scale = AppSplashScreen._tileStartScale + (1 - AppSplashScreen._tileStartScale) * progress;
+    final introScale = AppSplashScreen._tileStartScale + (1 - AppSplashScreen._tileStartScale) * progress;
+    final pulse = _loopPulse(index);
+    final scale = introScale * (1 - pulse * (1 - AppSplashScreen._loopMinimumScale));
     return Opacity(
-      opacity: opacity,
+      opacity: opacity * (1 - pulse * (1 - AppSplashScreen._loopMinimumOpacity)),
       child: Transform.translate(
         offset: travel,
         child: Transform.scale(
@@ -135,29 +151,12 @@ class _AppSplashScreenState extends State<AppSplashScreen> with SingleTickerProv
     );
   }
 
-  Widget _buildProgress() {
-    return Opacity(
-      opacity: _progressBetween(AppSplashScreen._progressStart, 1),
-      child: SizedBox(
-        width: AppSplashScreen._progressWidth,
-        height: AppSplashScreen._progressHeight,
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(AppSplashScreen._progressHeight),
-          child: LinearProgressIndicator(
-            color: Colors.white,
-            backgroundColor: Colors.white.withValues(alpha: AppSplashScreen._progressTrackOpacity),
-          ),
-        ),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     return ColoredBox(
       color: AppSplashScreen.backgroundColor,
       child: AnimatedBuilder(
-        animation: _controller,
+        animation: Listenable.merge(<Listenable>[_controller, _loopController]),
         builder: (context, _) {
           return Stack(
             alignment: Alignment.center,
@@ -178,10 +177,6 @@ class _AppSplashScreenState extends State<AppSplashScreen> with SingleTickerProv
                     ),
                   ],
                 ),
-              ),
-              Positioned(
-                bottom: AppSplashScreen._progressBottomPadding,
-                child: _buildProgress(),
               ),
             ],
           );

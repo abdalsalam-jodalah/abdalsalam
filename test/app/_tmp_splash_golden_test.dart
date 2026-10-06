@@ -19,7 +19,9 @@ void main() {
         await precacheImage(AssetImage('assets/branding/emblem_$name.png'), tester.element(find.byType(AppSplashScreen)));
       }
     });
-    await tester.pump(const Duration(milliseconds: 1500));
-    await expectLater(find.byType(AppSplashScreen), matchesGoldenFile('_tmp_splash.png'));
+    for (final ms in [250, 1700, 2000]) {
+      await tester.pump(Duration(milliseconds: ms == 250 ? 250 : ms == 1700 ? 1450 : 300));
+      await expectLater(find.byType(AppSplashScreen), matchesGoldenFile('_tmp_splash_$ms.png'));
+    }
   });
 }

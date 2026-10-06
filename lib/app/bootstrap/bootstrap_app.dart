@@ -20,7 +20,7 @@ class BootstrapApp extends StatefulWidget {
 }
 
 class _BootstrapAppState extends State<BootstrapApp> {
-  static const Duration _minimumSplashDuration = Duration(milliseconds: 1400);
+  static const Duration _minimumSplashDuration = Duration(milliseconds: 2400);
 
   final AppBootstrapper _bootstrapper = AppBootstrapper();
   late Future<AppBootstrapResult> _bootstrapFuture;
