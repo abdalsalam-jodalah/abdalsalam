@@ -95,6 +95,7 @@ class _AppShellScreenState extends ConsumerState<AppShellScreen> {
   ShellSidebarMode _sidebarMode = ShellSidebarMode.icons;
   ShellSidebarMode _lastOpenMode = ShellSidebarMode.icons;
   bool _slidesFromEdge = true;
+  bool _isLargeScreen = false;
   double _openHandleTop = _initialHandleTop;
   bool _isLogWheelOpen = false;
   int _logWheelIndex = 0;
@@ -116,7 +117,7 @@ class _AppShellScreenState extends ConsumerState<AppShellScreen> {
   }
 
   void _closeAfterInactivity() {
-    if (mounted && _sidebarMode != ShellSidebarMode.closed) {
+    if (mounted && !_isLargeScreen && _sidebarMode != ShellSidebarMode.closed) {
       _setMode(ShellSidebarMode.closed);
     }
   }
@@ -383,7 +384,8 @@ class _AppShellScreenState extends ConsumerState<AppShellScreen> {
           builder: (context, constraints) {
             final minTop = tokens.spacing.md;
             final maxTop = (constraints.maxHeight - _handleBottomClearance).clamp(minTop, double.infinity);
-            if (constraints.maxWidth >= _largeScreenBreakpoint) {
+            _isLargeScreen = constraints.maxWidth >= _largeScreenBreakpoint;
+            if (_isLargeScreen) {
               return Row(
                 children: [
                   _buildSidebarSlot(tokens),
