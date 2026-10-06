@@ -2,6 +2,39 @@
 
 A personal Flutter app that manages everything in my life in one place, in a customizable way that I can keep refining over time.
 
+![Flutter](https://img.shields.io/badge/Flutter-02569B?logo=flutter&logoColor=white) ![Dart](https://img.shields.io/badge/Dart-0175C2?logo=dart&logoColor=white) ![Riverpod](https://img.shields.io/badge/State-Riverpod-5C6BC0) ![Offline-first](https://img.shields.io/badge/Offline--first-yes-2E7D32) ![Platforms](https://img.shields.io/badge/Platforms-Android%20%7C%20iOS%20%7C%20macOS%20%7C%20Windows%20%7C%20Linux%20%7C%20Web-607D8B) ![License](https://img.shields.io/badge/License-All%20rights%20reserved-lightgrey)
+
+## ℹ️ About
+
+**Abdalsalam** is a single-user, offline-first life-management app written in Flutter. It brings prayers, finances, habits, health, planning, notes, a calendar and a secure vault into one customizable dashboard, with every piece of data logged, structured and exportable.
+
+| | |
+|---|---|
+| **Purpose** | One personal app instead of ten disconnected ones |
+| **Audience** | One user (the author). No accounts, no public release |
+| **Status** | Phase 1: finishing and polishing every existing module |
+| **Platforms** | Android, iOS, macOS, Windows, Linux, Web |
+| **Architecture** | Clean Architecture, feature-based, Riverpod, local-first storage |
+| **Also** | A learning ground for real-world patterns and technologies |
+
+## 📑 Table of Contents
+
+- [The Story](#-the-story)
+- [Features](#-features)
+- [Screenshots](#-screenshots)
+- [Tech Stack](#-tech-stack)
+- [Project Structure](#-project-structure)
+- [Architecture](#-architecture)
+- [Documentation](#-documentation)
+- [Quick Start](#-quick-start)
+- [Roadmap](#-roadmap)
+- [License](#-license)
+- [Author](#-author)
+
+## 📸 Screenshots
+
+_Screenshots coming soon. Add images to docs/screenshots/ and link them here (dashboard, planning board, prayers, finance, weather)._
+
 ## 📖 The Story
 
 This app is **for me, and only me**. That is why it carries my name: *Abdalsalam*.
