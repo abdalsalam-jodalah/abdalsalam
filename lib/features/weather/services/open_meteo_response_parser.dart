@@ -12,6 +12,8 @@ class OpenMeteoResponseParser {
   static const String _currentTemperatureKey = 'temperature';
   static const String _currentWindSpeedKey = 'windspeed';
   static const String _currentWeatherCodeKey = 'weathercode';
+  static const String _currentIsDayKey = 'is_day';
+  static const int _nightFlag = 0;
   static const String _currentTimeKey = 'time';
   static const String _hourlyTimeKey = 'time';
   static const String _hourlyTemperatureKey = 'temperature_2m';
@@ -48,7 +50,7 @@ class OpenMeteoResponseParser {
       humidity: _intAt(_listAt(hourly, _hourlyHumidityKey), 0) ?? _missingHumidity,
       windSpeed: currentReader.readDouble(_currentWindSpeedKey, fallback: _missingWindSpeed),
       description: WeatherConditionCodes.describe(weatherCode),
-      icon: WeatherConditionCodes.iconFor(weatherCode),
+      icon: WeatherConditionCodes.iconFor(weatherCode, isDay: currentReader.optionalInt(_currentIsDayKey) != _nightFlag),
       timestamp: currentReader.requireDate(_currentTimeKey),
       hourlyForecast: _parseHourlyForecast(hourly),
     );
@@ -72,7 +74,7 @@ class OpenMeteoResponseParser {
         time: time,
         temperature: temperature,
         description: WeatherConditionCodes.describe(weatherCode),
-        icon: WeatherConditionCodes.iconFor(weatherCode),
+        icon: WeatherConditionCodes.iconFor(weatherCode, isDay: WeatherConditionCodes.isDaytime(time)),
         humidity: _intAt(humidities, i) ?? _missingHumidity,
         windSpeed: _doubleAt(windSpeeds, i) ?? _missingWindSpeed,
       ));

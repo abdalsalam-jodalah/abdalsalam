@@ -1,6 +1,9 @@
 class WeatherConditionCodes {
   static const String unknownDescription = 'Unknown';
   static const String defaultIcon = '01d';
+  static const String _nightSuffix = 'n';
+  static const int _sunriseHour = 6;
+  static const int _sunsetHour = 18;
 
   static const Map<int, String> _descriptions = <int, String>{
     0: 'Clear sky',
@@ -50,5 +53,10 @@ class WeatherConditionCodes {
 
   static String describe(int? code) => _descriptions[code] ?? unknownDescription;
 
-  static String iconFor(int? code) => _icons[code] ?? defaultIcon;
+  static String iconFor(int? code, {bool isDay = true}) {
+    final dayIcon = _icons[code] ?? defaultIcon;
+    return isDay ? dayIcon : '${dayIcon.substring(0, dayIcon.length - 1)}$_nightSuffix';
+  }
+
+  static bool isDaytime(DateTime time) => time.hour >= _sunriseHour && time.hour < _sunsetHour;
 }

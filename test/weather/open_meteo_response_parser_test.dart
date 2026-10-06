@@ -39,6 +39,37 @@ void main() {
       expect(weather.hourlyForecast.last.windSpeed, 10.5);
     });
 
+    test('should use night icons when the API says it is night and for night hours', () {
+      final body = jsonEncode(<String, dynamic>{
+        'current_weather': <String, dynamic>{
+          'temperature': 15,
+          'weathercode': 0,
+          'is_day': 0,
+          'time': '2026-09-23T22:00',
+        },
+        'hourly': <String, dynamic>{
+          'time': <String>['2026-09-23T22:00', '2026-09-24T09:00'],
+          'temperature_2m': <num>[15, 20],
+          'weathercode': <num>[0, 0],
+        },
+      });
+
+      final weather = parser.parse(body);
+
+      expect(weather.icon, '01n');
+      expect(weather.hourlyForecast.first.icon, '01n');
+      expect(weather.hourlyForecast.last.icon, '01d');
+    });
+
+    test('should keep day icons when the API does not say whether it is day', () {
+      final body = jsonEncode(<String, dynamic>{
+        'current_weather': <String, dynamic>{'temperature': 15, 'weathercode': 61, 'time': '2026-09-23T14:00'},
+        'hourly': <String, dynamic>{'time': <String>[], 'temperature_2m': <num>[]},
+      });
+
+      expect(parser.parse(body).icon, '10d');
+    });
+
     test('should cap the hourly forecast at twelve entries', () {
       final times = List<String>.generate(24, (hour) => '2026-09-23T${hour.toString().padLeft(2, '0')}:00');
       final body = jsonEncode(<String, dynamic>{
