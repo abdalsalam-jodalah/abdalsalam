@@ -1,0 +1,426 @@
+import 'daily_quote.dart';
+import 'daily_quote_category.dart';
+
+class DailyQuotes {
+  static const DailyQuoteCategory _faith = DailyQuoteCategory.faith;
+  static const DailyQuoteCategory _time = DailyQuoteCategory.time;
+  static const DailyQuoteCategory _motivation = DailyQuoteCategory.motivation;
+
+  const DailyQuotes._();
+
+  static const List<DailyQuote> all = <DailyQuote>[
+    // Faith — Quran
+    DailyQuote(
+      category: _faith,
+      arabic: '﴿فَإِنَّ مَعَ الْعُسْرِ يُسْرًا ۝ إِنَّ مَعَ الْعُسْرِ يُسْرًا﴾',
+      english: 'Indeed, with hardship comes ease. Indeed, with hardship comes ease.',
+      sourceArabic: 'سورة الشرح، ٥-٦',
+      sourceEnglish: 'Quran 94:5-6',
+    ),
+    DailyQuote(
+      category: _faith,
+      arabic: '﴿وَمَن يَتَوَكَّلْ عَلَى اللَّهِ فَهُوَ حَسْبُهُ﴾',
+      english: 'And whoever relies upon Allah — then He is sufficient for him.',
+      sourceArabic: 'سورة الطلاق، ٣',
+      sourceEnglish: 'Quran 65:3',
+    ),
+    DailyQuote(
+      category: _faith,
+      arabic: '﴿وَقُل رَّبِّ زِدْنِي عِلْمًا﴾',
+      english: 'And say: My Lord, increase me in knowledge.',
+      sourceArabic: 'سورة طه، ١١٤',
+      sourceEnglish: 'Quran 20:114',
+    ),
+    DailyQuote(
+      category: _faith,
+      arabic: '﴿لَا يُكَلِّفُ اللَّهُ نَفْسًا إِلَّا وُسْعَهَا﴾',
+      english: 'Allah does not burden a soul beyond what it can bear.',
+      sourceArabic: 'سورة البقرة، ٢٨٦',
+      sourceEnglish: 'Quran 2:286',
+    ),
+    DailyQuote(
+      category: _faith,
+      arabic: '﴿إِنَّ اللَّهَ مَعَ الصَّابِرِينَ﴾',
+      english: 'Indeed, Allah is with the patient.',
+      sourceArabic: 'سورة البقرة، ١٥٣',
+      sourceEnglish: 'Quran 2:153',
+    ),
+    DailyQuote(
+      category: _faith,
+      arabic: '﴿فَاذْكُرُونِي أَذْكُرْكُمْ﴾',
+      english: 'So remember Me; I will remember you.',
+      sourceArabic: 'سورة البقرة، ١٥٢',
+      sourceEnglish: 'Quran 2:152',
+    ),
+    DailyQuote(
+      category: _faith,
+      arabic: '﴿وَلَا تَيْأَسُوا مِن رَّوْحِ اللَّهِ﴾',
+      english: 'And do not despair of relief from Allah.',
+      sourceArabic: 'سورة يوسف، ٨٧',
+      sourceEnglish: 'Quran 12:87',
+    ),
+    DailyQuote(
+      category: _faith,
+      arabic: '﴿أَلَا بِذِكْرِ اللَّهِ تَطْمَئِنُّ الْقُلُوبُ﴾',
+      english: 'Verily, in the remembrance of Allah do hearts find rest.',
+      sourceArabic: 'سورة الرعد، ٢٨',
+      sourceEnglish: 'Quran 13:28',
+    ),
+    // Faith — Hadith
+    DailyQuote(
+      category: _faith,
+      arabic: 'إِنَّمَا الْأَعْمَالُ بِالنِّيَّاتِ',
+      english: 'Actions are judged only by intentions.',
+      sourceArabic: 'متفق عليه',
+      sourceEnglish: 'Bukhari & Muslim',
+    ),
+    DailyQuote(
+      category: _faith,
+      arabic: 'خَيْرُكُمْ مَنْ تَعَلَّمَ الْقُرْآنَ وَعَلَّمَهُ',
+      english: 'The best of you are those who learn the Quran and teach it.',
+      sourceArabic: 'رواه البخاري',
+      sourceEnglish: 'Bukhari',
+    ),
+    DailyQuote(
+      category: _faith,
+      arabic: 'مَنْ سَلَكَ طَرِيقًا يَلْتَمِسُ فِيهِ عِلْمًا سَهَّلَ اللَّهُ لَهُ بِهِ طَرِيقًا إِلَى الْجَنَّةِ',
+      english: 'Whoever treads a path seeking knowledge, Allah makes easy for him a path to Paradise.',
+      sourceArabic: 'رواه مسلم',
+      sourceEnglish: 'Muslim',
+    ),
+    DailyQuote(
+      category: _faith,
+      arabic: 'اتَّقِ اللَّهَ حَيْثُمَا كُنْتَ، وَأَتْبِعِ السَّيِّئَةَ الْحَسَنَةَ تَمْحُهَا',
+      english: 'Fear Allah wherever you are, and follow a bad deed with a good one — it will erase it.',
+      sourceArabic: 'رواه الترمذي',
+      sourceEnglish: 'Tirmidhi',
+    ),
+    DailyQuote(
+      category: _faith,
+      arabic: 'تَبَسُّمُكَ فِي وَجْهِ أَخِيكَ لَكَ صَدَقَةٌ',
+      english: 'Your smile in the face of your brother is charity.',
+      sourceArabic: 'رواه الترمذي',
+      sourceEnglish: 'Tirmidhi',
+    ),
+    DailyQuote(
+      category: _faith,
+      arabic: 'لَا تَحْقِرَنَّ مِنَ الْمَعْرُوفِ شَيْئًا',
+      english: 'Do not belittle any act of kindness.',
+      sourceArabic: 'رواه مسلم',
+      sourceEnglish: 'Muslim',
+    ),
+    DailyQuote(
+      category: _faith,
+      arabic: 'مَنْ لَا يَشْكُرِ النَّاسَ لَا يَشْكُرِ اللَّهَ',
+      english: 'Whoever does not thank people does not thank Allah.',
+      sourceArabic: 'رواه أبو داود والترمذي',
+      sourceEnglish: 'Abu Dawud & Tirmidhi',
+    ),
+    DailyQuote(
+      category: _faith,
+      arabic: 'حَاسِبُوا أَنْفُسَكُمْ قَبْلَ أَنْ تُحَاسَبُوا',
+      english: 'Take account of yourselves before you are taken to account.',
+      sourceArabic: 'عمر بن الخطاب رضي الله عنه',
+      sourceEnglish: 'Umar ibn al-Khattab',
+    ),
+    // Time
+    DailyQuote(
+      category: _time,
+      arabic: '﴿وَالْعَصْرِ ۝ إِنَّ الْإِنسَانَ لَفِي خُسْرٍ ۝ إِلَّا الَّذِينَ آمَنُوا وَعَمِلُوا الصَّالِحَاتِ وَتَوَاصَوْا بِالْحَقِّ وَتَوَاصَوْا بِالصَّبْرِ﴾',
+      english:
+          'By time, indeed mankind is in loss — except those who believe, do righteous deeds, and urge one another to truth and to patience.',
+      sourceArabic: 'سورة العصر',
+      sourceEnglish: 'Quran 103:1-3',
+    ),
+    DailyQuote(
+      category: _time,
+      arabic: '﴿فَإِذَا فَرَغْتَ فَانصَبْ ۝ وَإِلَىٰ رَبِّكَ فَارْغَب﴾',
+      english: 'So when you have finished, then stand up for worship — and to your Lord direct your longing.',
+      sourceArabic: 'سورة الشرح، ٧-٨',
+      sourceEnglish: 'Quran 94:7-8',
+    ),
+    DailyQuote(
+      category: _time,
+      arabic: '﴿فَاسْتَبِقُوا الْخَيْرَاتِ﴾',
+      english: 'So race to all that is good.',
+      sourceArabic: 'سورة البقرة، ١٤٨',
+      sourceEnglish: 'Quran 2:148',
+    ),
+    DailyQuote(
+      category: _time,
+      arabic: 'نِعْمَتَانِ مَغْبُونٌ فِيهِمَا كَثِيرٌ مِنَ النَّاسِ: الصِّحَّةُ وَالْفَرَاغُ',
+      english: 'There are two blessings that many people lose out on: health and free time.',
+      sourceArabic: 'رواه البخاري',
+      sourceEnglish: 'Bukhari',
+    ),
+    DailyQuote(
+      category: _time,
+      arabic:
+          'اغْتَنِمْ خَمْسًا قَبْلَ خَمْسٍ: شَبَابَكَ قَبْلَ هَرَمِكَ، وَصِحَّتَكَ قَبْلَ سَقَمِكَ، وَغِنَاكَ قَبْلَ فَقْرِكَ، وَفَرَاغَكَ قَبْلَ شُغْلِكَ، وَحَيَاتَكَ قَبْلَ مَوْتِكَ',
+      english:
+          'Take advantage of five before five: your youth before old age, your health before sickness, your wealth before poverty, your free time before being busy, and your life before your death.',
+      sourceArabic: 'رواه الحاكم',
+      sourceEnglish: 'Al-Hakim',
+    ),
+    DailyQuote(
+      category: _time,
+      arabic:
+          'لَا تَزُولُ قَدَمَا عَبْدٍ يَوْمَ الْقِيَامَةِ حَتَّى يُسْأَلَ عَنْ عُمُرِهِ فِيمَ أَفْنَاهُ، وَعَنْ شَبَابِهِ فِيمَ أَبْلَاهُ',
+      english:
+          'A servant will not move on the Day of Judgment until he is asked about his life and how he spent it, and his youth and how he used it.',
+      sourceArabic: 'رواه الترمذي',
+      sourceEnglish: 'Tirmidhi',
+    ),
+    DailyQuote(
+      category: _time,
+      arabic: 'مِنْ حُسْنِ إِسْلَامِ الْمَرْءِ تَرْكُهُ مَا لَا يَعْنِيهِ',
+      english: 'Part of the excellence of a person’s Islam is leaving what does not concern him.',
+      sourceArabic: 'رواه الترمذي',
+      sourceEnglish: 'Tirmidhi',
+    ),
+    DailyQuote(
+      category: _time,
+      arabic: 'اللَّهُمَّ بَارِكْ لِأُمَّتِي فِي بُكُورِهَا',
+      english: 'O Allah, bless my nation in their early mornings.',
+      sourceArabic: 'رواه أبو داود والترمذي',
+      sourceEnglish: 'Abu Dawud & Tirmidhi',
+    ),
+    DailyQuote(
+      category: _time,
+      arabic: 'يَا ابْنَ آدَمَ، إِنَّمَا أَنْتَ أَيَّامٌ، فَإِذَا ذَهَبَ يَوْمُكَ ذَهَبَ بَعْضُكَ',
+      english: 'O son of Adam, you are but days; when a day passes, a part of you has gone.',
+      sourceArabic: 'الحسن البصري',
+      sourceEnglish: 'Al-Hasan al-Basri',
+    ),
+    DailyQuote(
+      category: _time,
+      arabic:
+          'إِضَاعَةُ الْوَقْتِ أَشَدُّ مِنَ الْمَوْتِ؛ لِأَنَّ إِضَاعَةَ الْوَقْتِ تَقْطَعُكَ عَنِ اللَّهِ وَالدَّارِ الْآخِرَةِ، وَالْمَوْتُ يَقْطَعُكَ عَنِ الدُّنْيَا وَأَهْلِهَا',
+      english:
+          'Wasting time is worse than death, for wasting time cuts you off from Allah and the Hereafter, while death only cuts you off from this world and its people.',
+      sourceArabic: 'ابن القيم، الفوائد',
+      sourceEnglish: 'Ibn al-Qayyim, Al-Fawa’id',
+    ),
+    DailyQuote(
+      category: _time,
+      arabic: 'مَا نَدِمْتُ عَلَى شَيْءٍ نَدَمِي عَلَى يَوْمٍ غَرَبَتْ شَمْسُهُ، نَقَصَ فِيهِ أَجَلِي وَلَمْ يَزِدْ فِيهِ عَمَلِي',
+      english:
+          'I have never regretted anything as much as a day whose sun set, shortening my life without increasing my deeds.',
+      sourceArabic: 'عبد الله بن مسعود رضي الله عنه',
+      sourceEnglish: 'Abdullah ibn Mas‘ud',
+    ),
+    DailyQuote(
+      category: _time,
+      arabic: 'الْوَقْتُ كَالسَّيْفِ إِنْ لَمْ تَقْطَعْهُ قَطَعَكَ',
+      english: 'Time is like a sword: if you do not cut it, it will cut you.',
+      sourceArabic: 'مثل عربي',
+      sourceEnglish: 'Arabic proverb',
+    ),
+    DailyQuote(
+      category: _time,
+      arabic: 'دَقَّاتُ قَلْبِ الْمَرْءِ قَائِلَةٌ لَهُ: إِنَّ الْحَيَاةَ دَقَائِقُ وَثَوَانِي',
+      english: 'A person’s heartbeats tell him: life is nothing but minutes and seconds.',
+      sourceArabic: 'أحمد شوقي',
+      sourceEnglish: 'Ahmad Shawqi',
+    ),
+    DailyQuote(
+      category: _time,
+      arabic: 'لَا تُؤَجِّلْ عَمَلَ الْيَوْمِ إِلَى الْغَدِ',
+      english: 'Do not postpone today’s work until tomorrow.',
+      sourceArabic: 'مثل عربي',
+      sourceEnglish: 'Arabic proverb',
+    ),
+    DailyQuote(
+      category: _time,
+      arabic: 'الْوَقْتُ الضَّائِعُ لَا يَعُودُ أَبَدًا',
+      english: 'Lost time is never found again.',
+      sourceArabic: 'بنجامين فرانكلين',
+      sourceEnglish: 'Benjamin Franklin',
+    ),
+    DailyQuote(
+      category: _time,
+      arabic: 'الْمِفْتَاحُ لَيْسَ أَنْ نُعْطِيَ الْأَوْلَوِيَّةَ لِمَا فِي جَدْوَلِنَا، بَلْ أَنْ نَجْدُولَ أَوْلَوِيَّاتِنَا',
+      english: 'The key is not to prioritize what is on your schedule, but to schedule your priorities.',
+      sourceArabic: 'ستيفن كوفي',
+      sourceEnglish: 'Stephen Covey',
+    ),
+    DailyQuote(
+      category: _time,
+      arabic: 'لَيْسَ أَنَّ وَقْتَنَا فِي الْحَيَاةِ قَصِيرٌ، بَلْ أَنَّنَا نُضَيِّعُ الْكَثِيرَ مِنْهُ',
+      english: 'It is not that we have a short time to live, but that we waste a lot of it.',
+      sourceArabic: 'سينيكا',
+      sourceEnglish: 'Seneca',
+    ),
+    DailyQuote(
+      category: _time,
+      arabic: 'إِمَّا أَنْ تَقُودَ يَوْمَكَ، وَإِمَّا أَنْ يَقُودَكَ يَوْمُكَ',
+      english: 'Either you run the day, or the day runs you.',
+      sourceArabic: 'جيم رون',
+      sourceEnglish: 'Jim Rohn',
+    ),
+    DailyQuote(
+      category: _time,
+      arabic: 'لَا تُرَاقِبِ السَّاعَةَ؛ افْعَلْ مَا تَفْعَلُهُ: اسْتَمِرَّ فِي الْمَسِيرِ',
+      english: 'Don’t watch the clock; do what it does. Keep going.',
+      sourceArabic: 'سام ليفنسون',
+      sourceEnglish: 'Sam Levenson',
+    ),
+    DailyQuote(
+      category: _time,
+      arabic: 'الْوَقْتُ هُوَ أَكْثَرُ مَا نُرِيدُ، وَأَسْوَأُ مَا نَسْتَخْدِمُ',
+      english: 'Time is what we want most, but what we use worst.',
+      sourceArabic: 'ويليام بن',
+      sourceEnglish: 'William Penn',
+    ),
+    DailyQuote(
+      category: _time,
+      arabic: 'رَكِّزْ عَلَى أَنْ تَكُونَ مُنْتِجًا لَا مَشْغُولًا',
+      english: 'Focus on being productive instead of busy.',
+      sourceArabic: 'تيم فيريس',
+      sourceEnglish: 'Tim Ferriss',
+    ),
+    DailyQuote(
+      category: _time,
+      arabic: 'ابْدَأْ بِالْمَهَامِّ الصَّعْبَةِ أَوَّلًا، فَالسَّهْلَةُ سَتَتَدَبَّرُ أَمْرَهَا بِنَفْسِهَا',
+      english: 'Do the hard jobs first. The easy jobs will take care of themselves.',
+      sourceArabic: 'ديل كارنيجي',
+      sourceEnglish: 'Dale Carnegie',
+    ),
+    // Motivation
+    DailyQuote(
+      category: _motivation,
+      arabic: '﴿وَأَن لَّيْسَ لِلْإِنسَانِ إِلَّا مَا سَعَىٰ﴾',
+      english: 'And that each person will have only what he strives for.',
+      sourceArabic: 'سورة النجم، ٣٩',
+      sourceEnglish: 'Quran 53:39',
+    ),
+    DailyQuote(
+      category: _motivation,
+      arabic: '﴿إِنَّ اللَّهَ لَا يُغَيِّرُ مَا بِقَوْمٍ حَتَّىٰ يُغَيِّرُوا مَا بِأَنفُسِهِمْ﴾',
+      english: 'Indeed, Allah will not change the condition of a people until they change what is in themselves.',
+      sourceArabic: 'سورة الرعد، ١١',
+      sourceEnglish: 'Quran 13:11',
+    ),
+    DailyQuote(
+      category: _motivation,
+      arabic:
+          'الْمُؤْمِنُ الْقَوِيُّ خَيْرٌ وَأَحَبُّ إِلَى اللَّهِ مِنَ الْمُؤْمِنِ الضَّعِيفِ، وَفِي كُلٍّ خَيْرٌ. احْرِصْ عَلَى مَا يَنْفَعُكَ وَاسْتَعِنْ بِاللَّهِ وَلَا تَعْجِزْ',
+      english:
+          'The strong believer is better and more beloved to Allah than the weak believer, though both have good. Strive for what benefits you, seek Allah’s help, and do not give up.',
+      sourceArabic: 'رواه مسلم',
+      sourceEnglish: 'Muslim',
+    ),
+    DailyQuote(
+      category: _motivation,
+      arabic: 'إِنَّ اللَّهَ يُحِبُّ إِذَا عَمِلَ أَحَدُكُمْ عَمَلًا أَنْ يُتْقِنَهُ',
+      english: 'Indeed, Allah loves that when any of you does a job, he does it with excellence.',
+      sourceArabic: 'رواه البيهقي',
+      sourceEnglish: 'Al-Bayhaqi',
+    ),
+    DailyQuote(
+      category: _motivation,
+      arabic: 'أَحَبُّ الْأَعْمَالِ إِلَى اللَّهِ أَدْوَمُهَا وَإِنْ قَلَّ',
+      english: 'The most beloved deeds to Allah are the most consistent, even if small.',
+      sourceArabic: 'متفق عليه',
+      sourceEnglish: 'Bukhari & Muslim',
+    ),
+    DailyQuote(
+      category: _motivation,
+      arabic: 'نَفْسُكَ إِنْ لَمْ تَشْغَلْهَا بِالْحَقِّ شَغَلَتْكَ بِالْبَاطِلِ',
+      english: 'If you do not occupy yourself with what is right, it will occupy you with what is false.',
+      sourceArabic: 'منسوب إلى الإمام الشافعي',
+      sourceEnglish: 'Attributed to Imam al-Shafi‘i',
+    ),
+    DailyQuote(
+      category: _motivation,
+      arabic: 'قِيمَةُ كُلِّ امْرِئٍ مَا يُحْسِنُهُ',
+      english: 'The worth of every person lies in what he does well.',
+      sourceArabic: 'منسوب إلى علي بن أبي طالب',
+      sourceEnglish: 'Attributed to Ali ibn Abi Talib',
+    ),
+    DailyQuote(
+      category: _motivation,
+      arabic: 'عَلَى قَدْرِ أَهْلِ الْعَزْمِ تَأْتِي الْعَزَائِمُ',
+      english: 'Great deeds come in proportion to the resolve of those who undertake them.',
+      sourceArabic: 'المتنبي',
+      sourceEnglish: 'Al-Mutanabbi',
+    ),
+    DailyQuote(
+      category: _motivation,
+      arabic: 'وَمَا نَيْلُ الْمَطَالِبِ بِالتَّمَنِّي وَلَكِنْ تُؤْخَذُ الدُّنْيَا غِلَابَا',
+      english: 'Goals are not won by wishing; the world is taken by striving.',
+      sourceArabic: 'أحمد شوقي',
+      sourceEnglish: 'Ahmad Shawqi',
+    ),
+    DailyQuote(
+      category: _motivation,
+      arabic: 'وَمَنْ يَتَهَيَّبْ صُعُودَ الْجِبَالِ يَعِشْ أَبَدَ الدَّهْرِ بَيْنَ الْحُفَرِ',
+      english: 'He who fears climbing mountains will live forever among the pits.',
+      sourceArabic: 'أبو القاسم الشابي',
+      sourceEnglish: 'Abu al-Qasim al-Shabbi',
+    ),
+    DailyQuote(
+      category: _motivation,
+      arabic: 'مَنْ جَدَّ وَجَدَ، وَمَنْ زَرَعَ حَصَدَ',
+      english: 'Whoever strives, finds; whoever sows, reaps.',
+      sourceArabic: 'مثل عربي',
+      sourceEnglish: 'Arabic proverb',
+    ),
+    DailyQuote(
+      category: _motivation,
+      arabic: 'أَفْضَلُ وَقْتٍ لِزِرَاعَةِ شَجَرَةٍ كَانَ قَبْلَ عِشْرِينَ عَامًا، وَثَانِي أَفْضَلِ وَقْتٍ هُوَ الْآنَ',
+      english: 'The best time to plant a tree was twenty years ago. The second best time is now.',
+      sourceArabic: 'مثل صيني',
+      sourceEnglish: 'Chinese proverb',
+    ),
+    DailyQuote(
+      category: _motivation,
+      arabic: 'لَا يَلْزَمُكَ أَنْ تَكُونَ عَظِيمًا لِتَبْدَأَ، لَكِنْ عَلَيْكَ أَنْ تَبْدَأَ لِتَكُونَ عَظِيمًا',
+      english: 'You don’t have to be great to start, but you have to start to be great.',
+      sourceArabic: 'زيج زيغلار',
+      sourceEnglish: 'Zig Ziglar',
+    ),
+    DailyQuote(
+      category: _motivation,
+      arabic: 'وَقْتُكَ مَحْدُودٌ، فَلَا تُضَيِّعْهُ فِي عَيْشِ حَيَاةِ شَخْصٍ آخَرَ',
+      english: 'Your time is limited, so don’t waste it living someone else’s life.',
+      sourceArabic: 'ستيف جوبز',
+      sourceEnglish: 'Steve Jobs',
+    ),
+    DailyQuote(
+      category: _motivation,
+      arabic: 'النَّجَاحُ هُوَ حَاصِلُ جُهُودٍ صَغِيرَةٍ تَتَكَرَّرُ يَوْمًا بَعْدَ يَوْمٍ',
+      english: 'Success is the sum of small efforts, repeated day in and day out.',
+      sourceArabic: 'روبرت كولير',
+      sourceEnglish: 'Robert Collier',
+    ),
+    DailyQuote(
+      category: _motivation,
+      arabic: 'مَا تَفْعَلُهُ الْيَوْمَ يُمْكِنُ أَنْ يُحَسِّنَ كُلَّ غَدٍ لَكَ',
+      english: 'What you do today can improve all your tomorrows.',
+      sourceArabic: 'رالف مارستون',
+      sourceEnglish: 'Ralph Marston',
+    ),
+    DailyQuote(
+      category: _motivation,
+      arabic: 'الْأَعْمَالُ الصَّغِيرَةُ الْمُنْجَزَةُ خَيْرٌ مِنَ الْأَعْمَالِ الْعَظِيمَةِ الْمُخَطَّطِ لَهَا',
+      english: 'Small deeds done are better than great deeds planned.',
+      sourceArabic: 'بيتر مارشال',
+      sourceEnglish: 'Peter Marshall',
+    ),
+    DailyQuote(
+      category: _motivation,
+      arabic: 'بَعْدَ عَامٍ مِنَ الْآنَ قَدْ تَتَمَنَّى لَوْ بَدَأْتَ الْيَوْمَ',
+      english: 'A year from now you may wish you had started today.',
+      sourceArabic: 'كارين لامب',
+      sourceEnglish: 'Karen Lamb',
+    ),
+    DailyQuote(
+      category: _motivation,
+      arabic: 'طَرِيقُ الْبِدَايَةِ أَنْ تَكُفَّ عَنِ الْكَلَامِ وَتَبْدَأَ بِالْفِعْلِ',
+      english: 'The way to get started is to quit talking and begin doing.',
+      sourceArabic: 'منسوب إلى والت ديزني',
+      sourceEnglish: 'Attributed to Walt Disney',
+    ),
+  ];
+}

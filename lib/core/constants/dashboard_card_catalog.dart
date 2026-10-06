@@ -3,21 +3,24 @@ class DashboardCardCatalog {
 
   static const String cardOrderSetting = 'dashboardCardOrder';
   static const String hiddenCardsSetting = 'dashboardHiddenCards';
+  static const String showQuoteSetting = 'dashboardShowQuote';
 
   static const String today = 'today';
   static const String weather = 'weather';
   static const String currency = 'currency';
   static const String goals = 'goals';
   static const String agenda = 'agenda';
+  static const String age = 'age';
 
-  static const List<String> defaultOrder = <String>[today, weather, goals, currency, agenda];
+  static const List<String> defaultOrder = <String>[age, today, weather, goals, currency, agenda];
 
   static const Map<String, String> labels = <String, String>{
     today: 'Today at a glance',
     weather: 'Weather',
     currency: 'Exchange rates',
     goals: "Today's goals",
-    agenda: "Today's agenda",
+    agenda: "Today's tasks",
+    age: 'My age',
   };
 
   static List<String> resolveOrder(Object? savedOrder) {

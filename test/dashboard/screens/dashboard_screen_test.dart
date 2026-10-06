@@ -11,6 +11,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import '../../planning/planning_fakes.dart';
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
@@ -22,6 +24,8 @@ void main() {
         appStateManagerProvider.overrideWithValue(appStateManager),
         prayerCountProvider.overrideWithValue(0),
         quranPagesTodayProvider.overrideWithValue(0),
+        planningTaskRepositoryProvider.overrideWithValue(FakePlanningTaskRepository()),
+        taskCategoryRepositoryProvider.overrideWithValue(FakeTaskCategoryRepository()),
       ];
 
   Widget host(List<Override> overrides) => ProviderScope(
@@ -31,6 +35,10 @@ void main() {
 
   testWidgets('should show the friendly message and a Retry button when weather fails', (tester) async {
     var weatherCallCount = 0;
+    tester.view.physicalSize = const Size(800, 1800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
 
     await tester.pumpWidget(host([
       weatherProvider.overrideWith((ref) async {

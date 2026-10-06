@@ -90,6 +90,12 @@ class _DashboardSettingsScreenState extends ConsumerState<DashboardSettingsScree
             padding: EdgeInsets.zero,
             child: Column(
               children: [
+                SwitchListTile(
+                  title: const Text('Quote of the day'),
+                  subtitle: const Text('Shown at the top of the dashboard'),
+                  value: _settings[DashboardCardCatalog.showQuoteSetting] != false,
+                  onChanged: (value) => _update(DashboardCardCatalog.showQuoteSetting, value),
+                ),
                 for (final cardId in DashboardCardCatalog.defaultOrder)
                   SwitchListTile(
                     title: Text(DashboardCardCatalog.labels[cardId]!),
