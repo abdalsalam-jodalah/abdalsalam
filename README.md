@@ -1,106 +1,129 @@
-# Abdalsalam - Personal Life Management App
+# Abdalsalam - My Life, In One App
 
-A comprehensive Flutter application for managing all aspects of daily life through data-driven insights. Built as a personal all-in-one solution for tracking religious practices, finances, habits, health, and more.
+A personal Flutter app that manages everything in my life in one place, in a customizable way that I can keep refining over time.
 
-## 🎯 Vision
+## 📖 The Story
 
-Personal productivity and life tracking app that puts data first. Everything is logged, structured, and exportable for future AI-driven insights and analysis.
+This app is **for me, and only me**. That is why it carries my name: *Abdalsalam*.
+
+I did not want ten apps that each hold a slice of my life and never talk to each other. I wanted one place where my prayers, money, habits, health, plans, notes, and days all live together, shaped exactly around how I actually live. Nothing here is built for a crowd. There are no accounts, no multi-user concerns, and no public release. Every decision serves one person's real workflow.
+
+It is not meant to be finished on day one. It is meant to **grow with me**: every screen, card, and setting is customizable, and I refine it as my life changes. The data is logged, structured, and fully exportable, so the app can eventually reason about my life, not just record it.
+
+The journey goes like this:
+
+1. **Today**: it runs on all my devices and keeps working offline. Everything is stored locally, and phone and computer stay in step through backup/restore and device sync.
+2. **Next**: it becomes a comprehensive platform with its own **backend**, stable and always available, still just for me.
+3. **Later**: it runs natively and persistently on my Mac, then gains AI that understands my data, then connects to the outside tools I use.
+
+There is a second purpose too: **this app is how I learn**. I use it to pick up new concepts, patterns, and technologies by building real things I actually use, instead of toy examples. Clean Architecture, Riverpod, offline-first sync, notifications and timezones, backup formats, and eventually backend and AI work all get learned here, in a codebase that matters to me.
 
 ## ✨ Features
 
+### 🏠 Dashboard
+- Personal hero greeting with the date and time of day
+- Quote of the day (can be switched off in settings)
+- "My age" card tracking life progress
+- Today at a glance: prayers (with voluntary prayers shown as "for God"), Quran pages, goals, and tasks
+- Live "Today's tasks" card that you can tick off directly from the dashboard
+- Weather and exchange-rate cards
+- Responsive multi-column layout on wide screens
+- Cards can be reordered and hidden from Dashboard settings
+
 ### 📿 Religious Tracking
-- 5 daily prayer logging with on-time tracking
+- Five daily prayer logging with on-time tracking against calculated prayer times
+- Voluntary prayers ("for God") logged separately, without affecting daily completion or streaks
 - Quran reading progress
-- Spiritual progress monitoring
-- Automated reminders
+- Streaks, completion rate, and on-time statistics
+- Prayer reminders
+
+### 🗓️ Planning
+- **Day planning board**: list and column views, custom day ranges, an unassigned-tasks panel, and drag and drop between days with auto-scroll
+- **Task categories**: colored categories you create and manage, assigned to tasks (a task can have several)
+- Goals, reviews, life plan topics, and achievements
 
 ### 💰 Financial Management
 - Expense and income tracking
 - Category-based budgeting
-- Financial insights and reports
-- Export for analysis
+- Interactive exchange rates (USD and JOD against ILS) with a 30-day chart and per-currency toggles
+- Financial insights and exports
 
 ### 🎯 Habits & Daily Events
 - Habit tracking with streaks
-- Daily journaling
-- Mood tracking
-- Pattern analysis
+- Daily journaling and mood tracking
 
-### 🏃 Sports & Fitness
-- Workout logging
-- Exercise tracking
-- Progress visualization
-- Workout schedules
-
-### 🏥 Health Management
-- Medication reminders
-- Vitamin tracking
-- Blood test scheduling
-- Health metrics logging
+### 🏃 Sports, 🏥 Health, 🍽️ Food & 😴 Sleep
+- Workout and exercise logging
+- Medications, vitamins, and health metrics
+- Food and sleep tracking
 
 ### 📝 Notes & Tasks
-- Rich text notes
-- Todo lists with priorities
-- Categories and tags
-- Search functionality
+- Notes with categories
+- Todo lists
 
-### 📅 Calendar Integration
-- Built-in calendar
-- Google Calendar sync
-- Event management
+### 📅 Calendar
+- Built-in calendar and event management
 - Unified reminders
+
+### 🌦️ Weather
+- Live conditions and hourly forecast from Open-Meteo
+- Day/night aware icons and a redesigned, expandable weather card
 
 ### 🔐 Security Vault
 - Biometric-protected password manager
 - Encrypted credential storage
-- Password generator
-- Secure export
 
-### 📊 Dashboard & Analytics
-- Module overview cards
-- Statistics and trends
-- Progress tracking
-- Visual analytics
+### 💾 Data Ownership
+- Zip backups with attachments, restore (replace or merge), and backup reminders
+- Readable per-module JSON and CSV export
+- Device sync between phone and Mac over USB
+- Notification and reminder diagnostics to verify delivery on the device
+
+### 🧩 App Enhancements
+- A built-in place to capture ideas for improving the app itself
 
 ## 🚀 Tech Stack
 
 - **Framework**: Flutter (Dart 3.11.1+)
 - **Core Package**: [abdalsalam_logic_flutter](https://pub.dev/packages/abdalsalam_logic_flutter)
-- **State Management**: Riverpod (recommended)
-- **Storage**: StorageGateway (SQLite + Hive + SharedPreferences)
-- **Authentication**: Firebase Auth
-- **Notifications**: FCM + flutter_local_notifications
-- **Security**: flutter_secure_storage + biometric auth
+- **State Management**: Riverpod
+- **Storage**: `StorageGateway` (SQLite-backed key/value + SharedPreferences), local-first
+- **Notifications**: flutter_local_notifications with timezone-aware scheduling
+- **Security**: flutter_secure_storage, local_auth, encrypt
+- **Prayer Times**: adhan
+- **Charts**: fl_chart
+- **Weather**: Open-Meteo API
+- **Backup & Export**: archive (zip), pdf, printing
 
 ## 📁 Project Structure
 
 ```
 lib/
-├── core/           # Core functionality (theme, router, constants)
-├── data/           # Data layer (models, repositories)
-├── features/       # Feature modules (religious, financial, etc.)
-└── shared/         # Shared components and services
+├── core/           # Theme, router, constants, errors, result, formatting
+├── data/           # Models and repositories, grouped by domain
+├── features/       # Feature modules (religious, financial, planning, dashboard, ...)
+├── providers/      # App-wide Riverpod providers
+└── shared/         # Infrastructure, cross-feature services and widgets
 ```
 
 ## 🏗️ Architecture
 
 - **Clean Architecture** with feature-based organization
-- **Offline-First**: All functionality works without internet
-- **Data-First**: Everything is logged and exportable
-- **Modular**: Easy to add/remove features
-- **Secure**: Encryption and biometric authentication
+- **Offline-First**: all functionality works without internet
+- **Data-First**: everything is logged and exportable
+- **Modular**: easy to add or remove features
+- **Customizable**: dashboard, sidebar, and per-module settings are all adjustable
 
 ### 🎯 Baseline Requirements (MANDATORY)
 
 **ALL implementations MUST follow the baseline:**
 - **Models** → Extend `BaseModel`
-- **Repositories** → Implement `BaseRepository<T>` (24 methods)
-- **Services** → Implement `BaseService<T>` (29 methods)
-- **Operations** → Return `Result<T, Error>`
+- **Repositories** → Implement `BaseRepository<T>`
+- **Services** → Implement `BaseService<T>`
+- **Operations** → Return `Result<T, AppError>`
 - **Export/Import** → Full metadata support
 - **Logging** → Comprehensive operation logging
 - **Validation** → All inputs validated
-- **State Awareness** → Online/offline, battery-aware
 
 📖 **See [BASELINE_REQUIREMENTS.md](docs/BASELINE_REQUIREMENTS.md) for complete details**
 
@@ -110,67 +133,41 @@ lib/
 - **[Getting Started](docs/GETTING_STARTED.md)** - Setup and development guide
 - **[Project Overview](docs/PROJECT_OVERVIEW.md)** - Detailed feature documentation
 - **[Quick Reference](docs/QUICK_REFERENCE.md)** - Command cheat sheet
+- **[Robustness Plan](docs/ROBUSTNESS_PLAN.md)** - Hardening standards and backlog
 - **[Steering Summary](docs/STEERING_SUMMARY.md)** - Overview of all steering docs
-- **Steering Documents** (`.kiro/steering/`):
-  - `base-classes.md` - ⭐ Base class definitions (CRITICAL)
-  - `service-baseline.md` - ⭐ Service requirements (CRITICAL)
-  - `implementation-checklist.md` - ⭐ Step-by-step guide (CRITICAL)
-  - `product.md` - Product vision and modules
-  - `architecture.md` - Architecture guidelines
-  - `coding-standards.md` - Code style and best practices
-  - `data-models.md` - Data schema guidelines
-  - `ui-ux-guidelines.md` - UI/UX patterns
-  - `dependencies.md` - Package management
-  - `abdalsalam-package.md` - Core package integration
-  - `tech.md` - Tech stack and commands
-  - `structure.md` - Project organization
+- **Steering Documents** (`.kiro/steering/`) describe intended architecture and standards. Treat them as intent and verify against the code in `lib/`.
 
 ## 🛠️ Quick Start
 
 ```bash
-# Install dependencies
 flutter pub get
-
-# Run the app
 flutter run
-
-# Run tests
 flutter test
-
-# Build for release
 flutter build apk --release
 ```
 
 ## 🔧 Development
 
-### Code Quality
 ```bash
 flutter analyze          # Analyze code
 flutter format lib/      # Format code
 flutter test --coverage  # Run tests with coverage
 ```
 
-### Hooks
-Automated workflows in `.kiro/hooks/`:
-- `analyze-on-save.json` - Run analyzer on file save
-- `format-on-save.json` - Auto-format on save
-- `review-data-models.json` - Review model changes
-- `security-check.json` - Security validation
-- `test-reminder.json` - Remind to write tests
-
 ## 🎨 Design Philosophy
 
-- **Personal & Functional**: Clean, minimal interface
-- **Data Visualization**: Charts and insights
-- **Quick Access**: Efficient workflows for daily logging
-- **Dashboard-First**: Overview with module deep-dives
+- **Personal & Functional**: clean, minimal interface built around one person
+- **Refinable**: easy to adjust as my life and needs change
+- **Quick Access**: efficient workflows for daily logging
+- **Dashboard-First**: overview with module deep-dives
 
-## 🔮 Future Roadmap
+## 🔮 Roadmap
 
-1. **Phase 1**: Core features and local storage ✅
-2. **Phase 2**: Enhanced analytics and visualizations
-3. **Phase 3**: AI-driven insights and suggestions
-4. **Phase 4**: Server integration and cloud sync
+1. **Phase 1 (current)**: finish every existing module to a solid, cohesive state, running on all my devices
+2. **Phase 2**: replace local-only storage with a simple custom backend, stable and still single-user
+3. **Phase 3**: native macOS app on my own device, running persistently ("always live")
+4. **Phase 4**: AI that understands my data
+5. **Phase 5**: integrate with external services and tools as needed
 
 ## 📄 License
 
@@ -181,7 +178,3 @@ Personal project - All rights reserved
 Abdalsalam
 - Email: abed.alsalam.jodalah@gmail.com
 - Package: [abdalsalam_logic_flutter](https://pub.dev/packages/abdalsalam_logic_flutter)
-
-## 🙏 Acknowledgments
-
-Built with Flutter and powered by `abdalsalam_logic_flutter` - a comprehensive logic package with 20+ reusable modules.
