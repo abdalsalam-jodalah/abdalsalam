@@ -17,6 +17,7 @@ import '../features/security/services/security_service.dart';
 import '../shared/infrastructure/database_schema_initializer.dart';
 import '../shared/infrastructure/logger_service.dart';
 import '../shared/infrastructure/storage_gateway.dart';
+import '../shared/services/notification_diagnostics_service.dart';
 import '../shared/services/notification_service.dart';
 import '../shared/services/analytics_engine.dart';
 import '../shared/services/achievement_service.dart';
@@ -137,6 +138,13 @@ final notificationServiceProvider = Provider<NotificationService>((ref) {
   return NotificationService(
     plugin: FlutterLocalNotificationsPlugin(),
     logger: ref.watch(loggerProvider),
+  );
+});
+
+final notificationDiagnosticsServiceProvider = Provider<NotificationDiagnosticsService>((ref) {
+  return NotificationDiagnosticsService(
+    notifications: ref.watch(notificationServiceProvider),
+    reminders: ref.watch(reminderServiceProvider),
   );
 });
 

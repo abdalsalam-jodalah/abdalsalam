@@ -9,6 +9,7 @@ import '../../../shared/widgets/app_feedback.dart';
 import '../../../shared/widgets/ui/app_card.dart';
 import '../../../shared/widgets/ui/picker_list_tile.dart';
 import '../../dashboard/widgets/sidebar_auto_close_timer.dart';
+import '../widgets/notification_diagnostics_dialog.dart';
 import '../widgets/settings_section_header.dart';
 import 'data_management_screen.dart';
 
@@ -182,6 +183,12 @@ class _GeneralSettingsScreenState extends ConsumerState<GeneralSettingsScreen> {
                   title: const Text('Respect Do Not Disturb'),
                   subtitle: const Text('Deliver reminders at a low-interruption level'),
                   onChanged: (value) => _update('respectDoNotDisturb', value),
+                ),
+                ListTile(
+                  leading: const Icon(Icons.notifications_active_outlined),
+                  title: const Text('Test notifications and reminders'),
+                  subtitle: const Text('Sends a notification now and one in a minute, then checks your reminders'),
+                  onTap: () => unawaited(showNotificationDiagnosticsDialog(context, ref)),
                 ),
               ],
             ),

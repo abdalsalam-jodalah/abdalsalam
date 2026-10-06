@@ -198,6 +198,15 @@ class NotificationService {
     });
   }
 
+  Future<Result<bool, AppError>> canScheduleExactAlarms() {
+    return _guard('canScheduleExactAlarms', () async {
+      final androidPlugin =
+          plugin.resolvePlatformSpecificImplementation<
+              AndroidFlutterLocalNotificationsPlugin>();
+      return await androidPlugin?.canScheduleExactNotifications() ?? true;
+    });
+  }
+
   /// Whether the OS currently allows this app to post notifications, per
   /// the platform's own authorization/enabled check. `true` on a platform
   /// with no such concept (or if the plugin can't answer), so callers only
