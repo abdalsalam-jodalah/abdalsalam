@@ -7,6 +7,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'app/bootstrap/startup_status_banner.dart';
 import 'core/router/app_router.dart';
+import 'features/financial/providers/financial_providers.dart';
+import 'features/religious/providers/athkar_providers.dart';
+import 'features/religious/providers/prayer_providers.dart';
 import 'features/religious/providers/religious_tracking_providers.dart';
 import 'core/theme/app_theme_builder.dart';
 import 'features/dashboard/screens/app_shell_screen.dart';
@@ -36,6 +39,8 @@ class _AbdalsalamAppState extends ConsumerState<AbdalsalamApp> with WidgetsBindi
       unawaited(_runAutoBackupIfDue());
       ref.read(syncQueueProcessorProvider);
       ref.read(religiousSyncSchedulerProvider).start();
+      ref.read(financialStartupTasksProvider);
+      unawaited(ref.read(athkarServiceProvider).scheduleSuggestionReminders(userId: demoUserId));
       final reminders = ref.read(reminderServiceProvider);
       _reminderTapSubscription = reminders.tapStream.listen((payload) async {
         final route = reminders.routeForPayload(payload);

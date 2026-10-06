@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_theme_tokens.dart';
 import '../../../providers/app_providers.dart';
 import '../../../shared/widgets/ui/glass_surface.dart';
+import '../../../shared/widgets/ui/lazy_indexed_stack.dart';
 import '../../analytics/screens/analytics_screen.dart';
 import '../../calendar/screens/calendar_screen.dart';
 import '../../dashboard/screens/dashboard_screen.dart';
@@ -345,7 +346,7 @@ class _AppShellScreenState extends ConsumerState<AppShellScreen> {
 
     final content = Semantics(
       label: '${selected.label} page',
-      child: IndexedStack(
+      child: LazyIndexedStack(
         index: _index,
         children: _destinations.map((item) => item.page).toList(growable: false),
       ),

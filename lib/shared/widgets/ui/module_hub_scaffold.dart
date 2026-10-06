@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../core/theme/app_theme_tokens.dart';
 import 'adaptive_nav_bar.dart';
 import 'glass_surface.dart';
+import 'lazy_indexed_stack.dart';
 import 'module_hub_destination.dart';
 
 class ModuleHubScaffold extends StatefulWidget {
@@ -32,7 +33,7 @@ class _ModuleHubScaffoldState extends State<ModuleHubScaffold> {
       floatingActionButton: widget.floatingActionButton,
       body: SafeArea(
         bottom: false,
-        child: IndexedStack(
+        child: LazyIndexedStack(
           index: _selectedIndex,
           children: [for (final destination in widget.destinations) destination.page],
         ),
