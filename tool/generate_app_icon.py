@@ -47,7 +47,21 @@ ANDROID_ADAPTIVE_SIZES = {
 MACOS_SIZES = (16, 32, 64, 128, 256, 512, 1024)
 WEB_SIZES = (192, 512)
 WINDOWS_ICO_SIZES = (16, 24, 32, 48, 64, 128, 256)
-IOS_FILENAME_PATTERN = "Icon-App-{base}x{base}@{scale}x.png"
+LAUNCH_EMBLEM_DENSITIES = {
+    "drawable-mdpi": 160,
+    "drawable-hdpi": 240,
+    "drawable-xhdpi": 320,
+    "drawable-xxhdpi": 480,
+    "drawable-xxxhdpi": 640,
+}
+IOS_LAUNCH_IMAGES = {
+    "LaunchImage.png": 160,
+    "LaunchImage@2x.png": 320,
+    "LaunchImage@3x.png": 480,
+}
+WEB_LAUNCH_EMBLEM_PIXELS = 320
+FLUTTER_TILE_PIXELS = 512
+FLUTTER_BRANDING_DIRECTORY = "assets/branding"
 
 ADAPTIVE_ICON_XML = """<?xml version="1.0" encoding="utf-8"?>
 <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
@@ -106,12 +120,14 @@ def build_tile_mask(size, quadrant, radius, gap, inner_corner):
     return softened.point(lambda value: 255 if value >= MASK_THRESHOLD else 0)
 
 
-def build_emblem(size, scale=1.0):
+def build_emblem(size, scale=1.0, quadrants=None):
     radius = size * EMBLEM_RADIUS_RATIO * scale
     gap = size * TILE_GAP_RATIO * scale
     inner_corner = size * TILE_INNER_CORNER_RATIO * scale
     emblem = Image.new("RGBA", (size, size), (0, 0, 0, 0))
     for quadrant, (start, end) in TILE_COLORS.items():
+        if quadrants is not None and quadrant not in quadrants:
+            continue
         mask = build_tile_mask(size, quadrant, radius, gap, inner_corner)
         emblem.paste(build_diagonal_gradient(size, start, end), (0, 0), mask)
     return emblem
@@ -136,6 +152,15 @@ def render_foreground(size):
     canvas = size * SUPERSAMPLE
     emblem = build_emblem(canvas, ADAPTIVE_EMBLEM_SCALE)
     return emblem.resize((size, size), Image.LANCZOS)
+
+
+def render_cropped_emblem(pixels, quadrants=None):
+    target = pixels * SUPERSAMPLE
+    canvas = round(target / (2 * EMBLEM_RADIUS_RATIO))
+    emblem = build_emblem(canvas, quadrants=quadrants)
+    left = (canvas - target) // 2
+    cropped = emblem.crop((left, left, left + target, left + target))
+    return cropped.resize((pixels, pixels), Image.LANCZOS)
 
 
 def render_rounded(size, corner_ratio):
@@ -176,7 +201,24 @@ def write_android():
     adaptive_directory = resources / "mipmap-anydpi-v26"
     adaptive_directory.mkdir(parents=True, exist_ok=True)
     (adaptive_directory / "ic_launcher.xml").write_text(ADAPTIVE_ICON_XML)
+    for density, pixels in LAUNCH_EMBLEM_DENSITIES.items():
+        write_png(render_cropped_emblem(pixels), resources / density / "launch_emblem.png")
     (resources / "values/ic_launcher_background.xml").write_text(ADAPTIVE_BACKGROUND_XML)
+
+
+def write_launch_assets():
+    launch_image_directory = PROJECT_ROOT / "ios/Runner/Assets.xcassets/LaunchImage.imageset"
+    for filename, pixels in IOS_LAUNCH_IMAGES.items():
+        write_png(render_cropped_emblem(pixels), launch_image_directory / filename)
+    write_png(
+        render_cropped_emblem(WEB_LAUNCH_EMBLEM_PIXELS),
+        PROJECT_ROOT / "web/icons/launch_emblem.png",
+    )
+    for quadrant in TILE_COLORS:
+        write_png(
+            render_cropped_emblem(FLUTTER_TILE_PIXELS, {quadrant}),
+            PROJECT_ROOT / FLUTTER_BRANDING_DIRECTORY / f"emblem_{quadrant}.png",
+        )
 
 
 def write_macos():
@@ -218,6 +260,7 @@ def main():
         return
     write_ios()
     write_android()
+    write_launch_assets()
     write_macos()
     write_web()
     write_windows()

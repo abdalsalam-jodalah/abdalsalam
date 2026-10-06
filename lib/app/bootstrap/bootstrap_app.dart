@@ -9,6 +9,7 @@ import '../../providers/appearance_controller.dart';
 import '../error_handling/app_provider_observer.dart';
 import 'app_bootstrap_result.dart';
 import 'app_bootstrapper.dart';
+import 'app_splash_screen.dart';
 import 'startup_recovery_screen.dart';
 
 class BootstrapApp extends StatefulWidget {
@@ -19,13 +20,22 @@ class BootstrapApp extends StatefulWidget {
 }
 
 class _BootstrapAppState extends State<BootstrapApp> {
+  static const Duration _minimumSplashDuration = Duration(milliseconds: 1400);
+
   final AppBootstrapper _bootstrapper = AppBootstrapper();
   late Future<AppBootstrapResult> _bootstrapFuture;
 
   @override
   void initState() {
     super.initState();
-    _bootstrapFuture = _bootstrapper.bootstrap();
+    _bootstrapFuture = _bootstrapWithMinimumSplash();
+  }
+
+  Future<AppBootstrapResult> _bootstrapWithMinimumSplash() async {
+    final minimumSplash = Future<void>.delayed(_minimumSplashDuration);
+    final result = await _bootstrapper.bootstrap();
+    await minimumSplash;
+    return result;
   }
 
   @override
@@ -50,7 +60,7 @@ class _BootstrapAppState extends State<BootstrapApp> {
         if (snapshot.connectionState != ConnectionState.done) {
           return const MaterialApp(
             debugShowCheckedModeBanner: false,
-            home: Scaffold(body: Center(child: CircularProgressIndicator())),
+            home: AppSplashScreen(),
           );
         }
 

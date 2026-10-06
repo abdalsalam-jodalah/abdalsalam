@@ -58,6 +58,7 @@ flutter:
     enable-swift-package-manager: false
   assets:
     - assets/data/athkar_content.json
+    - assets/branding/
   fonts:
     - family: Inter
       fonts:
