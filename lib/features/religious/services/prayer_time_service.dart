@@ -93,6 +93,6 @@ class PrayerTimeService {
   }
 
   bool _hasAllPrayers(Map<String, DateTime> times) {
-    return PrayerName.values.every((prayer) => times.containsKey(prayer.name));
+    return PrayerName.obligatory.every((prayer) => times.containsKey(prayer.name));
   }
 }

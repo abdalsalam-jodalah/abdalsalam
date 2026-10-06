@@ -30,25 +30,36 @@ Future<PrayerLogResult?> showPrayerLogDialog(
   BuildContext context,
   WidgetRef ref, {
   required DateTime? initialScheduledAt,
+  PrayerName initialPrayer = PrayerName.fajr,
 }) {
   return showDialog<PrayerLogResult>(
     context: context,
-    builder: (_) => PrayerLogDialogContent(ref: ref, initialScheduledAt: initialScheduledAt),
+    builder: (_) =>
+        PrayerLogDialogContent(ref: ref, initialScheduledAt: initialScheduledAt, initialPrayer: initialPrayer),
   );
 }
 
 class PrayerLogDialogContent extends StatefulWidget {
   final WidgetRef ref;
   final DateTime? initialScheduledAt;
+  final PrayerName initialPrayer;
 
-  const PrayerLogDialogContent({super.key, required this.ref, required this.initialScheduledAt});
+  const PrayerLogDialogContent({
+    super.key,
+    required this.ref,
+    required this.initialScheduledAt,
+    this.initialPrayer = PrayerName.fajr,
+  });
 
   @override
   State<PrayerLogDialogContent> createState() => _PrayerLogDialogContentState();
 }
 
 class _PrayerLogDialogContentState extends State<PrayerLogDialogContent> {
-  PrayerName selectedPrayer = PrayerName.fajr;
+  static const String _voluntaryHint =
+      'A voluntary prayer you offer for God. It does not count toward the five daily prayers.';
+
+  late PrayerName selectedPrayer = widget.initialPrayer;
   DateTime prayedAt = DateTime.now();
   bool overrideOnTime = false;
   bool manualOnTime = true;
@@ -68,6 +79,10 @@ class _PrayerLogDialogContentState extends State<PrayerLogDialogContent> {
   }
 
   Future<void> _refreshScheduled(PrayerName prayer) async {
+    if (prayer.isVoluntary) {
+      setState(() => scheduledAt = null);
+      return;
+    }
     try {
       final snapshot = await widget.ref.read(todayPrayerTimesProvider.future);
       if (!mounted) return;
@@ -88,7 +103,7 @@ class _PrayerLogDialogContentState extends State<PrayerLogDialogContent> {
       PrayerLogResult(
         prayer: selectedPrayer,
         prayedAt: prayedAt,
-        overrideOnTime: overrideOnTime,
+        overrideOnTime: selectedPrayer.isObligatory && overrideOnTime,
         manualOnTime: manualOnTime,
         notes: notesController.text.trim().isEmpty ? null : notesController.text.trim(),
       ),
@@ -112,7 +127,7 @@ class _PrayerLogDialogContentState extends State<PrayerLogDialogContent> {
           DropdownButtonFormField<PrayerName>(
             initialValue: selectedPrayer,
             items: PrayerName.values
-                .map((prayer) => DropdownMenuItem(value: prayer, child: Text(prayer.name.toUpperCase())))
+                .map((prayer) => DropdownMenuItem(value: prayer, child: Text(prayer.label)))
                 .toList(growable: false),
             onChanged: (value) async {
               if (value != null) {
@@ -123,6 +138,8 @@ class _PrayerLogDialogContentState extends State<PrayerLogDialogContent> {
             decoration: const InputDecoration(labelText: 'Prayer'),
           ),
           SizedBox(height: tokens.spacing.md),
+          if (selectedPrayer.isVoluntary)
+            Text(_voluntaryHint, key: const ValueKey('voluntary-hint'), style: theme.textTheme.bodyMedium),
           if (scheduledAt != null)
             Text('Scheduled: ${AppDateFormatter.time(scheduledAt!)}', style: theme.textTheme.bodyMedium),
           SizedBox(height: tokens.spacing.sm),
@@ -144,13 +161,14 @@ class _PrayerLogDialogContentState extends State<PrayerLogDialogContent> {
             ),
           ],
           SizedBox(height: tokens.spacing.md),
-          SwitchListTile(
-            contentPadding: EdgeInsets.zero,
-            title: const Text('Manually override on-time status'),
-            value: overrideOnTime,
-            onChanged: (value) => setState(() => overrideOnTime = value),
-          ),
-          if (overrideOnTime)
+          if (selectedPrayer.isObligatory)
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Manually override on-time status'),
+              value: overrideOnTime,
+              onChanged: (value) => setState(() => overrideOnTime = value),
+            ),
+          if (selectedPrayer.isObligatory && overrideOnTime)
             SwitchListTile(
               contentPadding: EdgeInsets.zero,
               title: const Text('On time'),

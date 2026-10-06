@@ -144,7 +144,7 @@ void main() {
       final result = await service.previewSource(source: 'adhan', date: DateTime(2026, 9, 23));
 
       expect(result.isSuccess, isTrue);
-      expect(result.data, hasLength(PrayerName.values.length));
+      expect(result.data, hasLength(PrayerName.obligatory.length));
     });
 
     test('should persist the synced snapshot from the adhan source', () async {

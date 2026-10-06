@@ -48,7 +48,8 @@ class ReligiousService extends BaseServiceImpl<PrayerLog> {
     });
   }
 
-  double _completionRate(List<PrayerLog> logs) {
+  double _completionRate(List<PrayerLog> allLogs) {
+    final logs = allLogs.where((item) => item.prayerName.isObligatory).toList(growable: false);
     if (logs.isEmpty) {
       return 0;
     }
@@ -59,13 +60,13 @@ class ReligiousService extends BaseServiceImpl<PrayerLog> {
       grouped.putIfAbsent(key, () => <PrayerName>{}).add(item.prayerName);
     }
 
-    final fullDays = grouped.values.where((set) => set.length == PrayerName.values.length).length;
+    final fullDays = grouped.values.where((set) => set.length == PrayerName.obligatory.length).length;
     return (fullDays / grouped.length) * 100;
   }
 
-  int _currentStreak(List<PrayerLog> logs) {
+  int _currentStreak(List<PrayerLog> allLogs) {
     final grouped = <String, Set<PrayerName>>{};
-    for (final item in logs) {
+    for (final item in allLogs.where((item) => item.prayerName.isObligatory)) {
       final key = item.prayedAt.toIso8601String().split('T').first;
       grouped.putIfAbsent(key, () => <PrayerName>{}).add(item.prayerName);
     }
@@ -75,7 +76,7 @@ class ReligiousService extends BaseServiceImpl<PrayerLog> {
     while (true) {
       final key = date.toIso8601String().split('T').first;
       final completed = grouped[key];
-      if (completed == null || completed.length < PrayerName.values.length) {
+      if (completed == null || completed.length < PrayerName.obligatory.length) {
         break;
       }
       streak += 1;

@@ -350,7 +350,7 @@ class ReligiousTrackerService extends BaseServiceImpl<ReligiousEntry> {
     required DateTime createdAt,
     required String sourceLabel,
   }) {
-    for (final prayer in PrayerName.values) {
+    for (final prayer in PrayerName.obligatory) {
       if (!times.containsKey(prayer.name)) {
         return Failure(
           CorruptDataError(

@@ -37,7 +37,12 @@ final prayerLogsControllerProvider =
 
 final prayerCountProvider = Provider<int>((ref) {
   final value = ref.watch(prayerLogsControllerProvider);
-  return value.maybeWhen(data: (logs) => logs.length, orElse: () => 0);
+  return value.maybeWhen(data: (logs) => logs.where((log) => log.prayerName.isObligatory).length, orElse: () => 0);
+});
+
+final voluntaryPrayerCountProvider = Provider<int>((ref) {
+  final value = ref.watch(prayerLogsControllerProvider);
+  return value.maybeWhen(data: (logs) => logs.where((log) => log.prayerName.isVoluntary).length, orElse: () => 0);
 });
 
 final religiousStreakProvider = FutureProvider<int>((ref) async {
@@ -72,8 +77,10 @@ class PrayerLogsController extends AsyncNotifier<List<PrayerLog>> {
 
     DateTime? scheduledAt;
     try {
-      final snapshot = await ref.read(todayPrayerTimesProvider.future);
-      scheduledAt = scheduledTimeForPrayer(prayer, snapshot);
+      if (prayer.isObligatory) {
+        final snapshot = await ref.read(todayPrayerTimesProvider.future);
+        scheduledAt = scheduledTimeForPrayer(prayer, snapshot);
+      }
     } catch (error, stackTrace) {
       ref.read(loggerProvider).error(
             'Could not resolve today\'s scheduled prayer time for $prayer; '
@@ -109,12 +116,13 @@ class PrayerLogsController extends AsyncNotifier<List<PrayerLog>> {
   }
 }
 
-DateTime scheduledTimeForPrayer(PrayerName prayer, PrayerTimesSnapshot snapshot) {
+DateTime? scheduledTimeForPrayer(PrayerName prayer, PrayerTimesSnapshot snapshot) {
   return switch (prayer) {
     PrayerName.fajr => snapshot.fajr,
     PrayerName.dhuhr => snapshot.dhuhr,
     PrayerName.asr => snapshot.asr,
     PrayerName.maghrib => snapshot.maghrib,
     PrayerName.isha => snapshot.isha,
+    PrayerName.voluntary => null,
   };
 }

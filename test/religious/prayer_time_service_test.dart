@@ -22,7 +22,7 @@ void main() {
 
   Map<String, DateTime> fixedTimes() {
     return <String, DateTime>{
-      for (final prayer in PrayerName.values) prayer.name: DateTime(2026, 9, 23, prayer.index + 4),
+      for (final prayer in PrayerName.obligatory) prayer.name: DateTime(2026, 9, 23, prayer.index + 4),
     };
   }
 
@@ -35,8 +35,8 @@ void main() {
 
       expect(result.isSuccess, isTrue);
       final times = result.data!;
-      expect(times.keys, PrayerName.values.map((prayer) => prayer.name));
-      final ordered = PrayerName.values.map((prayer) => times[prayer.name]!).toList();
+      expect(times.keys, PrayerName.obligatory.map((prayer) => prayer.name));
+      final ordered = PrayerName.obligatory.map((prayer) => times[prayer.name]!).toList();
       for (var i = 1; i < ordered.length; i++) {
         expect(ordered[i].isAfter(ordered[i - 1]), isTrue);
       }
@@ -63,7 +63,7 @@ void main() {
       final result = await service.calculatePrayerTimes(date: date, latitude: latitude, longitude: longitude);
 
       expect(result.isSuccess, isTrue);
-      expect(result.data, hasLength(PrayerName.values.length));
+      expect(result.data, hasLength(PrayerName.obligatory.length));
       expect(cache.written, hasLength(1));
     });
 
@@ -77,7 +77,7 @@ void main() {
       final result = await service.calculatePrayerTimes(date: date, latitude: latitude, longitude: longitude);
 
       expect(result.isSuccess, isTrue);
-      expect(result.data, hasLength(PrayerName.values.length));
+      expect(result.data, hasLength(PrayerName.obligatory.length));
     });
 
     test('should fall back to the default method for an unknown method', () async {

@@ -5,6 +5,8 @@ import '../../../data/models/religious/prayer_log.dart';
 import '../../../shared/widgets/ui/entity_tile.dart';
 
 class PrayerLogTile extends StatelessWidget {
+  static const String _voluntaryLabel = 'Voluntary';
+
   final PrayerLog log;
 
   const PrayerLogTile({super.key, required this.log});
@@ -12,16 +14,20 @@ class PrayerLogTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final isVoluntary = log.prayerName.isVoluntary;
     return EntityTile(
-      icon: Icons.mosque_rounded,
-      accentColor: scheme.primary,
-      title: '${log.prayerName.name.toUpperCase()} • ${AppDateFormatter.shortDate(log.prayedAt)}',
+      icon: isVoluntary ? Icons.volunteer_activism_rounded : Icons.mosque_rounded,
+      accentColor: isVoluntary ? scheme.tertiary : scheme.primary,
+      title: '${log.prayerName.label.toUpperCase()} • ${AppDateFormatter.shortDate(log.prayedAt)}',
       subtitle: '${AppDateFormatter.time(log.prayedAt)}'
+          '${isVoluntary ? ' • $_voluntaryLabel' : ''}'
           '${log.scheduledAt != null ? ' • ${_deltaLabel(log)}' : ''}',
-      trailing: Icon(
-        log.onTime ? Icons.check_circle_rounded : Icons.schedule_rounded,
-        color: log.onTime ? scheme.primary : scheme.tertiary,
-      ),
+      trailing: isVoluntary
+          ? Icon(Icons.favorite_rounded, color: scheme.tertiary)
+          : Icon(
+              log.onTime ? Icons.check_circle_rounded : Icons.schedule_rounded,
+              color: log.onTime ? scheme.primary : scheme.tertiary,
+            ),
     );
   }
 
@@ -32,17 +38,7 @@ class PrayerLogTile extends StatelessWidget {
     }
     final minutes = delta.inMinutes.abs();
     return delta.isNegative
-        ? '$minutes min before ${_prayerLabel(log.prayerName)}'
-        : '$minutes min after ${_prayerLabel(log.prayerName)}';
-  }
-
-  static String _prayerLabel(PrayerName prayer) {
-    return switch (prayer) {
-      PrayerName.fajr => 'Fajr',
-      PrayerName.dhuhr => 'Dhuhr',
-      PrayerName.asr => 'Asr',
-      PrayerName.maghrib => 'Maghrib',
-      PrayerName.isha => 'Isha',
-    };
+        ? '$minutes min before ${log.prayerName.label}'
+        : '$minutes min after ${log.prayerName.label}';
   }
 }

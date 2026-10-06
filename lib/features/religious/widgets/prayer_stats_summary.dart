@@ -14,8 +14,10 @@ class PrayerStatsSummary extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final onTimeCount = allLogs.where((log) => log.onTime).length;
-    final onTimePercent = allLogs.isEmpty ? 0 : ((onTimeCount / allLogs.length) * _percentScale).round();
+    final obligatoryLogs = allLogs.where((log) => log.prayerName.isObligatory).toList(growable: false);
+    final voluntaryCount = allLogs.length - obligatoryLogs.length;
+    final onTimeCount = obligatoryLogs.where((log) => log.onTime).length;
+    final onTimePercent = obligatoryLogs.isEmpty ? 0 : ((onTimeCount / obligatoryLogs.length) * _percentScale).round();
     final accent = AppModuleAccents.forModule('religious');
 
     return StatGrid(
@@ -23,7 +25,7 @@ class PrayerStatsSummary extends StatelessWidget {
         StatTile(
           icon: Icons.mosque_rounded,
           label: 'Total Logs',
-          value: '${allLogs.length}',
+          value: '${obligatoryLogs.length}',
           accentColor: accent,
         ),
         StatTile(
@@ -31,6 +33,12 @@ class PrayerStatsSummary extends StatelessWidget {
           label: 'On Time',
           value: '$onTimePercent%',
           accentColor: accent,
+        ),
+        StatTile(
+          icon: Icons.volunteer_activism_rounded,
+          label: 'For God',
+          value: '$voluntaryCount',
+          accentColor: Theme.of(context).colorScheme.tertiary,
         ),
       ],
     );

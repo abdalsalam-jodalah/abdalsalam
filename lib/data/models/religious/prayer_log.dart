@@ -1,7 +1,25 @@
 import '../../../core/json/json_reader.dart';
 import '../../../data/models/base_model.dart';
 
-enum PrayerName { fajr, dhuhr, asr, maghrib, isha }
+enum PrayerName {
+  fajr('Fajr', 'الفجر'),
+  dhuhr('Dhuhr', 'الظهر'),
+  asr('Asr', 'العصر'),
+  maghrib('Maghrib', 'المغرب'),
+  isha('Isha', 'العشاء'),
+  voluntary('For God', 'لله (نافلة)');
+
+  static const List<PrayerName> obligatory = <PrayerName>[fajr, dhuhr, asr, maghrib, isha];
+
+  final String label;
+  final String arabicLabel;
+
+  const PrayerName(this.label, this.arabicLabel);
+
+  bool get isVoluntary => this == voluntary;
+
+  bool get isObligatory => !isVoluntary;
+}
 
 class PrayerLog extends BaseModel {
   static const String _jsonSource = 'PrayerLog';

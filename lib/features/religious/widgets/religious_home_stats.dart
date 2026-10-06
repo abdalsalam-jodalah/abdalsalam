@@ -18,6 +18,7 @@ class ReligiousHomeStats extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final streak = ref.watch(religiousStreakProvider);
     final prayersToday = ref.watch(prayerCountProvider);
+    final voluntaryToday = ref.watch(voluntaryPrayerCountProvider);
     final athkarToday = ref.watch(athkarTodayCountProvider);
     final quranPagesWeek = ref.watch(quranPagesThisWeekProvider);
     final accent = AppModuleAccents.forModule('religious');
@@ -35,6 +36,7 @@ class ReligiousHomeStats extends ConsumerWidget {
           icon: Icons.mosque_rounded,
           label: 'Prayers Today',
           value: '$prayersToday',
+          caption: voluntaryToday > 0 ? '+$voluntaryToday for God' : null,
           accentColor: accent,
         ),
         StatTile(

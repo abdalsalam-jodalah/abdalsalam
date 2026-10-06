@@ -109,6 +109,16 @@ class PrayerLogsScreen extends ConsumerWidget {
           ),
         ),
         AppSectionHeader(title: 'Today'),
+        Align(
+          alignment: AlignmentDirectional.centerStart,
+          child: OutlinedButton.icon(
+            key: const ValueKey('log-prayer-for-god'),
+            onPressed: () => _showAddDialog(context, ref, initialPrayer: PrayerName.voluntary),
+            icon: const Icon(Icons.volunteer_activism_rounded),
+            label: const Text('Log a prayer for God'),
+          ),
+        ),
+        SizedBox(height: tokens.spacing.sm),
         logsState.when(
           data: (logs) => logs.isEmpty
               ? Padding(
@@ -166,18 +176,18 @@ class PrayerLogsScreen extends ConsumerWidget {
 
   static Map<DateTime, int> _dailyCompletions(List<PrayerLog> logs) {
     final map = <DateTime, int>{};
-    for (final log in logs) {
+    for (final log in logs.where((log) => log.prayerName.isObligatory)) {
       final day = DateTime(log.prayedAt.year, log.prayedAt.month, log.prayedAt.day);
       map[day] = (map[day] ?? 0) + 1;
     }
     return map;
   }
 
-  Future<void> _showAddDialog(BuildContext context, WidgetRef ref) async {
+  Future<void> _showAddDialog(BuildContext context, WidgetRef ref, {PrayerName initialPrayer = PrayerName.fajr}) async {
     DateTime? scheduledAt;
     try {
       final snapshot = await ref.read(todayPrayerTimesProvider.future);
-      scheduledAt = scheduledTimeForPrayer(PrayerName.fajr, snapshot);
+      scheduledAt = scheduledTimeForPrayer(initialPrayer, snapshot);
     } catch (error, stackTrace) {
       ref.read(loggerProvider).error(
             'Could not resolve today\'s scheduled prayer time for the add-log dialog default.',
@@ -191,7 +201,12 @@ class PrayerLogsScreen extends ConsumerWidget {
       return;
     }
 
-    final result = await showPrayerLogDialog(context, ref, initialScheduledAt: scheduledAt);
+    final result = await showPrayerLogDialog(
+      context,
+      ref,
+      initialScheduledAt: scheduledAt,
+      initialPrayer: initialPrayer,
+    );
 
     if (result == null) return;
 

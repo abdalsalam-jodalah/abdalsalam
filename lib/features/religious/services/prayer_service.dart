@@ -80,17 +80,19 @@ class PrayerService extends BaseServiceImpl<PrayerLog> {
     }
 
     final all = allResult.data!;
-    final onTimeCount = all.where((entry) => entry.onTime).length;
+    final obligatory = all.where((entry) => entry.prayerName.isObligatory).toList(growable: false);
+    final onTimeCount = obligatory.where((entry) => entry.onTime).length;
 
     final byPrayer = <String, int>{
       for (final prayer in PrayerName.values)
         prayer.name: all.where((entry) => entry.prayerName == prayer).length,
     };
 
-    final percent = all.isEmpty ? 0.0 : (onTimeCount / all.length) * 100.0;
+    final percent = obligatory.isEmpty ? 0.0 : (onTimeCount / obligatory.length) * 100.0;
 
     return Success(<String, dynamic>{
       'totalLogs': all.length,
+      'voluntaryCount': all.length - obligatory.length,
       'onTimeCount': onTimeCount,
       'onTimePercent': percent,
       'byPrayer': byPrayer,
